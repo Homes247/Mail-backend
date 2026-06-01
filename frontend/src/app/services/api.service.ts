@@ -1,0 +1,88 @@
+import { Injectable, OnDestroy } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, Subject } from 'rxjs';
+import { environment } from '../../environments/environment';
+
+export interface SyncMessage {
+  type: 'update' | 'presence' | 'cursor' | 'cursor_remove';
+  content?: string;
+  title?: string;
+  users?: number;
+  client_id?: string;
+  r?: number;
+  c?: number;
+}
+
+@Injectable({ providedIn: 'root' })
+export class ApiService implements OnDestroy {
+  private base = environment.apiUrl;
+  private wsBase = environment.wsUrl;
+  private socket: WebSocket | null = null;
+  private currentDocId: string | null = null;
+  private messageSubject = new Subject<SyncMessage>();
+
+  constructor(private http: HttpClient) { }
+
+  createDocument(title: string, doc_type: string): Observable<any> {
+    return this.http.post(`${this.base}/documents/`, { title, doc_type });
+  }
+
+  listDocuments(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/documents/`);
+  }
+
+  getDocument(id: string): Observable<any> {
+    return this.http.get(`${this.base}/documents/${id}`);
+  }
+
+  saveDocument(id: string, title: string, content: string): Observable<any> {
+    return this.http.put(`${this.base}/documents/${id}`, { title, content });
+  }
+
+  deleteDocument(id: string): Observable<any> {
+    return this.http.delete(`${this.base}/documents/${id}`);
+  }
+
+  exportDocument(doc_id: string, format: string): Observable<Blob> {
+    return this.http.post(`${this.base}/export`, { doc_id, format }, { responseType: 'blob' });
+  }
+
+  connectSync(docId: string): Observable<SyncMessage> {
+    this.disconnectSync();
+    this.currentDocId = docId;
+    this.socket = new WebSocket(`${this.wsBase}/ws/${docId}`);
+
+    this.socket.onmessage = (event) => {
+      try { this.messageSubject.next(JSON.parse(event.data)); } catch { }
+    };
+    this.socket.onerror = (err) => console.error('WS error', err);
+    this.socket.onclose = () => {
+      if (this.currentDocId === docId) setTimeout(() => this.connectSync(docId), 3000);
+    };
+    return this.messageSubject.asObservable();
+  }
+
+  sendUpdate(content: string, title: string): void {
+    if (this.socket?.readyState === WebSocket.OPEN)
+      this.socket.send(JSON.stringify({ type: 'update', content, title }));
+  }
+
+  sendCursor(r: number, c: number): void {
+    if (this.socket?.readyState === WebSocket.OPEN)
+      this.socket.send(JSON.stringify({ type: 'cursor', r, c }));
+  }
+
+  disconnectSync(): void {
+    this.currentDocId = null;
+    if (this.socket) {
+      this.socket.onclose = null;
+      this.socket.close();
+      this.socket = null;
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.disconnectSync();
+    this.messageSubject.complete();
+  }
+}

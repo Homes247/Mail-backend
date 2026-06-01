@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]
+aiomysql
+python-dotenv
+pydantic[email]
+bcrypt
+PyJWT
+openpyxl
+python-docx
+python-pptx
