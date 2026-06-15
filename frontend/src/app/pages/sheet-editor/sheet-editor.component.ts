@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -14,11 +15,22 @@ export interface CellFormat {
   bold?: boolean;
   italic?: boolean;
   strikethrough?: boolean;
+  underline?: boolean;
   color?: string;
   bg?: string;
   align?: 'left' | 'center' | 'right';
+  vertAlign?: 'top' | 'middle' | 'bottom';
   font?: string;
   size?: string;
+  wrap?: boolean;
+  numFormat?: 'general' | 'currency' | 'percent' | 'number';
+  decimals?: number;
+  borders?: { top?: boolean; bottom?: boolean; left?: boolean; right?: boolean; all?: boolean };
+}
+
+export interface CellValidation {
+  type: 'list';
+  options: string[];
 }
 
 @Component({
@@ -26,216 +38,320 @@ export interface CellFormat {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="shell" (mousedown)="$event.target === $event.currentTarget ? closeMenus() : null">
+    <div class="shell" (mousedown)="$event.target===$event.currentTarget?closeMenus():null">
+
+      <!-- ═══ TOP BAR ════════════════════════════════════════════════════════ -->
       <div class="top-bar">
-        <div class="top-left">
-          <button class="back" (click)="back()">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="icon-sm" style="margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        <div class="tl">
+          <button class="back-btn" (click)="back()" title="Back">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           </button>
-          <div class="doc-meta">
-            <input class="title-input" [(ngModel)]="title" (blur)="save()" placeholder="Untitled spreadsheet" />
-            <div class="menu-bar" (mousedown)="$event.preventDefault()">
-              <div class="menu-item" (click)="toggleMenu('file', $event)" [class.active]="activeMenu === 'file'">
-                File
-                <div class="dropdown" *ngIf="activeMenu === 'file'">
-                  <div class="dd-item" (click)="newDoc()"><span class="dd-text">New</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="shareModalOpen=true;closeMenus()"><span class="dd-text">Share</span></div>
-                  <div class="dd-item" (click)="exportFile('csv')"><span class="dd-text">Download (.csv)</span></div>
-                  <div class="dd-item" (click)="printSheet()"><span class="dd-text">Print</span><span class="dd-hint">Ctrl+P</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="trashDoc()"><span class="dd-text">Move to trash</span></div>
-                </div>
-              </div>
-              <div class="menu-item" (click)="toggleMenu('edit', $event)" [class.active]="activeMenu === 'edit'">
-                Edit
-                <div class="dropdown" *ngIf="activeMenu === 'edit'">
-                  <div class="dd-item" (click)="undo()"><span class="dd-text">Undo</span><span class="dd-hint">Ctrl+Z</span></div>
-                  <div class="dd-item" (click)="redo()"><span class="dd-text">Redo</span><span class="dd-hint">Ctrl+Y</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="copyCell()"><span class="dd-text">Copy Cell</span><span class="dd-hint">Ctrl+C</span></div>
-                  <div class="dd-item" (click)="pasteCell()"><span class="dd-text">Paste</span><span class="dd-hint">Ctrl+V</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="clearCell()"><span class="dd-text">Clear Cell</span><span class="dd-hint">Del</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="deleteRow()"><span class="dd-text">Delete row</span></div>
-                  <div class="dd-item" (click)="deleteCol()"><span class="dd-text">Delete column</span></div>
-                </div>
-              </div>
-              <div class="menu-item" (click)="toggleMenu('view', $event)" [class.active]="activeMenu === 'view'">
-                View
-                <div class="dropdown" *ngIf="activeMenu === 'view'">
-                  <div class="dd-item" (click)="freezeRow()"><span class="dd-text">{{ frozenRows ? 'Unfreeze rows' : 'Freeze first row' }}</span></div>
-                  <div class="dd-item" (click)="toggleFullScreen()"><span class="dd-text">Full screen</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="zoomIn()"><span class="dd-text">Zoom in (Enlarge)</span></div>
-                  <div class="dd-item" (click)="zoomOut()"><span class="dd-text">Zoom out</span></div>
-                  <div class="dd-item" (click)="resetZoom()"><span class="dd-text">Normal view (100%)</span></div>
-                </div>
-              </div>
-              <div class="menu-item" (click)="toggleMenu('insert', $event)" [class.active]="activeMenu === 'insert'">
-                Insert
-                <div class="dropdown" *ngIf="activeMenu === 'insert'">
-                  <div class="dd-item" (click)="insertRowAbove()"><span class="dd-text">Row above</span></div>
-                  <div class="dd-item" (click)="insertRowBelow()"><span class="dd-text">Row below</span></div>
-                  <div class="dd-item" (click)="insertColLeft()"><span class="dd-text">Column left</span></div>
-                  <div class="dd-item" (click)="insertColRight()"><span class="dd-text">Column right</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="insertChart()"><span class="dd-text">Chart</span></div>
-                  <div class="dd-item" (click)="triggerImageInsert()"><span class="dd-text">Image</span></div>
-                  <div class="dd-item" (click)="insertLink()"><span class="dd-text">Link</span><span class="dd-hint">Ctrl+K</span></div>
-                </div>
-              </div>
-              <div class="menu-item" (click)="toggleMenu('format', $event)" [class.active]="activeMenu === 'format'">
-                Format
-                <div class="dropdown" *ngIf="activeMenu === 'format'">
-                  <div class="dd-item" (click)="toggleFormat('bold')"><span class="dd-text">Bold</span><span class="dd-hint">Ctrl+B</span></div>
-                  <div class="dd-item" (click)="toggleFormat('italic')"><span class="dd-text">Italic</span><span class="dd-hint">Ctrl+I</span></div>
-                  <div class="dd-item" (click)="toggleFormat('strikethrough')"><span class="dd-text">Strikethrough</span><span class="dd-hint">Alt+Shift+5</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="setFormat('align', 'left')"><span class="dd-text">Align left</span></div>
-                  <div class="dd-item" (click)="setFormat('align', 'center')"><span class="dd-text">Align center</span></div>
-                  <div class="dd-item" (click)="setFormat('align', 'right')"><span class="dd-text">Align right</span></div>
-                </div>
-              </div>
-              <div class="menu-item" (click)="toggleMenu('data', $event)" [class.active]="activeMenu === 'data'">
-                Data
-                <div class="dropdown" *ngIf="activeMenu === 'data'">
-                  <div class="dd-item" (click)="toggleFilter()"><span class="dd-text">{{ filterActive ? 'Remove filter' : 'Create a filter' }}</span></div>
-                  <div class="dd-item" (click)="sortColAZ()"><span class="dd-text">Sort A → Z</span></div>
-                  <div class="dd-item" (click)="sortColZA()"><span class="dd-text">Sort Z → A</span></div>
-                </div>
-              </div>
-              <div class="menu-item" (click)="toggleMenu('tools', $event)" [class.active]="activeMenu === 'tools'">
-                Tools
-                <div class="dropdown" *ngIf="activeMenu === 'tools'">
-                  <div class="dd-item" (click)="showWordCount()"><span class="dd-text">Cell count</span></div>
-                  <div class="dd-item" (click)="showKeyboardShortcuts()"><span class="dd-text">Keyboard shortcuts</span></div>
-                </div>
-              </div>
-              <div class="menu-item" (click)="toggleMenu('help', $event)" [class.active]="activeMenu === 'help'">
-                Help
-                <div class="dropdown" *ngIf="activeMenu === 'help'">
-                  <div class="dd-item" (click)="showKeyboardShortcuts()"><span class="dd-text">Keyboard shortcuts</span></div>
-                </div>
-              </div>
-            </div>
+          <div class="brand">
+            <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+              <rect width="32" height="32" rx="5" fill="#26A96C"/>
+              <rect x="5" y="8" width="22" height="2.5" rx="1.2" fill="white"/>
+              <rect x="5" y="13.5" width="22" height="2.5" rx="1.2" fill="white"/>
+              <rect x="5" y="19" width="14" height="2.5" rx="1.2" fill="white"/>
+            </svg>
+            <span class="brand-name">Sheet</span>
+          </div>
+          <div class="doc-sec">
+            <input class="doc-title" [(ngModel)]="title" (blur)="save()" placeholder="Untitled spreadsheet"/>
+            <div class="doc-sub">&#9733; &#128196; <span style="margin-left:4px;opacity:.6;font-size:11px;">Saved</span></div>
           </div>
         </div>
-
-        <div class="top-right">
-          <span class="badge" *ngIf="activeUsers > 1">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="icon-sm" style="margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-            {{ activeUsers }} online
-          </span>
-          <div style="position: relative;">
-            <button class="btn outline" (click)="shareModalOpen = true">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="icon-sm" style="margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-              Share
-            </button>
+        <div class="tr">
+          <div class="top-search-box">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input placeholder="Search in this sheet" (keydown.enter)="openFind()" style="background:transparent;border:none;outline:none;color:rgba(255,255,255,.8);font-size:13px;width:180px;">
           </div>
-          <div class="avatar" [title]="auth.user?.name ?? ''">{{ initials }}</div>
+          <span class="online-badge" *ngIf="activeUsers>1">&#128100; {{activeUsers}} online</span>
+          <button class="share-btn" (click)="shareModalOpen=true">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Share
+          </button>
+          <div class="av" (click)="profileOpen=!profileOpen;$event.stopPropagation()" title="Account">{{initials}}
+            <div class="profile-dd" *ngIf="profileOpen" (click)="$event.stopPropagation()">
+              <div class="pd-head">
+                <div class="pd-av">{{initials}}</div>
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:#202124;">{{auth.user?.name ?? 'User'}}</div>
+                  <div style="font-size:11px;color:#5f6368;">{{auth.user?.email ?? ''}}</div>
+                </div>
+              </div>
+              <div class="pd-item" (click)="openApp('account')"><span class="material-symbols-outlined pd-icon">manage_accounts</span> My Account</div>
+              <div class="pd-item" (click)="openApp('calendar')"><span class="material-symbols-outlined pd-icon">calendar_month</span> Calendar</div>
+              <div class="pd-item" (click)="openApp('notes')"><span class="material-symbols-outlined pd-icon">sticky_note_2</span> Notes</div>
+              <div class="pd-item" (click)="openApp('tasks')"><span class="material-symbols-outlined pd-icon">task_alt</span> Tasks</div>
+              <div class="pd-item" (click)="openApp('settings')"><span class="material-symbols-outlined pd-icon">settings</span> Settings</div>
+              <div class="pd-sep"></div>
+              <div class="pd-item danger" (click)="auth.logout()"><span class="material-symbols-outlined pd-icon">logout</span> Sign Out</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="fmt-bar" (mousedown)="$event.preventDefault()">
-        <button class="fb" (click)="undo()" title="Undo">↩</button>
-        <button class="fb" (click)="redo()" title="Redo">↪</button>
-        <button class="fb" (click)="printSheet()" title="Print">🖨️</button>
-        <span class="sep"></span>
+      <!-- ═══ MENU BAR ══════════════════════════════════════════════════════ -->
+      <div class="menu-row" (mousedown)="$event.preventDefault()">
+        <div class="mi" (click)="toggleMenu('file',$event)" [class.mi-open]="activeMenu==='file'">File
+          <div class="mdd" *ngIf="activeMenu==='file'">
+            <div class="mdi" (click)="newDoc()">New<span class="mh">Ctrl+N</span></div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="save()">Save<span class="mh">Ctrl+S</span></div>
+            <div class="mdi" (click)="exportFile('csv')">Download as CSV</div>
+            <div class="mdi" (click)="exportFile('xlsx')">Download as XLSX</div>
+            <div class="mdi" (click)="printSheet()">Print<span class="mh">Ctrl+P</span></div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="shareModalOpen=true;closeMenus()">Share...</div>
+            <div class="mds"></div>
+            <div class="mdi danger" (click)="trashDoc()">Move to Trash</div>
+          </div>
+        </div>
+        <div class="mi" (click)="toggleMenu('edit',$event)" [class.mi-open]="activeMenu==='edit'">Edit
+          <div class="mdd" *ngIf="activeMenu==='edit'">
+            <div class="mdi" (click)="undo()">Undo<span class="mh">Ctrl+Z</span></div>
+            <div class="mdi" (click)="redo()">Redo<span class="mh">Ctrl+Y</span></div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="cutCell();closeMenus()">Cut<span class="mh">Ctrl+X</span></div>
+            <div class="mdi" (click)="copyCell()">Copy<span class="mh">Ctrl+C</span></div>
+            <div class="mdi" (click)="pasteCell()">Paste<span class="mh">Ctrl+V</span></div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="selectAll()">Select All<span class="mh">Ctrl+A</span></div>
+            <div class="mdi" (click)="openFind();closeMenus()">Find &amp; Replace<span class="mh">Ctrl+H</span></div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="fillDown();closeMenus()">Fill Down<span class="mh">Ctrl+D</span></div>
+            <div class="mdi" (click)="fillRight();closeMenus()">Fill Right<span class="mh">Ctrl+R</span></div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="insertRowAbove()">Insert Row Above</div>
+            <div class="mdi" (click)="insertRowBelow()">Insert Row Below</div>
+            <div class="mdi" (click)="insertColLeft()">Insert Column Left</div>
+            <div class="mdi" (click)="insertColRight()">Insert Column Right</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="deleteRow()">Delete Row</div>
+            <div class="mdi" (click)="deleteCol()">Delete Column</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="clearRangeData()">Clear Values<span class="mh">Del</span></div>
+            <div class="mdi" (click)="clearAllFormats()">Clear Formats</div>
+            <div class="mdi" (click)="clearAll()">Clear All</div>
+          </div>
+        </div>
+        <div class="mi" (click)="toggleMenu('view',$event)" [class.mi-open]="activeMenu==='view'">View
+          <div class="mdd" *ngIf="activeMenu==='view'">
+            <div class="mdi" (click)="freezeRow()">{{frozenRows?'Unfreeze First Row':'Freeze First Row'}}</div>
+            <div class="mdi" (click)="freezeCol()">{{frozenCols?'Unfreeze First Column':'Freeze First Column'}}</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="toggleGridlines()">{{showGridlines?'Hide Gridlines':'Show Gridlines'}}</div>
+            <div class="mdi" (click)="toggleFormulaBar()">{{showFormulaBar?'Hide Formula Bar':'Show Formula Bar'}}</div>
+            <div class="mdi" (click)="toggleHeaders()">{{showHeaders?'Hide Row/Column Headers':'Show Row/Column Headers'}}</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="setZoom(75)">Zoom 75%</div>
+            <div class="mdi" (click)="setZoom(100)">Zoom 100% (Normal)</div>
+            <div class="mdi" (click)="setZoom(125)">Zoom 125%</div>
+            <div class="mdi" (click)="setZoom(150)">Zoom 150%</div>
+            <div class="mdi" (click)="setZoom(200)">Zoom 200%</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="toggleFullScreen()">Full Screen</div>
+          </div>
+        </div>
+        <div class="mi" (click)="toggleMenu('insert',$event)" [class.mi-open]="activeMenu==='insert'">Insert
+          <div class="mdd" *ngIf="activeMenu==='insert'">
+            <div class="mdi" (click)="insertRowAbove()">Row Above</div>
+            <div class="mdi" (click)="insertRowBelow()">Row Below</div>
+            <div class="mdi" (click)="insertColLeft()">Column Left</div>
+            <div class="mdi" (click)="insertColRight()">Column Right</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="addSheet()">New Sheet</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="insertChart()">Chart</div>
+            <div class="mdi" (click)="triggerImageInsert()">Image</div>
+            <div class="mdi" (click)="insertLink()">Link<span class="mh">Ctrl+K</span></div>
+            <div class="mdi" (click)="insertComment()">Comment</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="openValidationModal();closeMenus()">Dropdown List...</div>
+            <div class="mdi" (click)="insertCheckbox();closeMenus()">Checkbox</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="insertSum()">Sum (&#931;)</div>
+          </div>
+        </div>
+        <div class="mi" (click)="toggleMenu('format',$event)" [class.mi-open]="activeMenu==='format'">Format
+          <div class="mdd" *ngIf="activeMenu==='format'">
+            <div class="mdi" (click)="toggleFormat('bold')">Bold<span class="mh">Ctrl+B</span></div>
+            <div class="mdi" (click)="toggleFormat('italic')">Italic<span class="mh">Ctrl+I</span></div>
+            <div class="mdi" (click)="toggleFormat('underline')">Underline<span class="mh">Ctrl+U</span></div>
+            <div class="mdi" (click)="toggleFormat('strikethrough')">Strikethrough</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="setFormat('align','left')">Align Left</div>
+            <div class="mdi" (click)="setFormat('align','center')">Align Center</div>
+            <div class="mdi" (click)="setFormat('align','right')">Align Right</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="setFormat('vertAlign','top')">Vertical Top</div>
+            <div class="mdi" (click)="setFormat('vertAlign','middle')">Vertical Middle</div>
+            <div class="mdi" (click)="setFormat('vertAlign','bottom')">Vertical Bottom</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="setNumFormat('general')">General</div>
+            <div class="mdi" (click)="setNumFormat('number')">Number</div>
+            <div class="mdi" (click)="setNumFormat('currency')">Currency ($)</div>
+            <div class="mdi" (click)="setNumFormat('percent')">Percentage (%)</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="setBorders('all')">All Borders</div>
+            <div class="mdi" (click)="setBorders('outer')">Outer Border</div>
+            <div class="mdi" (click)="setBorders('none')">No Border</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="mergeCells()">Merge Cells</div>
+            <div class="mdi" (click)="unmerge()">Unmerge</div>
+            <div class="mdi" (click)="toggleWrap()">Wrap Text</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="clearAllFormats()">Clear Formatting</div>
+          </div>
+        </div>
+        <div class="mi" (click)="toggleMenu('data',$event)" [class.mi-open]="activeMenu==='data'">Data
+          <div class="mdd" *ngIf="activeMenu==='data'">
+            <div class="mdi" (click)="sortColAZ()">Sort A &#8594; Z</div>
+            <div class="mdi" (click)="sortColZA()">Sort Z &#8594; A</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="toggleFilter()">{{filterActive?'Remove Filter':'Create Filter'}}</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="openValidationModal();closeMenus()">Data Validation...</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="removeDuplicates()">Remove Duplicates</div>
+          </div>
+        </div>
+        <div class="mi" (click)="toggleMenu('review',$event)" [class.mi-open]="activeMenu==='review'">Review
+          <div class="mdd" *ngIf="activeMenu==='review'">
+            <div class="mdi" (click)="insertComment()">Add Comment</div>
+            <div class="mdi" (click)="showWordCount()">Cell Statistics</div>
+          </div>
+        </div>
+        <div class="mi" (click)="toggleMenu('tools',$event)" [class.mi-open]="activeMenu==='tools'">Tools
+          <div class="mdd" *ngIf="activeMenu==='tools'">
+            <div class="mdi" (click)="openFind();closeMenus()">Find &amp; Replace<span class="mh">Ctrl+H</span></div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="showKeyboardShortcuts()">Keyboard Shortcuts</div>
+          </div>
+        </div>
+        <div class="mi" (click)="toggleMenu('help',$event)" [class.mi-open]="activeMenu==='help'">Help
+          <div class="mdd" *ngIf="activeMenu==='help'">
+            <div class="mdi" (click)="showKeyboardShortcuts()">Keyboard Shortcuts</div>
+            <div class="mds"></div>
+            <div class="mdi">About Sheet</div>
+          </div>
+        </div>
+      </div>
 
-        <div class="menu-item font-dropdown" (click)="toggleMenu('font', $event)" [class.active]="activeMenu === 'font'" title="Font">
-          <span [style.font-family]="currentFont">{{ currentFont }}</span> <span class="arrow">▼</span>
-          <div class="dropdown" *ngIf="activeMenu === 'font'" style="min-width: 160px; max-height: 300px; overflow-y: auto;">
-            <div class="dd-item" *ngFor="let font of fonts" (click)="applyFont(font)">
-              <span class="dd-text" [style.font-family]="font">{{ font }}</span>
+      <!-- ═══ TOOLBAR ROW 1 ══════════════════════════════════════════════════ -->
+      <div class="tb-row" (mousedown)="$event.preventDefault()">
+        <div class="tb-group">
+          <button class="tb" (click)="printSheet()" title="Print"><span class="material-symbols-outlined">print</span></button>
+          <button class="tb" (click)="undo()" title="Undo (Ctrl+Z)"><span class="material-symbols-outlined">undo</span></button>
+          <button class="tb" (click)="redo()" title="Redo (Ctrl+Y)"><span class="material-symbols-outlined">redo</span></button>
+          <button class="tb" (click)="clearAllFormats()" title="Clear Formats"><span class="material-symbols-outlined">format_clear</span></button>
+        </div>
+        <span class="tb-sep"></span>
+        <div class="tb-group">
+          <div class="tb-font-dd" (click)="toggleMenu('font',$event)" [class.active]="activeMenu==='font'">
+            <span [style.font-family]="currentFont" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{currentFont}}</span>
+            <span class="material-symbols-outlined" style="font-size:14px;margin-left:2px;">arrow_drop_down</span>
+            <div class="mdd font-list" *ngIf="activeMenu==='font'">
+              <div class="mdi" *ngFor="let f of fonts" (click)="applyFont(f)" [style.font-family]="f">{{f}}</div>
             </div>
           </div>
         </div>
-
-        <span class="sep"></span>
-
-        <div class="font-size-control">
-          <button class="fb size-btn" (click)="decrementFontSize()" title="Decrease font size">−</button>
-          <input class="size-input" [(ngModel)]="currentSizeNum" (change)="onFontSizeInputChange()" />
-          <button class="fb size-btn" (click)="incrementFontSize()" title="Increase font size">+</button>
+        <span class="tb-sep"></span>
+        <div class="tb-group font-sz">
+          <button class="tb sz" (click)="decrementFontSize()" title="Decrease"><span class="material-symbols-outlined" style="font-size:16px;">remove</span></button>
+          <input class="sz-inp" [(ngModel)]="currentSizeNum" (change)="onFontSizeInputChange()" type="number" min="6" max="96">
+          <button class="tb sz" (click)="incrementFontSize()" title="Increase"><span class="material-symbols-outlined" style="font-size:16px;">add</span></button>
         </div>
-
-        <span class="sep"></span>
-        <button class="fb" [class.active]="getFormat('bold')" (click)="toggleFormat('bold')" title="Bold"><b>B</b></button>
-        <button class="fb" [class.active]="getFormat('italic')" (click)="toggleFormat('italic')" title="Italic"><i>I</i></button>
-        <button class="fb" [class.active]="getFormat('strikethrough')" (click)="toggleFormat('strikethrough')" title="Strikethrough"><s>S</s></button>
-        <span class="sep"></span>
-        <!-- Text Color Swatch -->
-        <div class="swatch-btn" (click)="togglePalette('text', $event)" title="Text Color" style="width:auto;padding:0 4px;gap:2px;">
-          <div style="display:flex;flex-direction:column;align-items:center;">
-            <svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 -960 960 960" width="16" fill="currentColor">
-              <path d="M440-160h80v-376l198 376h94L490-840h-20L250-160h88l54-102h176l-54-102H392l48-92v296Z"/>
-            </svg>
-            <div [style.background]="getFormat('color') || '#000000'" style="width:14px;height:3px;margin-top:1px;border-radius:1px;"></div>
+        <span class="tb-sep"></span>
+        <div class="tb-group">
+          <button class="tb" [class.tb-on]="getFormat('bold')" (click)="toggleFormat('bold')" title="Bold (Ctrl+B)"><span class="material-symbols-outlined">format_bold</span></button>
+          <button class="tb" [class.tb-on]="getFormat('italic')" (click)="toggleFormat('italic')" title="Italic (Ctrl+I)"><span class="material-symbols-outlined">format_italic</span></button>
+          <button class="tb" [class.tb-on]="getFormat('strikethrough')" (click)="toggleFormat('strikethrough')" title="Strikethrough"><span class="material-symbols-outlined">strikethrough_s</span></button>
+          <button class="tb" [class.tb-on]="getFormat('underline')" (click)="toggleFormat('underline')" title="Underline (Ctrl+U)"><span class="material-symbols-outlined">format_underlined</span></button>
+        </div>
+        <span class="tb-sep"></span>
+        <div class="tb-group">
+          <div class="tb-clr" (click)="togglePalette('text',$event)" title="Text Color">
+            <div class="clr-ico"><span class="material-symbols-outlined" style="font-size:16px;">format_color_text</span><div class="clr-bar" [style.background]="getFormat('color')||'#000'"></div></div>
+            <span class="material-symbols-outlined" style="font-size:12px;">arrow_drop_down</span>
+            <div class="clr-pop" *ngIf="activePalette==='text'" (click)="$event.stopPropagation()">
+              <div class="cp-grid"><div *ngFor="let c of themeColorsTop" class="cp-sw" [style.background]="c" (click)="setFormat('color',c);activePalette=null"></div></div>
+              <div class="cp-grid"><div *ngFor="let c of themeColorsGrid" class="cp-sw" [style.background]="c" (click)="setFormat('color',c);activePalette=null"></div></div>
+              <div class="cp-grid"><div *ngFor="let c of standardColors" class="cp-sw" [style.background]="c" (click)="setFormat('color',c);activePalette=null"></div></div>
+            </div>
           </div>
-          <span class="arrow" style="margin-left:0;margin-top:2px;">▼</span>
-          <div class="color-picker-popup" *ngIf="activePalette === 'text'" (click)="$event.stopPropagation()">
-            <div class="cp-reset" (click)="setFormat('color', '#000000'); activePalette = null">
-              <div class="cp-reset-icon" style="background:#000;"></div>
-              <span>Automatic</span>
-            </div>
-            
-            <div class="cp-section-title">Theme Colors</div>
-            <div class="cp-grid top">
-              <div *ngFor="let c of themeColorsTop" class="cp-swatch" [style.background]="c" (click)="setFormat('color', c); activePalette = null"></div>
-            </div>
-            <div class="cp-grid variants">
-              <div *ngFor="let c of themeColorsGrid" class="cp-swatch" [style.background]="c" (click)="setFormat('color', c); activePalette = null"></div>
-            </div>
-        
-            <div class="cp-section-title">Standard Colors</div>
-            <div class="cp-grid std">
-              <div *ngFor="let c of standardColors" class="cp-swatch" [style.background]="c" (click)="setFormat('color', c); activePalette = null"></div>
+          <div class="tb-clr" (click)="togglePalette('fill',$event)" title="Fill Color">
+            <div class="clr-ico"><span class="material-symbols-outlined" style="font-size:16px;">format_color_fill</span><div class="clr-bar" [style.background]="getFormat('bg')||'#ffff00'"></div></div>
+            <span class="material-symbols-outlined" style="font-size:12px;">arrow_drop_down</span>
+            <div class="clr-pop" *ngIf="activePalette==='fill'" (click)="$event.stopPropagation()">
+              <div class="cp-nocolor" (click)="setFormat('bg','');activePalette=null">&#10006; No Fill</div>
+              <div class="cp-grid"><div *ngFor="let c of themeColorsTop" class="cp-sw" [style.background]="c" (click)="setFormat('bg',c);activePalette=null"></div></div>
+              <div class="cp-grid"><div *ngFor="let c of themeColorsGrid" class="cp-sw" [style.background]="c" (click)="setFormat('bg',c);activePalette=null"></div></div>
+              <div class="cp-grid"><div *ngFor="let c of standardColors" class="cp-sw" [style.background]="c" (click)="setFormat('bg',c);activePalette=null"></div></div>
             </div>
           </div>
         </div>
-        <!-- Fill Color Swatch -->
-        <div class="swatch-btn" (click)="togglePalette('fill', $event)" title="Fill Color" style="width:auto;padding:0 4px;gap:2px;">
-          <div style="display:flex;flex-direction:column;align-items:center;">
-            <svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 -960 960 960" width="16" fill="currentColor">
-              <path d="M510-252q18-18 29.5-40t11.5-48q0-44-30-79t-71-61q-27-18-43.5-43.5T390-580q0-10 1-19.5t3-18.5l272 272q-7 3-17 4t-21 1q-34 0-66-15.5T510-252ZM166-508 60-614q-24-24-24-57t24-57l170-170q24-24 57-24t57 24l160 160q21 21 32 47.5t11 54.5q0 28-11 54t-32 46l-18 18L166-508Zm106-106 114-114-114-114-114 114 114 114Z"/>
-            </svg>
-            <div [style.background]="getFormat('bg') || '#ffffff'" style="width:14px;height:3px;margin-top:1px;border:1px solid #ccc;border-radius:1px;box-sizing:border-box;"></div>
-          </div>
-          <span class="arrow" style="margin-left:0;margin-top:2px;">▼</span>
-          <div class="color-picker-popup cp-right" *ngIf="activePalette === 'fill'" (click)="$event.stopPropagation()">
-            <div class="cp-reset" (click)="setFormat('bg', ''); activePalette = null">
-              <div class="cp-reset-icon" style="background:#fff;border:1px solid #dadce0;color:#000;">
-                <svg fill="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/></svg>
-              </div>
-              <span>Reset</span>
-            </div>
-            
-            <div class="cp-section-title">Theme Colors</div>
-            <div class="cp-grid top">
-              <div *ngFor="let c of themeColorsTop" class="cp-swatch" [style.background]="c" (click)="setFormat('bg', c); activePalette = null"></div>
-            </div>
-            <div class="cp-grid variants">
-              <div *ngFor="let c of themeColorsGrid" class="cp-swatch" [style.background]="c" (click)="setFormat('bg', c); activePalette = null"></div>
-            </div>
-        
-            <div class="cp-section-title">Standard Colors</div>
-            <div class="cp-grid std">
-              <div *ngFor="let c of standardColors" class="cp-swatch" [style.background]="c" (click)="setFormat('bg', c); activePalette = null"></div>
-            </div>
-          </div>
+        <span class="tb-sep"></span>
+        <div class="tb-group">
+          <button class="tb" (click)="setBorders('all')" title="All Borders"><span class="material-symbols-outlined">border_all</span></button>
+          <button class="tb" (click)="setBorders('outer')" title="Outer Border"><span class="material-symbols-outlined">border_outer</span></button>
+          <button class="tb" (click)="setBorders('none')" title="No Borders"><span class="material-symbols-outlined">border_clear</span></button>
         </div>
-        <span class="sep"></span>
-        <button class="fb" [class.active]="getFormat('align') === 'left'" (click)="setFormat('align', 'left')" title="Left">≡</button>
-        <button class="fb" [class.active]="getFormat('align') === 'center'" (click)="setFormat('align', 'center')" title="Center">≡</button>
-        <button class="fb" [class.active]="getFormat('align') === 'right'" (click)="setFormat('align', 'right')" title="Right">≡</button>
-        <span class="sep"></span>
-        <button class="fb" (click)="insertLink()" title="Insert Link">🔗</button>
-        <button class="fb" (click)="insertComment()" title="Insert Comment">💬</button>
-        <button class="fb" (click)="insertChart()" title="Insert Chart">📊</button>
-        <button class="fb" [class.active]="filterActive" (click)="toggleFilter()" title="Filter">🔻</button>
-        <button class="fb" (click)="insertSum()" title="SUM">Σ</button>
+        <span class="tb-sep"></span>
+        <div class="tb-group">
+          <button class="tb" [class.tb-on]="getFormat('align')==='left'" (click)="setFormat('align','left')" title="Align Left"><span class="material-symbols-outlined">format_align_left</span></button>
+          <button class="tb" [class.tb-on]="getFormat('align')==='center'" (click)="setFormat('align','center')" title="Align Center"><span class="material-symbols-outlined">format_align_center</span></button>
+          <button class="tb" [class.tb-on]="getFormat('align')==='right'" (click)="setFormat('align','right')" title="Align Right"><span class="material-symbols-outlined">format_align_right</span></button>
+          <button class="tb" [class.tb-on]="getFormat('vertAlign')==='top'" (click)="setFormat('vertAlign','top')" title="Align Top"><span class="material-symbols-outlined">vertical_align_top</span></button>
+          <button class="tb" [class.tb-on]="getFormat('vertAlign')==='middle'" (click)="setFormat('vertAlign','middle')" title="Align Middle"><span class="material-symbols-outlined">vertical_align_center</span></button>
+          <button class="tb" [class.tb-on]="getFormat('vertAlign')==='bottom'" (click)="setFormat('vertAlign','bottom')" title="Align Bottom"><span class="material-symbols-outlined">vertical_align_bottom</span></button>
+        </div>
+        <span class="tb-sep"></span>
+        <div class="tb-group">
+          <button class="tb" [class.tb-on]="getFormat('wrap')" (click)="toggleWrap()" title="Wrap Text"><span class="material-symbols-outlined">wrap_text</span></button>
+          <button class="tb" (click)="mergeCells()" title="Merge Cells"><span class="material-symbols-outlined">merge_type</span></button>
+        </div>
+        <span class="tb-sep"></span>
+        <div class="tb-group">
+          <div class="tb-font-dd" (click)="toggleMenu('numfmt',$event)" [class.active]="activeMenu==='numfmt'" style="min-width:90px;">
+            <span>{{getFormat('numFormat')||'General'}}</span>
+            <span class="material-symbols-outlined" style="font-size:14px;margin-left:auto;">arrow_drop_down</span>
+            <div class="mdd" *ngIf="activeMenu==='numfmt'">
+              <div class="mdi" (click)="setNumFormat('general')">General</div>
+              <div class="mdi" (click)="setNumFormat('number')">Number</div>
+              <div class="mdi" (click)="setNumFormat('currency')">Currency ($)</div>
+              <div class="mdi" (click)="setNumFormat('percent')">Percent (%)</div>
+            </div>
+          </div>
+          <button class="tb nf" (click)="setNumFormat('currency')" [class.tb-on]="getFormat('numFormat')==='currency'" title="Currency">$</button>
+          <button class="tb nf" (click)="setNumFormat('percent')" [class.tb-on]="getFormat('numFormat')==='percent'" title="Percent">%</button>
+          <button class="tb nf" (click)="decreaseDecimals()" title="Decrease Decimals">.0</button>
+          <button class="tb nf" (click)="increaseDecimals()" title="Increase Decimals">.00</button>
+        </div>
+      </div>
+
+
+      <!-- ═══ TOOLBAR ROW 2 ══════════════════════════════════════════════════ -->
+      <div class="tb-row tb-row2" (mousedown)="$event.preventDefault()">
+        <button class="tb" (click)="openFind()" title="Find &amp; Replace (Ctrl+H)"><span class="material-symbols-outlined">search</span></button>
+        <button class="tb" (click)="insertLink()" title="Insert Link"><span class="material-symbols-outlined">link</span></button>
+        <button class="tb" (click)="insertComment()" title="Insert Comment"><span class="material-symbols-outlined">comment</span></button>
+        <button class="tb" (click)="insertChart()" title="Insert Chart"><span class="material-symbols-outlined">insert_chart</span></button>
+        <span class="tb-sep"></span>
+        <button class="tb" [class.tb-on]="filterActive" (click)="toggleFilter()" title="Filter"><span class="material-symbols-outlined">filter_list</span></button>
+        <button class="tb" (click)="insertSum()" title="Sum"><span class="material-symbols-outlined">functions</span></button>
+        <span class="tb-sep"></span>
+        <button class="tb" (click)="sortColAZ()" title="Sort A-Z"><span class="material-symbols-outlined">sort</span></button>
+        <button class="tb" (click)="sortColZA()" title="Sort Z-A"><span class="material-symbols-outlined" style="transform:scaleY(-1);display:inline-block;">sort</span></button>
+        <span class="tb-sep"></span>
+        <button class="tb" (click)="freezeRow()"><span class="material-symbols-outlined">view_agenda</span></button>
+        <button class="tb" (click)="freezeCol()"><span class="material-symbols-outlined">view_week</span></button>
+        <span class="tb-sep"></span>
+        <div class="zoom-ctrl">
+          <button class="tb" (click)="zoomOut()"><span class="material-symbols-outlined">zoom_out</span></button>
+          <span class="zoom-pct">{{zoomLevel}}%</span>
+          <button class="tb" (click)="zoomIn()"><span class="material-symbols-outlined">zoom_in</span></button>
+        </div>
       </div>
 
       <div class="formula-container">
@@ -248,40 +364,223 @@ export interface CellFormat {
       <!-- Hidden image file input -->
       <input #imgInput type="file" accept="image/*" style="display:none" (change)="onImageFileSelected($event)">
 
-      <div class="grid-wrap">
+    <div class="main-content" style="display:flex; flex:1; overflow:hidden; position:relative;">
+      <div class="grid-wrap" style="flex:1; overflow:auto; position:relative; background:#fff;">
         <table class="grid" [style.zoom]="zoomLevel / 100">
           <thead>
             <tr>
-              <th class="corner"></th>
-              <th *ngFor="let c of colRange" class="col-head">{{ colLabel(c) }}</th>
+              <th class="corner" (click)="clearHeaderSelection()"></th>
+              <th *ngFor="let c of colRange" class="col-head"
+                [class.col-selected]="isColHeaderSelected(c)"
+                (click)="selectEntireCol(c)">{{ colLabel(c) }}</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let r of rowRange">
-              <td class="row-head">{{ r + 1 }}</td>
+              <td class="row-head" [class.row-selected]="isRowHeaderSelected(r)" (click)="selectEntireRow(r)">{{ r + 1 }}</td>
               <td *ngFor="let c of colRange" class="cell"
-                [class.selected]="selectedRow === r && selectedCol === c"
+                [class.selected]="isCellSelected(r, c)"
+                [class.in-range]="isCellInRange(r, c)"
                 [class.remote-selected]="isRemoteSelected(r, c)"
+                [class.fill-preview]="isCellInFillPreview(r, c)"
                 [ngStyle]="getCellStyle(r, c)"
+                (mousedown)="onCellMouseDown($event, r, c)"
+                (mouseenter)="onCellMouseEnter(r, c)"
+                (contextmenu)="onCellRightClick($event, r, c)"
                 (click)="selectCell(r, c)">
                 <ng-container *ngIf="isImageCell(r, c); else textCell">
                   <img [src]="cells[r][c]" style="max-width:100%;max-height:80px;object-fit:contain;display:block;" (click)="selectCell(r,c)">
                 </ng-container>
                 <ng-template #textCell>
-                  <input class="cell-input" [(ngModel)]="cells[r][c]"
-                    (focus)="selectCell(r, c)"
-                    (change)="onCellChange()"
-                    (blur)="save()"
-                    (keydown.tab)="onTab($any($event), r, c)"
-                    (keydown.enter)="onEnter($any($event), r, c)" />
+                  <ng-container *ngIf="hasCellDropdown(r, c); else plainInput">
+                    <select class="cell-select"
+                      [(ngModel)]="cells[r][c]"
+                      (focus)="selectCell(r, c)"
+                      (change)="onCellChange(); save()"
+                      (click)="$event.stopPropagation()">
+                      <option value=""></option>
+                      <option *ngFor="let opt of getCellDropdownOptions(r, c)" [value]="opt">{{ opt }}</option>
+                    </select>
+                  </ng-container>
+                  <ng-template #plainInput>
+                    <input *ngIf="isDateLike(cells[r][c]); else textInput" class="cell-input" type="date"
+                      [ngModel]="getDateValue(r, c)"
+                      (ngModelChange)="setDateValue(r, c, $event)"
+                      (focus)="selectCell(r, c)"
+                      (change)="onCellChange()"
+                      (blur)="save()"
+                      (keydown.tab)="onTab($any($event), r, c)"
+                      (keydown.enter)="onEnter($any($event), r, c)" />
+                    <ng-template #textInput>
+                      <input class="cell-input" [(ngModel)]="cells[r][c]"
+                        (focus)="selectCell(r, c)"
+                        (change)="onCellChange()"
+                        (blur)="save()"
+                        (keydown.tab)="onTab($any($event), r, c)"
+                        (keydown.enter)="onEnter($any($event), r, c)" />
+                    </ng-template>
+                  </ng-template>
                 </ng-template>
+                <!-- Fill handle: only show on the bottom-right cell of the selection -->
+                <div *ngIf="isFillHandleCell(r, c)"
+                  class="fill-handle"
+                  (mousedown)="onFillHandleMouseDown($event, r, c)"
+                  title="Drag to fill"></div>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
 
+      <!-- Right Side Panel for Apps -->
+      <div class="side-panel" *ngIf="sidePanelApp">
+        <div class="sp-head">
+          <div class="sp-head-left">
+            <div class="sp-icon-wrap" [class.sp-icon-cal]="sidePanelApp==='calendar'" [class.sp-icon-notes]="sidePanelApp==='notes'" [class.sp-icon-tasks]="sidePanelApp==='tasks'">
+              <span class="material-symbols-outlined sp-head-icon">{{sidePanelApp==='calendar'?'calendar_month':sidePanelApp==='notes'?'sticky_note_2':'task_alt'}}</span>
+            </div>
+            <div>
+              <div class="sp-title">{{sidePanelApp==='calendar'?'Calendar':sidePanelApp==='notes'?'Notes':'Tasks'}}</div>
+              <div class="sp-subtitle">{{sidePanelApp==='calendar'?'Schedule & meeting notes':sidePanelApp==='notes'?'Quick capture':'Track your work'}}</div>
+            </div>
+          </div>
+          <button class="sp-close-btn" (click)="closeSidePanel()">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div class="sp-content">
+
+          <!-- ── CALENDAR ─────────────────────────────────────────────── -->
+          <ng-container *ngIf="sidePanelApp === 'calendar'">
+            <div class="sp-card sp-date-card">
+              <div class="sp-card-label">
+                <span class="material-symbols-outlined sp-label-icon">event</span>
+                Select Date
+              </div>
+              <input type="date" [(ngModel)]="selectedCalDate"
+                class="sp-date-input">
+              <div class="sp-date-chip" *ngIf="selectedCalDate">
+                <span class="material-symbols-outlined" style="font-size:14px;">schedule</span>
+                {{selectedCalDate}}
+              </div>
+            </div>
+
+            <div class="sp-card sp-notes-card sp-notes-grow">
+              <div class="sp-card-label">
+                <span class="material-symbols-outlined sp-label-icon">rate_review</span>
+                Meeting Notes
+              </div>
+              <div class="sp-textarea-wrap">
+                <textarea [(ngModel)]="calendarNotes[selectedCalDate]" (change)="save()"
+                  [placeholder]="'Notes for ' + (selectedCalDate || 'selected date') + '...'"
+                  class="sp-textarea"></textarea>
+                <div class="sp-textarea-footer">
+                  <span class="material-symbols-outlined" style="font-size:13px;color:#aaa;">save</span>
+                  <span style="font-size:11px;color:#aaa;">Auto-saved</span>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- ── NOTES ───────────────────────────────────────────────── -->
+          <ng-container *ngIf="sidePanelApp === 'notes'">
+            <div class="sp-card sp-notes-card" style="flex:1;display:flex;flex-direction:column;">
+              <div class="sp-card-label">
+                <span class="material-symbols-outlined sp-label-icon">edit_note</span>
+                Global Notes
+              </div>
+              <div class="sp-textarea-wrap" style="flex:1">
+                <textarea [(ngModel)]="globalNotes" (change)="save()"
+                  placeholder="Capture your thoughts, ideas, and requirements here…"
+                  class="sp-textarea sp-textarea-tall"></textarea>
+                <div class="sp-textarea-footer">
+                  <span class="material-symbols-outlined" style="font-size:13px;color:#aaa;">save</span>
+                  <span style="font-size:11px;color:#aaa;">Auto-saved</span>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- ── TASKS ───────────────────────────────────────────────── -->
+          <ng-container *ngIf="sidePanelApp === 'tasks'">
+            <div class="sp-task-add-wrap">
+              <span class="material-symbols-outlined sp-task-add-icon">add_circle</span>
+              <input type="text" [(ngModel)]="newTask" (keyup.enter)="addTask()"
+                placeholder="Add a new task…"
+                class="sp-task-input">
+              <button class="sp-add-btn" (click)="addTask()">Add</button>
+            </div>
+
+            <div class="sp-tasks-summary" *ngIf="tasks.length > 0">
+              <span class="sp-tasks-count">{{tasks.length}} task{{tasks.length===1?'':'s'}}</span>
+              <span class="sp-tasks-done">{{getTasksDone()}} done</span>
+            </div>
+
+            <div class="sp-task-item" *ngFor="let t of tasks; let i = index" [class.sp-task-done]="t.done">
+              <label class="sp-checkbox-wrap">
+                <input type="checkbox" [(ngModel)]="t.done" (change)="save()" class="sp-checkbox-native">
+                <span class="sp-checkbox-ui">
+                  <span class="material-symbols-outlined sp-check-icon">check</span>
+                </span>
+              </label>
+              <span class="sp-task-text">{{t.text}}</span>
+              <button class="sp-task-del" (click)="removeTask(i)" title="Delete">
+                <span class="material-symbols-outlined">delete_outline</span>
+              </button>
+            </div>
+
+            <div class="sp-empty" *ngIf="tasks.length === 0">
+              <div class="sp-empty-icon">
+                <span class="material-symbols-outlined">check_circle</span>
+              </div>
+              <div class="sp-empty-title">All clear!</div>
+              <div class="sp-empty-sub">Add your first task above to get started.</div>
+            </div>
+          </ng-container>
+
+        </div>
+      </div>
+    </div>
+
       <div class="toast" [class.show]="toastVisible">{{ toastMsg }}</div>
+
+      <!-- Right-click Context Menu -->
+      <div class="ctx-menu" *ngIf="ctxVisible" [style.left.px]="ctxX" [style.top.px]="ctxY" (click)="$event.stopPropagation()">
+        <div class="ctx-item" (click)="cutCell(); hideCtx()"><span class="ctx-icon">✂</span> Cut <span class="ctx-hint">Ctrl+X</span></div>
+        <div class="ctx-item" (click)="copyCell(); hideCtx()"><span class="ctx-icon">⎘</span> Copy <span class="ctx-hint">Ctrl+C</span></div>
+        <div class="ctx-item" (click)="pasteCell(); hideCtx()"><span class="ctx-icon">📋</span> Paste <span class="ctx-hint">Ctrl+V</span></div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item" (click)="insertRowAbove(); hideCtx()"><span class="ctx-icon">+</span> Insert row above</div>
+        <div class="ctx-item" (click)="insertRowBelow(); hideCtx()"><span class="ctx-icon">+</span> Insert row below</div>
+        <div class="ctx-item" (click)="insertColLeft(); hideCtx()"><span class="ctx-icon">+</span> Insert column left</div>
+        <div class="ctx-item" (click)="insertColRight(); hideCtx()"><span class="ctx-icon">+</span> Insert column right</div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item danger" (click)="deleteRow(); hideCtx()"><span class="ctx-icon">🗑</span> Delete row</div>
+        <div class="ctx-item danger" (click)="deleteCol(); hideCtx()"><span class="ctx-icon">🗑</span> Delete column</div>
+        <div class="ctx-item danger" (click)="clearRangeData(); hideCtx()"><span class="ctx-icon">⌫</span> Clear selection</div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item" (click)="openValidationModal(); hideCtx()"><span class="ctx-icon">🗒</span> Set dropdown list...</div>
+        <div class="ctx-item danger" *ngIf="hasCellDropdown(selectedRow, selectedCol)" (click)="removeValidation(); hideCtx()"><span class="ctx-icon">❌</span> Remove dropdown</div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item" (click)="sortColAZ(); hideCtx()"><span class="ctx-icon">↑</span> Sort A → Z</div>
+        <div class="ctx-item" (click)="sortColZA(); hideCtx()"><span class="ctx-icon">↓</span> Sort Z → A</div>
+      </div>
+
+      <!-- Validation / Dropdown Modal -->
+      <div class="modal-overlay" *ngIf="validationModalOpen" (click)="validationModalOpen = false">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:420px;">
+          <button (click)="validationModalOpen = false" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#5f6368;">&#x00D7;</button>
+          <h3 style="margin-top:0;color:#202124;font-size:16px;">🗒 Set Dropdown List</h3>
+          <p style="color:#5f6368;font-size:13px;margin-bottom:12px;">Enter the dropdown options, one per line (or comma-separated):</p>
+          <textarea class="validation-textarea" [(ngModel)]="validationInput" rows="6"
+            placeholder="e.g.&#10;Closed&#10;New&#10;Fixed&#10;Reopened"></textarea>
+          <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end;">
+            <button class="btn outline" (click)="validationModalOpen = false">Cancel</button>
+            <button class="btn" (click)="saveValidation()">Apply</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Share Modal -->
       <div class="modal-overlay" *ngIf="shareModalOpen" (click)="shareModalOpen = false">
@@ -303,147 +602,396 @@ export interface CellFormat {
           </div>
         </div>
       </div>
+      <!-- Sheet Tabs -->
+      <div class="sheet-tabs">
+        <div class="sheet-tab" *ngFor="let sheet of sheets; let i = index"
+          [class.active-tab]="i === currentSheetIdx"
+          (click)="switchSheet(i)"
+          (dblclick)="renameSheet(i)">
+          {{ sheet.name }}
+          <span class="tab-close" *ngIf="sheets.length > 1" (click)="deleteSheet(i); $event.stopPropagation()">×</span>
+        </div>
+        <button class="tab-add" (click)="addSheet()" title="Add sheet">＋</button>
+      </div>
+
+      <!-- Find & Replace Modal -->
+      <div class="modal-overlay" *ngIf="findModalOpen" (click)="findModalOpen = false">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:440px;">
+          <button (click)="findModalOpen = false" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#5f6368;">&#x00D7;</button>
+          <h3 style="margin-top:0;color:#202124;font-size:16px;">🔍 Find &amp; Replace</h3>
+          <div style="margin-bottom:10px;">
+            <label style="font-size:12px;color:#5f6368;display:block;margin-bottom:4px;">Find</label>
+            <input [(ngModel)]="findQuery" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #dadce0;border-radius:4px;font-size:13px;outline:none;" placeholder="Search...">
+          </div>
+          <div style="margin-bottom:14px;">
+            <label style="font-size:12px;color:#5f6368;display:block;margin-bottom:4px;">Replace with</label>
+            <input [(ngModel)]="replaceQuery" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #dadce0;border-radius:4px;font-size:13px;outline:none;" placeholder="Replace...">
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+            <button class="btn outline" (click)="findNext()">Find Next</button>
+            <button class="btn outline" (click)="findAll()">Find All</button>
+            <button class="btn" (click)="replaceOne()">Replace</button>
+            <button class="btn" style="background:#ea4335;" (click)="replaceAll()">Replace All</button>
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:#5f6368;">{{ findStatus }}</div>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
-    .shell { display: flex; flex-direction: column; height: 100vh; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+    :host { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
+    * { box-sizing: border-box; }
+
+    /* ── Shell ─────────────────────────────────────────────────────────── */
+    .shell { display:flex; flex-direction:column; height:100vh; background:#fff; overflow:hidden; }
+
+    /* ── TOP BAR ────────────────────────────────────────────────────────── */
+    .top-bar { display:flex; align-items:center; justify-content:space-between; padding:6px 16px; background:#1c2333; min-height:50px; z-index:300; flex-shrink:0; }
+    .tl { display:flex; align-items:center; gap:10px; }
+    .back-btn { background:none; border:none; cursor:pointer; color:rgba(255,255,255,.7); display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; flex-shrink:0; }
+    .back-btn:hover { background:rgba(255,255,255,.1); color:#fff; }
+    .brand { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+    .brand-name { color:#fff; font-size:15px; font-weight:600; }
+    .doc-sec { display:flex; flex-direction:column; }
+    .doc-title { background:transparent; border:1px solid transparent; border-radius:4px; color:#fff; font-size:14px; font-weight:500; padding:3px 6px; outline:none; min-width:160px; max-width:260px; }
+    .doc-title:hover { border-color:rgba(255,255,255,.3); }
+    .doc-title:focus { border-color:rgba(255,255,255,.6); background:rgba(255,255,255,.1); }
+    .doc-sub { font-size:10px; color:rgba(255,255,255,.4); padding-left:7px; }
+    .tr { display:flex; align-items:center; gap:8px; }
+    .top-search-box { display:flex; align-items:center; gap:6px; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.18); border-radius:20px; padding:5px 12px; color:rgba(255,255,255,.65); }
+    .top-search-box input { background:transparent; border:none; outline:none; color:rgba(255,255,255,.8); font-size:13px; width:160px; }
+    .online-badge { font-size:11px; color:rgba(255,255,255,.65); background:rgba(255,255,255,.1); border-radius:10px; padding:3px 8px; }
+    .share-btn { display:flex; align-items:center; gap:6px; background:#26a96c; border:none; border-radius:20px; color:#fff; cursor:pointer; font-size:13px; font-weight:600; padding:7px 16px; flex-shrink:0; }
+    .share-btn:hover { background:#1f8a57; }
+    .av { position:relative; width:34px; height:34px; border-radius:50%; background:#ea4335; color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+    .profile-dd { position:fixed; top:54px; right:16px; width:240px; background:#fff; border-radius:10px; box-shadow:0 6px 24px rgba(0,0,0,.22); z-index:9999; overflow:hidden; border:1px solid #e0e0e0; }
+    .pd-head { padding:14px 16px; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; gap:10px; background:#f8f9fa; }
+    .pd-av { width:40px; height:40px; border-radius:50%; background:#ea4335; color:#fff; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .pd-item { padding:9px 16px; font-size:13px; color:#202124; cursor:pointer; display:flex; align-items:center; gap:10px; }
+    .pd-item:hover { background:#f0f4ff; color:#1a73e8; }
+    .pd-item.danger { color:#d93025; }
+    .pd-item.danger:hover { background:#fce8e6; color:#d93025; }
+    .pd-sep { height:1px; background:#e0e0e0; margin:4px 0; }
+    .pd-icon { font-size:18px !important; color:inherit; }
+
+    /* ── MENU BAR ───────────────────────────────────────────────────────── */
+    .menu-row { display:flex; align-items:center; background:#252d3d; padding:1px 12px; flex-shrink:0; z-index:200; }
+    .mi { position:relative; color:rgba(255,255,255,.82); font-size:13px; padding:5px 10px; cursor:pointer; border-radius:4px; user-select:none; white-space:nowrap; }
+    .mi:hover, .mi-open { background:rgba(255,255,255,.12); color:#fff; }
+    .mdd { position:absolute; top:calc(100% + 2px); left:0; min-width:230px; background:#fff; border:1px solid #e0e0e0; border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,.18); z-index:1000; padding:4px 0; max-height:420px; overflow-y:auto; }
+    .mdi { padding:7px 16px 7px 20px; font-size:13px; color:#202124; cursor:pointer; display:flex; justify-content:space-between; align-items:center; white-space:nowrap; }
+    .mdi:hover { background:#e8f0fe; color:#1a73e8; }
+    .mdi.danger { color:#d93025; }
+    .mdi.danger:hover { background:#fce8e6; }
+    .mds { height:1px; background:#ebebeb; margin:3px 0; }
+    .mh { font-size:11px; color:#aaa; margin-left:20px; }
+    .font-list { max-height:280px; overflow-y:auto; }
+
+    /* ── TOOLBAR ────────────────────────────────────────────────────────── */
+    .tb-row { display:flex; align-items:center; flex-wrap:wrap; background:#2d3748; padding:4px 12px; gap:2px; flex-shrink:0; position:relative; z-index:190; }
+    .tb-row2 { border-top:1px solid rgba(255,255,255,.08); padding:3px 12px; position:relative; z-index:180; }
+    .tb-group { display:flex; align-items:center; gap:2px; }
+    .tb-sep { width:1px; height:20px; background:rgba(255,255,255,.18); margin:0 5px; flex-shrink:0; }
+    .tb { background:transparent; border:none; border-radius:3px; color:rgba(255,255,255,.85); cursor:pointer; font-size:13px; font-family:inherit; height:26px; min-width:26px; padding:0 5px; display:flex; align-items:center; justify-content:center; transition:background .1s; flex-shrink:0; }
+    .tb:hover { background:rgba(255,255,255,.15); color:#fff; }
+    .tb.tb-on { background:rgba(26,115,232,.6); color:#fff; }
+    .tb.sz { min-width:22px; }
+    .tb.nf { font-size:11px; font-weight:700; min-width:28px; }
+    .tb-font-dd { display:flex; align-items:center; gap:4px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); border-radius:3px; color:rgba(255,255,255,.9); cursor:pointer; font-size:12px; height:26px; padding:0 8px; position:relative; user-select:none; min-width:80px; }
+    .tb-font-dd:hover, .tb-font-dd.active { background:rgba(255,255,255,.15); }
+    .arr { font-size:9px; color:rgba(255,255,255,.45); margin-left:auto; }
+    .font-sz { gap:0; }
+    .sz-inp { background:rgba(255,255,255,.1); border:none; border-left:1px solid rgba(255,255,255,.15); border-right:1px solid rgba(255,255,255,.15); color:#fff; font-size:12px; height:26px; outline:none; text-align:center; width:38px; }
+    .sz-inp::-webkit-inner-spin-button, .sz-inp::-webkit-outer-spin-button { -webkit-appearance:none; }
+    .zoom-ctrl { display:flex; align-items:center; gap:4px; color:rgba(255,255,255,.85); font-size:12px; }
+    .zoom-pct { min-width:38px; text-align:center; }
+    .tb-clr { display:flex; align-items:center; gap:2px; background:transparent; border:none; border-radius:3px; color:rgba(255,255,255,.85); cursor:pointer; font-size:12px; height:26px; padding:0 5px; position:relative; }
+    .tb-clr:hover { background:rgba(255,255,255,.15); }
+    .clr-ico { display:flex; flex-direction:column; align-items:center; gap:1px; }
+    .clr-bar { width:14px; height:3px; border-radius:1px; }
+    .clr-pop { position:absolute; top:calc(100% + 4px); left:0; background:#fff; border:1px solid #ddd; border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,.2); padding:8px; z-index:1000; }
+    .cp-grid { display:grid; grid-template-columns:repeat(10, 1fr); gap:4px; margin-bottom:8px; }
+    .cp-sw { width:16px; height:16px; border-radius:2px; cursor:pointer; border:1px solid rgba(0,0,0,.1); }
+    .cp-sw:hover { transform:scale(1.3); outline:1px solid #555; }
+    .cp-nocolor { padding:4px 8px; font-size:12px; color:#555; cursor:pointer; white-space:nowrap; border-bottom:1px solid #eee; margin-bottom:6px; }
+    .cp-nocolor:hover { background:#f5f5f5; }
+
+    /* ── FORMULA BAR ────────────────────────────────────────────────────── */
+    .formula-container { display:flex; align-items:center; background:#fff; border-bottom:2px solid #e0e0e0; flex-shrink:0; height:32px; }
+    .cell-ref { background:#f8f9fa; border-right:1px solid #dadce0; color:#333; font-size:12px; font-weight:600; min-width:72px; padding:0 10px; text-align:center; height:100%; display:flex; align-items:center; justify-content:center; }
+    .fx-label { color:#1a73e8; font-style:italic; font-size:14px; padding:0 10px; border-right:1px solid #dadce0; height:100%; display:flex; align-items:center; }
+    .formula-bar { border:none; flex:1; font-size:13px; outline:none; padding:0 12px; color:#202124; height:100%; }
+
+    /* ── GRID ─────────────────────────────────────────────────────────── */
+    .main-content { display:flex; flex:1; overflow:hidden; position:relative; }
+    .grid-wrap { flex:1; overflow:auto; position:relative; background:#fff; }
     
-    .top-bar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 16px; background: #f9fbfd; position: relative; z-index: 210;
+    /* ── SIDE PANEL ─────────────────────────────────────────────────── */
+    .side-panel {
+      width: 340px;
+      border-left: 1px solid #e2e8f0;
+      background: #f0f4ff;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      box-shadow: -4px 0 24px rgba(99,102,241,0.08);
     }
-    .top-left { display: flex; align-items: flex-start; gap: 12px; }
-    .back { 
-      background: none; border: none; cursor: pointer; color: #5f6368; 
+
+    /* Header */
+    .sp-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 16px 14px;
+      background: #fff;
+      border-bottom: 1px solid #e8edf5;
+      flex-shrink: 0;
+    }
+    .sp-head-left { display: flex; align-items: center; gap: 12px; }
+    .sp-icon-wrap {
+      width: 38px; height: 38px; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      width: 40px; height: 40px; border-radius: 50%;
-      margin-top: 4px;
+      flex-shrink: 0;
     }
-    .back:hover { background: #f1f3f4; }
-    .icon-sm { width: 16px; height: 16px; display: inline-block; vertical-align: middle; }
-    
-    .doc-meta { display: flex; flex-direction: column; }
-    .title-input { 
-      width: 250px; border: 1px solid transparent; border-radius: 4px;
-      font-size: 18px; color: #202124; outline: none; padding: 2px 6px;
-      background: transparent; margin-bottom: 2px;
+    .sp-icon-cal  { background: linear-gradient(135deg, #6366f1, #818cf8); }
+    .sp-icon-notes { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+    .sp-icon-tasks { background: linear-gradient(135deg, #10b981, #34d399); }
+    .sp-head-icon { font-size: 20px !important; color: #fff; }
+    .sp-title { font-size: 15px; font-weight: 700; color: #1e1e2e; line-height: 1.2; }
+    .sp-subtitle { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+    .sp-close-btn {
+      background: none; border: none; cursor: pointer;
+      width: 30px; height: 30px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #94a3b8; transition: background .15s, color .15s;
     }
-    .title-input:hover { border-color: #dadce0; }
-    .title-input:focus { border-color: #1a73e8; background: #fff; }
+    .sp-close-btn:hover { background: #f1f5f9; color: #475569; }
+    .sp-close-btn .material-symbols-outlined { font-size: 18px; }
 
-    .menu-bar { display: flex; gap: 2px; flex-direction: row; }
-    .menu-item {
-      padding: 4px 8px; font-size: 14px; color: #202124; cursor: pointer;
-      border-radius: 4px; position: relative; user-select: none;
+    /* Scrollable body */
+    .sp-content {
+      flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
     }
-    .menu-item:hover, .menu-item.active { background: #e8eaed; }
+    .sp-content::-webkit-scrollbar { width: 5px; }
+    .sp-content::-webkit-scrollbar-track { background: transparent; }
+    .sp-content::-webkit-scrollbar-thumb { background: #c7d2e8; border-radius: 10px; }
 
-    .dropdown {
-      position: absolute; top: 100%; left: 0; min-width: 250px;
-      background: #fff; border: 1px solid #dadce0; border-radius: 4px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15); padding: 6px 0;
-      z-index: 100; display: flex; flex-direction: column;
+    /* Cards */
+    .sp-card {
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid #e8edf5;
+      padding: 14px;
+      box-shadow: 0 2px 8px rgba(99,102,241,0.06);
     }
-    .dd-item {
-      padding: 6px 16px; display: flex; justify-content: space-between; align-items: center;
-      font-size: 14px; color: #202124; cursor: pointer; user-select: none;
+    .sp-notes-grow { flex: 1; display: flex; flex-direction: column; }
+    .sp-card-label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.8px; color: #94a3b8; margin-bottom: 10px;
     }
-    .dd-item:hover { background: #f1f3f4; }
-    .dd-hint { color: #5f6368; font-size: 12px; }
-    .dd-sep { height: 1px; background: #e8eaed; margin: 6px 0; }
+    .sp-label-icon { font-size: 14px !important; }
 
-    .top-right { display: flex; align-items: center; gap: 12px; }
-    .badge { font-size: 12px; background: #e6f4ea; color: #137333; padding: 4px 12px; border-radius: 12px; font-weight: 500; display: flex; align-items: center; }
-    .btn { padding: 8px 16px; background: #1a73e8; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; display: flex; align-items: center; }
-    .btn.outline { background: #fff; color: #1a73e8; border: 1px solid #1a73e8; }
-    .btn:hover { background: #1557b0; }
-    .btn.outline:hover { background: #f4f8fe; }
-    .avatar { width: 32px; height: 32px; border-radius: 50%; background: #1a73e8; color: #fff; font-size: 14px; font-weight: 500; display: flex; align-items: center; justify-content: center; }
+    /* Date card */
+    .sp-date-card { }
+    .sp-date-input {
+      width: 100%; box-sizing: border-box;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 9px;
+      padding: 10px 12px;
+      font-size: 14px; color: #1e1e2e;
+      outline: none; cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+      font-family: inherit;
+    }
+    .sp-date-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+    .sp-date-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 8px; background: #eef2ff; color: #6366f1;
+      font-size: 11px; font-weight: 600;
+      padding: 4px 10px; border-radius: 20px;
+    }
 
-    .fmt-bar {
-      display: flex; align-items: center; gap: 4px; padding: 6px 16px; flex-wrap: wrap;
-      background: #edf2fa; border-radius: 24px; margin: 0 16px; position: relative; z-index: 90;
+    /* Textarea card */
+    .sp-notes-card { }
+    .sp-textarea-wrap { display: flex; flex-direction: column; flex: 1; }
+    .sp-textarea {
+      flex: 1; min-height: 180px;
+      border: 1.5px solid #e2e8f0; border-radius: 9px;
+      padding: 12px; font-size: 13.5px; line-height: 1.6;
+      color: #1e1e2e; outline: none; resize: none; font-family: inherit;
+      background: #fafbff;
+      transition: border-color .15s, box-shadow .15s;
     }
-    .fb { min-width: 32px; height: 32px; background: none; border: 1px solid transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #444746; }
-    .fb:hover { background: #e0e6ed; }
-    .fb.active { background: #d3e3fd; color: #0b57d0; }
-    .sep { width: 1px; height: 20px; background: #c7c7c7; margin: 0 6px; }
+    .sp-textarea:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.10); background: #fff; }
+    .sp-textarea::placeholder { color: #c4cfe0; }
+    .sp-textarea-tall { min-height: 320px; }
+    .sp-textarea-footer {
+      display: flex; align-items: center; gap: 4px;
+      margin-top: 6px; padding: 0 2px;
+    }
 
-    .arrow { font-size: 10px; margin-left: 4px; color: #5f6368; }
-    .font-dropdown { min-width: 130px; display: flex; justify-content: space-between; align-items: center; }
-    .font-size-control { display: flex; align-items: center; background: #fff; border: 1px solid #dadce0; border-radius: 4px; height: 30px; overflow: hidden; }
-    .font-size-control .size-btn { width: 26px; height: 30px; border-radius: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #444746; background: transparent; border: none; cursor: pointer; }
-    .font-size-control .size-btn:hover { background: #e0e6ed; }
-    .font-size-control .size-input { width: 32px; height: 100%; text-align: center; border: none; border-left: 1px solid #dadce0; border-right: 1px solid #dadce0; font-size: 14px; outline: none; padding: 0; color: #202124; background: #fff; }
-    
-    .swatch-btn { position: relative; display: flex; align-items: center; justify-content: center;
-      width: 28px; height: 28px; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
-    .swatch-btn:hover { background: #e1e5ea; }
-    .color-picker-popup {
-      position: absolute; top: 32px; left: 0; z-index: 500;
-      background: #fff; border: 1px solid #dadce0; border-radius: 4px;
-      padding: 12px; display: flex; flex-direction: column; gap: 8px;
-      box-shadow: 0 4px 16px rgba(0,0,0,.15); width: 220px; text-align: left; cursor: default;
+    /* Task add */
+    .sp-task-add-wrap {
+      display: flex; align-items: center; gap: 8px;
+      background: #fff; border: 1.5px solid #e2e8f0;
+      border-radius: 12px; padding: 8px 10px 8px 12px;
+      box-shadow: 0 2px 8px rgba(99,102,241,0.06);
+      transition: border-color .15s, box-shadow .15s;
     }
-    .cp-right { left: auto; right: 0; }
-    .cp-reset { display: flex; align-items: center; gap: 8px; padding: 4px; cursor: pointer; border-radius: 4px; }
-    .cp-reset:hover { background: #f1f3f4; }
-    .cp-reset-icon { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #5f6368; box-sizing: border-box; }
-    .cp-reset span { font-size: 13px; color: #202124; }
-    .cp-section-title { font-size: 11px; font-weight: 500; color: #5f6368; margin-top: 4px; padding-left: 2px; }
-    .cp-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; }
-    .cp-grid.variants { gap: 0; row-gap: 2px; margin-top: -6px; }
-    .cp-swatch { width: 16px; height: 16px; border-radius: 50%; cursor: pointer; border: 1px solid transparent; margin: 0 auto; box-sizing: border-box; }
-    .cp-swatch:hover { transform: scale(1.2); border-color: #1a73e8; z-index: 2; position: relative; }
-    .cp-grid.variants .cp-swatch { border-radius: 0; width: 18px; height: 18px; }
-    
-    .formula-container {
-      display: flex; align-items: center; border-bottom: 1px solid #e0e0e0; border-top: 1px solid #e0e0e0;
-      padding: 0; background: #fff;
+    .sp-task-add-wrap:focus-within { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.10); }
+    .sp-task-add-icon { font-size: 20px !important; color: #c7d2e8; flex-shrink: 0; }
+    .sp-task-input {
+      flex: 1; border: none; outline: none; font-size: 13.5px;
+      color: #1e1e2e; font-family: inherit; background: transparent;
     }
-    .cell-ref { min-width: 48px; text-align: center; font-size: 13px; font-weight: 600; color: #374151; padding: 8px 6px; background: #f9fafb; border-right: 1px solid #e0e0e0; }
-    .fx-label { padding: 0 12px; color: #5f6368; font-family: math; font-style: italic; font-size: 16px; user-select: none; }
-    .formula-bar { flex: 1; border: none; padding: 8px; font-size: 13px; outline: none; font-family: monospace; }
+    .sp-task-input::placeholder { color: #c4cfe0; }
+    .sp-add-btn {
+      background: linear-gradient(135deg, #6366f1, #818cf8);
+      border: none; border-radius: 8px;
+      color: #fff; font-size: 12px; font-weight: 700;
+      padding: 6px 14px; cursor: pointer;
+      transition: opacity .15s, transform .1s;
+      flex-shrink: 0;
+    }
+    .sp-add-btn:hover { opacity: .88; transform: translateY(-1px); }
+    .sp-add-btn:active { transform: translateY(0); }
 
-    .grid-wrap { flex: 1; overflow: auto; background: #f8f9fa; }
-    .grid { border-collapse: collapse; min-width: 100%; background: #fff; }
-    .corner { width: 48px; background: #f1f3f4; border: 1px solid #c0c0c0; }
-    .col-head { min-width: 100px; background: #f1f3f4; border: 1px solid #c0c0c0; font-size: 12px; font-weight: 600; color: #3c4043; text-align: center; padding: 4px; position: sticky; top: 0; z-index: 1; }
-    .row-head { background: #f1f3f4; border: 1px solid #c0c0c0; font-size: 12px; color: #3c4043; text-align: center; padding: 0 6px; position: sticky; left: 0; z-index: 1; min-width: 48px; }
-    .cell { border: 1px solid #e0e0e0; padding: 0; min-width: 100px; height: 24px; position: relative; background-color: #fff; }
-    .cell.img-cell { height: 84px; }
-    .cell.selected { outline: 2px solid #1a73e8; outline-offset: -2px; z-index: 2; }
-    .cell.remote-selected { outline: 2px solid #ef4444; outline-offset: -2px; z-index: 1; }
-    .cell-input { 
-      width: 100%; height: 100%; border: none; outline: none; padding: 2px 6px; 
-      background-color: transparent; 
-      font-size: inherit; font-family: inherit; font-weight: inherit; 
-      font-style: inherit; text-decoration: inherit; color: inherit; 
-      text-align: inherit; box-sizing: border-box; 
+    /* Tasks summary bar */
+    .sp-tasks-summary {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 4px 2px; margin-top: -4px;
     }
-    
-    .toast {
-      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px);
-      background: #323232; color: #f1f3f4; padding: 12px 24px; border-radius: 4px;
-      font-size: 14px; opacity: 0; transition: all .25s; pointer-events: none; z-index: 1000;
+    .sp-tasks-count { font-size: 11px; font-weight: 700; color: #64748b; }
+    .sp-tasks-done {
+      font-size: 11px; font-weight: 600;
+      color: #10b981; background: #d1fae5;
+      padding: 2px 8px; border-radius: 10px;
     }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.5); z-index: 999; display: flex; align-items: center; justify-content: center;
+    /* Task items */
+    .sp-task-item {
+      display: flex; align-items: center; gap: 10px;
+      background: #fff; border-radius: 12px;
+      border: 1.5px solid #e8edf5;
+      padding: 11px 12px;
+      box-shadow: 0 1px 4px rgba(99,102,241,0.05);
+      transition: box-shadow .15s, border-color .15s;
     }
-    .modal { background: #fff; padding: 28px; border-radius: 10px; width: 460px; max-width: 92%;
-             box-shadow: 0 8px 32px rgba(0,0,0,0.18); position: relative; }
-    .share-modal { text-align: left; }
+    .sp-task-item:hover { box-shadow: 0 4px 12px rgba(99,102,241,0.10); border-color: #c7d2f8; }
+    .sp-task-done { background: #f8faff; border-color: #e8edf5; }
+    .sp-task-done .sp-task-text { text-decoration: line-through; color: #b0bec5; }
 
-    /* ===== PRINT STYLES ===== */
+    /* Custom checkbox */
+    .sp-checkbox-wrap { display: flex; align-items: center; cursor: pointer; flex-shrink: 0; }
+    .sp-checkbox-native { display: none; }
+    .sp-checkbox-ui {
+      width: 20px; height: 20px; border-radius: 6px;
+      border: 2px solid #c7d2e8; background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, border-color .15s;
+    }
+    .sp-checkbox-native:checked + .sp-checkbox-ui {
+      background: linear-gradient(135deg, #10b981, #34d399);
+      border-color: #10b981;
+    }
+    .sp-check-icon { font-size: 13px !important; color: #fff; opacity: 0; transition: opacity .15s; }
+    .sp-checkbox-native:checked + .sp-checkbox-ui .sp-check-icon { opacity: 1; }
+
+    .sp-task-text { flex: 1; font-size: 13.5px; color: #1e1e2e; line-height: 1.4; word-break: break-word; transition: color .15s; }
+    .sp-task-del {
+      background: none; border: none; cursor: pointer;
+      width: 26px; height: 26px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      color: #c4cfe0; flex-shrink: 0; transition: background .15s, color .15s;
+    }
+    .sp-task-del:hover { background: #fee2e2; color: #ef4444; }
+    .sp-task-del .material-symbols-outlined { font-size: 16px !important; }
+
+    /* Empty state */
+    .sp-empty {
+      text-align: center; padding: 40px 16px 32px;
+      background: #fff; border-radius: 14px; border: 1.5px dashed #c7d2e8;
+    }
+    .sp-empty-icon {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+    }
+    .sp-empty-icon .material-symbols-outlined { font-size: 28px !important; color: #10b981; }
+    .sp-empty-title { font-size: 15px; font-weight: 700; color: #1e1e2e; margin-bottom: 4px; }
+    .sp-empty-sub { font-size: 12px; color: #94a3b8; }
+
+    .sp-frame { flex:1; width:100%; border:none; }
+
+    /* Table itself provides the outer left+top border, cells provide right+bottom — no double lines */
+    .grid { border-collapse:collapse; table-layout:fixed; font-size:13px; user-select:none; }
+
+    /* ── GRID HEADERS — dark ──────────────────────────────────── */
+    .corner { background:#202124; border-right:1px solid #3c3c3c; border-bottom:2px solid #3c3c3c; position:sticky; top:0; left:0; z-index:10; width:46px; min-width:46px; text-align:center; height:26px; }
+    .col-head { background:#202124; border-right:1px solid #3c3c3c; border-bottom:2px solid #555; color:#e8eaed; cursor:pointer; font-size:12px; font-weight:500; position:sticky; top:0; text-align:center; user-select:none; z-index:5; height:26px; width:100px; min-width:100px; }
+    .col-head:hover { background:#35363a; color:#fff; }
+    .col-selected { background:#111 !important; color:#fff !important; font-weight:700 !important; }
+    .row-head { background:#202124; border-right:2px solid #555; border-bottom:1px solid #3c3c3c; color:#e8eaed; cursor:pointer; font-size:12px; font-weight:400; position:sticky; left:0; text-align:center; user-select:none; z-index:4; min-width:46px; width:46px; height:26px; }
+    .row-head:hover { background:#35363a; color:#fff; }
+    .row-selected { background:#111 !important; color:#fff !important; font-weight:700 !important; }
+
+    /* Data cells — NO extra border, just shared grid lines */
+    .cell { cursor:cell; border-right:1px solid #d0d0d0; border-bottom:1px solid #d0d0d0; height:26px; position:relative; white-space:nowrap; padding:0; min-width:100px; width:100px; max-width:200px; background:#fff; }
+    .cell.selected { background:#e6f4ea !important; outline:2px solid #34a853; outline-offset:-2px; z-index:20; }
+    .cell.in-range { background:#e6f4ea !important; }
+    .cell.fill-preview { background:rgba(52,168,83,.2) !important; border:1px dashed #34a853 !important; }
+    .cell.remote-selected { background:rgba(234,67,53,.1) !important; outline:2px solid #ea4335; outline-offset:-2px; z-index:15; }
+    .cell.remote-selected::after { content:''; position:absolute; bottom:-5px; right:-5px; width:8px; height:8px; background:#ea4335; border:2px solid #fff; border-radius:50%; z-index:25; box-shadow:0 1px 3px rgba(0,0,0,.4); pointer-events:none; }
+
+    .cell-input { background:transparent; border:none; color:inherit; font-family:inherit; font-size:inherit; font-weight:inherit; font-style:inherit; text-align:inherit; height:100%; outline:none; padding:0 4px; width:100%; display:block; box-shadow:none; }
+    .cell-display { align-items:center; display:flex; height:100%; overflow:hidden; padding:0 4px; color:inherit; font-size:inherit; font-weight:inherit; font-style:inherit; text-align:inherit; }
+    .cell-select { border:none; background:transparent; color:inherit; font-family:inherit; font-size:inherit; font-weight:inherit; font-style:inherit; text-align:inherit; height:100%; outline:none; width:100%; cursor:pointer; }
+    .fill-handle { background:#34a853; border:2px solid #fff; border-radius:50%; bottom:-5px; right:-5px; cursor:crosshair; height:8px; position:absolute; width:8px; z-index:30; box-shadow:0 1px 3px rgba(0,0,0,.4); }
+
+    /* Frozen row/col */
+    .frozen-row td, .frozen-row th { position:sticky; top:26px; z-index:3; background:#fff; }
+    .img-overlay { left:0; pointer-events:none; position:absolute; top:0; z-index:6; }
+    .filter-row select { border:none; background:transparent; font-size:11px; width:100%; cursor:pointer; }
+
+    /* ── CONTEXT MENU ───────────────────────────────────────────────────── */
+    .ctx-menu { background:#fff; border:1px solid #e0e0e0; border-radius:6px; box-shadow:0 4px 20px rgba(0,0,0,.2); min-width:210px; padding:4px 0; position:fixed; z-index:900; }
+    .ctx-item { color:#202124; cursor:pointer; display:flex; font-size:13px; justify-content:space-between; align-items:center; padding:8px 16px; }
+    .ctx-item:hover { background:#e8f0fe; color:#1a73e8; }
+    .ctx-hint { color:#aaa; font-size:11px; }
+    .ctx-sep { background:#ebebeb; height:1px; margin:3px 0; }
+
+    /* ── SHEET TABS ─────────────────────────────────────────────────────── */
+    .sheet-tabs { display:flex; align-items:center; gap:2px; padding:0 14px; background:#f1f3f4; border-top:2px solid #dadce0; min-height:34px; overflow-x:auto; flex-shrink:0; }
+    .sheet-tab { align-items:center; background:transparent; border-radius:4px 4px 0 0; border:1px solid transparent; border-bottom:none; color:#5f6368; cursor:pointer; display:flex; font-size:12px; gap:6px; padding:6px 14px; white-space:nowrap; }
+    .sheet-tab.active-tab { background:#fff; border-color:#dadce0; color:#1a73e8; font-weight:600; }
+    .sheet-tab:hover:not(.active-tab) { background:#e8eaed; }
+    .tab-close { color:#bbb; cursor:pointer; font-size:13px; line-height:1; }
+    .tab-close:hover { color:#d93025; }
+    .tab-add { background:none; border:none; color:#5f6368; cursor:pointer; font-size:20px; padding:2px 8px; border-radius:4px; line-height:1; }
+    .tab-add:hover { background:#e0e0e0; }
+
+    /* ── MODALS ─────────────────────────────────────────────────────────── */
+    .modal-overlay { align-items:center; background:rgba(0,0,0,.5); bottom:0; display:flex; justify-content:center; left:0; position:fixed; right:0; top:0; z-index:999; }
+    .modal { background:#fff; border-radius:10px; box-shadow:0 8px 32px rgba(0,0,0,.22); max-width:92vw; padding:28px; position:relative; width:460px; }
+    .btn { background:#1a73e8; border:none; border-radius:6px; color:#fff; cursor:pointer; font-size:13px; font-weight:600; padding:9px 20px; }
+    .btn:hover { background:#1557b0; }
+    .btn.outline { background:transparent; border:1px solid #1a73e8; color:#1a73e8; }
+    .btn.outline:hover { background:#e8f0fe; }
+    .validation-textarea { border:1px solid #dadce0; border-radius:4px; font-family:inherit; font-size:13px; outline:none; padding:10px; resize:vertical; width:100%; }
+    .validation-textarea:focus { border-color:#1a73e8; box-shadow:0 0 0 2px rgba(26,115,232,.2); }
+
+    /* ── TOAST ──────────────────────────────────────────────────────────── */
+    .toast { background:#323232; border-radius:6px; bottom:36px; color:#f1f3f4; font-size:13px; left:50%; opacity:0; padding:12px 24px; pointer-events:none; position:fixed; transform:translateX(-50%) translateY(16px); transition:all .25s ease; z-index:1000; white-space:nowrap; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    /* ── PRINT ──────────────────────────────────────────────────────────── */
     @media print {
-      .top-bar, .fmt-bar, .formula-container, .modal-overlay, .toast { display: none !important; }
-      .shell { display: block !important; }
-      .grid-wrap { overflow: visible !important; }
-      .col-head { position: static !important; }
-      .row-head { position: static !important; }
+      .top-bar, .menu-row, .tb-row, .formula-container, .modal-overlay, .toast, .sheet-tabs { display:none !important; }
+      .shell { display:block !important; }
+      .grid-wrap { overflow:visible !important; }
+      .col-head, .row-head { position:static !important; }
     }
   `]
 })
@@ -456,6 +1004,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   shareModalOpen = false;
   filterActive = false;
   frozenRows = false;
+  frozenCols = false;
+  showGridlines = true;
+  showFormulaBar = true;
+  showHeaders = true;
   zoomLevel = 100;
   activePalette: string | null = null;
   currentFont = 'Arial';
@@ -465,6 +1017,44 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   private clipboard = '';
   private history: string[] = [];
   private future: string[] = [];
+
+  // Range selection
+  rangeStart: { r: number, c: number } | null = null;
+  rangeEnd: { r: number, c: number } | null = null;
+  private isDraggingRange = false;
+
+  // Fill handle
+  private isFilling = false;
+  fillEnd: { r: number, c: number } | null = null;
+  private fillStart: { r: number, c: number } | null = null;
+
+  // Header selection (full col / full row)
+  selectedColHeader: number | null = null;
+  selectedRowHeader: number | null = null;
+
+  // Context menu
+  ctxVisible = false;
+  ctxX = 0;
+  ctxY = 0;
+
+  // Data validation / dropdown
+  validations: Record<string, CellValidation> = {};
+  validationModalOpen = false;
+  validationInput = '';
+
+  // Multiple sheets
+  sheets: Array<{ name: string, cells: string[][], formats: Record<string, CellFormat>, validations: Record<string, CellValidation> }> = [
+    { name: 'Sheet1', cells: Array.from({ length: ROWS }, () => Array(COLS).fill('')), formats: {}, validations: {} }
+  ];
+  currentSheetIdx = 0;
+
+  // Find & Replace
+  findModalOpen = false;
+  findQuery = '';
+  replaceQuery = '';
+  findStatus = '';
+  private findMatches: { r: number, c: number }[] = [];
+  private findMatchIdx = -1;
 
   themeColorsTop = [
     '#000000', '#434343', '#666666', '#999999', '#cccccc', '#efefef', '#f3f3f3', '#ffffff', '#ff0000', '#00ff00'
@@ -484,36 +1074,48 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   rowRange = Array.from({ length: ROWS }, (_, i) => i);
   cells: string[][] = Array.from({ length: ROWS }, () => Array(COLS).fill(''));
   formats: Record<string, CellFormat> = {};
-  
+
   selectedRow = 0;
   selectedCol = 0;
   formulaBarValue = '';
   toastVisible = false;
   toastMsg = '';
-  remoteCursors: Record<string, {r: number, c: number}> = {};
+  remoteCursors: Record<string, { r: number, c: number }> = {};
   activeMenu: string | null = null;
+  profileOpen = false;
 
   get currentUrl(): string { return window.location.href; }
-  
+
   private syncSub?: Subscription;
   private applyingRemote = false;
 
   get selectedRef() { return `${colName(this.selectedCol)}${this.selectedRow + 1}`; }
   colLabel(i: number) { return colName(i); }
-  isRemoteSelected(r: number, c: number) { 
-    return Object.values(this.remoteCursors).some(pos => pos.r === r && pos.c === c); 
+  isRemoteSelected(r: number, c: number) {
+    return Object.values(this.remoteCursors).some(pos => pos.r === r && pos.c === c);
   }
 
   get initials() {
     return (this.auth.user?.name ?? 'U').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
   }
 
+  sidePanelApp: string | null = null;
+  sidePanelUrl: SafeResourceUrl | null = null;
+
+  // Embedded Side Panel Apps Data
+  calendarNotes: Record<string, string> = {};
+  selectedCalDate = new Date().toISOString().split('T')[0];
+  globalNotes = '';
+  tasks: { text: string, done: boolean }[] = [];
+  newTask = '';
+
   constructor(
+    private sanitizer: DomSanitizer,
     private route: ActivatedRoute,
     private router: Router,
     private api: ApiService,
     public auth: AuthService
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.docId = this.route.snapshot.paramMap.get('id') ?? '';
@@ -529,6 +1131,12 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         if (p.formats) {
           this.formats = p.formats;
         }
+        if (p.validations) {
+          this.validations = p.validations;
+        }
+        if (p.calendarNotes) this.calendarNotes = p.calendarNotes;
+        if (p.globalNotes) this.globalNotes = p.globalNotes;
+        if (p.tasks) this.tasks = p.tasks;
       } catch { }
     });
 
@@ -550,6 +1158,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
             if (p.formats) {
               this.formats = p.formats;
             }
+            if (p.validations) {
+              this.validations = p.validations;
+            }
           } catch { }
         }
         setTimeout(() => this.applyingRemote = false, 50);
@@ -562,7 +1173,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   @HostListener('document:click')
-  onDocClick() { this.closeMenus(); this.activePalette = null; }
+  onDocClick() { this.closeMenus(); this.activePalette = null; this.hideCtx(); }
 
   @HostListener('document:keydown', ['$event'])
   onKey(e: KeyboardEvent) {
@@ -570,6 +1181,339 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); this.redo(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); this.toggleFormat('bold'); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'i') { e.preventDefault(); this.toggleFormat('italic'); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'u') { e.preventDefault(); this.toggleFormat('underline'); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'x') { e.preventDefault(); this.cutCell(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'd') { e.preventDefault(); this.fillDown(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') { e.preventDefault(); this.fillRight(); }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'h' || e.key === 'f')) { e.preventDefault(); this.openFind(); }
+    if (e.key === 'Delete') {
+      // If a multi-cell range is selected, always clear it (even if an input is focused)
+      if (this.rangeStart && this.rangeEnd) {
+        const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+        const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+        const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+        const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+        if (minR !== maxR || minC !== maxC) {
+          e.preventDefault();
+          this.clearRangeData();
+        }
+      } else {
+        // Single cell: only clear if the grid itself is focused (not typing in input)
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA') { e.preventDefault(); this.clearRangeData(); }
+      }
+    }
+    if (e.key === 'Escape') { this.hideCtx(); }
+  }
+
+  @HostListener('document:mouseup')
+  onDocMouseUp() {
+    if (this.isFilling && this.fillEnd) {
+      this.applyFill();
+    }
+    this.isDraggingRange = false;
+    this.isFilling = false;
+    this.fillStart = null;
+  }
+
+  // ── Range selection helpers ──────────────────────────────────────────────
+  onCellMouseDown(e: MouseEvent, r: number, c: number) {
+    if ((e.target as HTMLElement).classList.contains('fill-handle')) return;
+    this.isDraggingRange = true;
+    this.rangeStart = { r, c };
+    this.rangeEnd = { r, c };
+    this.fillEnd = null;
+  }
+
+  onCellMouseEnter(r: number, c: number) {
+    if (this.isDraggingRange && this.rangeStart) {
+      this.rangeEnd = { r, c };
+    }
+    if (this.isFilling && this.fillStart) {
+      this.fillEnd = { r, c };
+    }
+  }
+
+  isCellSelected(r: number, c: number): boolean {
+    return this.selectedRow === r && this.selectedCol === c;
+  }
+
+  isCellInRange(r: number, c: number): boolean {
+    if (!this.rangeStart || !this.rangeEnd) return false;
+    const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+    const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+    const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+    const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    // For full-column/row selection (entire range), highlight all including anchor
+    const isFullRange = (maxR - minR > 0 || maxC - minC > 0);
+    if (!isFullRange) return false;
+    return r >= minR && r <= maxR && c >= minC && c <= maxC;
+  }
+
+  // ── Fill handle helpers ──────────────────────────────────────────────────
+  isFillHandleCell(r: number, c: number): boolean {
+    // When a range is active: show ONE dot at the bottom-right of the range only
+    if (this.rangeStart && this.rangeEnd) {
+      const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+      const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+      const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+      const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+      // Multi-cell range: dot only at bottom-right
+      if (minR !== maxR || minC !== maxC) return r === maxR && c === maxC;
+    }
+    // No range or single-cell range: dot at selected cell
+    return r === this.selectedRow && c === this.selectedCol;
+  }
+
+  isCellInFillPreview(r: number, c: number): boolean {
+    if (!this.isFilling || !this.fillStart || !this.fillEnd) return false;
+    const minR = Math.min(this.fillStart.r, this.fillEnd.r);
+    const maxR = Math.max(this.fillStart.r, this.fillEnd.r);
+    const minC = Math.min(this.fillStart.c, this.fillEnd.c);
+    const maxC = Math.max(this.fillStart.c, this.fillEnd.c);
+    return r >= minR && r <= maxR && c >= minC && c <= maxC;
+  }
+
+  onFillHandleMouseDown(e: MouseEvent, r: number, c: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.isFilling = true;
+    this.isDraggingRange = false;
+    this.fillStart = { r, c };
+    this.fillEnd = { r, c };
+  }
+
+  private applyFill() {
+    if (!this.fillStart || !this.fillEnd) return;
+    // Determine the source cells (selection range or just one cell)
+    const srcMinR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.fillStart.r;
+    const srcMaxR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.fillStart.r;
+    const srcMinC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.fillStart.c;
+    const srcMaxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.fillStart.c;
+
+    const dstR = this.fillEnd.r;
+    const dstC = this.fillEnd.c;
+
+    this.pushHistory();
+
+    // Determine fill direction
+    const goDown = dstR > srcMaxR;
+    const goUp = dstR < srcMinR;
+    const goRight = dstC > srcMaxC;
+    const goLeft = dstC < srcMinC;
+
+    if (goDown || goUp) {
+      // Fill column-wise
+      for (let c = srcMinC; c <= srcMaxC; c++) {
+        const srcVals: string[] = [];
+        for (let r = srcMinR; r <= srcMaxR; r++) srcVals.push(this.cells[r][c]);
+        if (goDown) {
+          for (let r = srcMaxR + 1; r <= dstR; r++) {
+            const idx = (r - srcMaxR - 1) % srcVals.length;
+            this.cells[r][c] = this.getNextSeriesValue(srcVals, r - srcMinR);
+          }
+        } else {
+          for (let r = srcMinR - 1; r >= dstR; r--) {
+            this.cells[r][c] = this.getNextSeriesValue(srcVals, r - srcMaxR);
+          }
+        }
+      }
+    } else if (goRight || goLeft) {
+      // Fill row-wise
+      for (let r = srcMinR; r <= srcMaxR; r++) {
+        const srcVals: string[] = [];
+        for (let c = srcMinC; c <= srcMaxC; c++) srcVals.push(this.cells[r][c]);
+        if (goRight) {
+          for (let c = srcMaxC + 1; c <= dstC; c++) {
+            this.cells[r][c] = this.getNextSeriesValue(srcVals, c - srcMinC);
+          }
+        } else {
+          for (let c = srcMinC - 1; c >= dstC; c--) {
+            this.cells[r][c] = this.getNextSeriesValue(srcVals, c - srcMaxC);
+          }
+        }
+      }
+    }
+
+    // Update selection to show the full filled area
+    const newMinR = Math.min(srcMinR, dstR);
+    const newMaxR = Math.max(srcMaxR, dstR);
+    const newMinC = Math.min(srcMinC, dstC);
+    const newMaxC = Math.max(srcMaxC, dstC);
+    this.rangeStart = { r: newMinR, c: newMinC };
+    this.rangeEnd = { r: newMaxR, c: newMaxC };
+    this.selectedRow = newMinR;
+    this.selectedCol = newMinC;
+    this.fillEnd = null;
+    this.onCellChange();
+    this.save();
+    this.showToast('Series filled.');
+  }
+
+  /** Smart series: detect number, date (MM-DD-YY or MM-DD-YYYY), or repeat */
+  private getNextSeriesValue(srcVals: string[], offset: number): string {
+    // Single value series
+    if (srcVals.length === 1) {
+      const v = srcVals[0];
+      // Number?
+      const num = Number(v);
+      if (!isNaN(num) && v.trim() !== '') return String(num + offset);
+      // Date MM-DD-YY or MM-DD-YYYY?
+      const dateMatch = v.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+      if (dateMatch) {
+        const m = parseInt(dateMatch[1], 10);
+        const d = parseInt(dateMatch[2], 10);
+        const y = parseInt(dateMatch[3], 10);
+        const fullY = y < 100 ? 2000 + y : y;
+        const dt = new Date(fullY, m - 1, d);
+        dt.setDate(dt.getDate() + offset);
+        const nm = String(dt.getMonth() + 1).padStart(2, '0');
+        const nd = String(dt.getDate()).padStart(2, '0');
+        const ny = y < 100 ? String(dt.getFullYear()).slice(2) : String(dt.getFullYear());
+        return `${nm}-${nd}-${ny}`;
+      }
+      // Repeat text
+      return v;
+    }
+    // Multi-value: detect linear step (numbers)
+    const nums = srcVals.map(v => Number(v));
+    if (nums.every(n => !isNaN(n) && srcVals[nums.indexOf(n)].trim() !== '')) {
+      const step = nums.length > 1 ? nums[1] - nums[0] : 1;
+      const base = nums[nums.length - 1];
+      const steps = offset - (srcVals.length - 1);
+      return String(base + step * steps);
+    }
+    // Repeat cycle
+    const idx = ((offset % srcVals.length) + srcVals.length) % srcVals.length;
+    return srcVals[idx];
+  }
+
+  // ── Column / Row header selection ────────────────────────────────────────
+  selectEntireCol(c: number) {
+    this.selectedColHeader = c;
+    this.selectedRowHeader = null;
+    this.rangeStart = { r: 0, c };
+    this.rangeEnd = { r: ROWS - 1, c };
+    this.selectedRow = 0;
+    this.selectedCol = c;
+    this.formulaBarValue = '';
+  }
+
+  selectEntireRow(r: number) {
+    this.selectedRowHeader = r;
+    this.selectedColHeader = null;
+    this.rangeStart = { r, c: 0 };
+    this.rangeEnd = { r, c: COLS - 1 };
+    this.selectedRow = r;
+    this.selectedCol = 0;
+    this.formulaBarValue = '';
+  }
+
+  clearHeaderSelection() {
+    this.selectedColHeader = null;
+    this.selectedRowHeader = null;
+    this.rangeStart = null;
+    this.rangeEnd = null;
+  }
+
+  isColHeaderSelected(c: number): boolean { return this.selectedColHeader === c; }
+  isRowHeaderSelected(r: number): boolean { return this.selectedRowHeader === r; }
+
+  // ── Right-click context menu ──────────────────────────────────────────────
+  onCellRightClick(e: MouseEvent, r: number, c: number) {
+    e.preventDefault();
+    this.selectCell(r, c);
+
+    // Clamp to prevent context menu from being cut off by window boundaries
+    const menuWidth = 220;
+    const menuHeight = 350; // approximate height of the menu
+    let x = e.clientX;
+    let y = e.clientY;
+
+    if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth;
+    if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight;
+
+    this.ctxX = x;
+    this.ctxY = y;
+    this.ctxVisible = true;
+  }
+
+  hideCtx() { this.ctxVisible = false; }
+
+  cutCell() {
+    this.clipboard = this.cells[this.selectedRow][this.selectedCol];
+    navigator.clipboard.writeText(this.clipboard).catch(() => { });
+    this.pushHistory();
+    this.cells[this.selectedRow][this.selectedCol] = '';
+    this.formulaBarValue = '';
+    this.onCellChange();
+    this.showToast(`Cut: "${this.clipboard}"`);
+  }
+
+  // ── Clear all cells in current range / selection ─────────────────────────
+  clearRangeData() {
+    this.pushHistory();
+    if (this.rangeStart && this.rangeEnd) {
+      const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+      const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+      const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+      const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+      for (let r = minR; r <= maxR; r++)
+        for (let c = minC; c <= maxC; c++)
+          this.cells[r][c] = '';
+    } else {
+      this.cells[this.selectedRow][this.selectedCol] = '';
+    }
+    this.formulaBarValue = '';
+    this.onCellChange();
+    this.save();
+    this.showToast('Selection cleared.');
+  }
+
+  // ── Dropdown / Data validation ───────────────────────────────────────────────
+  hasCellDropdown(r: number, c: number): boolean {
+    return !!this.validations[`${r},${c}`];
+  }
+
+  getCellDropdownOptions(r: number, c: number): string[] {
+    return this.validations[`${r},${c}`]?.options ?? [];
+  }
+
+  openValidationModal() {
+    const existing = this.validations[`${this.selectedRow},${this.selectedCol}`];
+    this.validationInput = existing ? existing.options.join('\n') : '';
+    this.validationModalOpen = true;
+  }
+
+  saveValidation() {
+    const raw = this.validationInput.trim();
+    if (!raw) { this.validationModalOpen = false; return; }
+    // Accept newline or comma separated options
+    const options = raw.split(/[\n,]/).map(o => o.trim()).filter(o => o.length > 0);
+    if (options.length === 0) { this.validationModalOpen = false; return; }
+    this.validations = {
+      ...this.validations,
+      [`${this.selectedRow},${this.selectedCol}`]: { type: 'list', options }
+    };
+    // If cell has a value not in options, clear it
+    const cur = this.cells[this.selectedRow][this.selectedCol];
+    if (cur && !options.includes(cur)) this.cells[this.selectedRow][this.selectedCol] = '';
+    this.validationModalOpen = false;
+    this.onCellChange();
+    this.save();
+    this.showToast(`Dropdown set: ${options.length} options`);
+  }
+
+  removeValidation() {
+    const key = `${this.selectedRow},${this.selectedCol}`;
+    if (this.validations[key]) {
+      const v = { ...this.validations };
+      delete v[key];
+      this.validations = v;
+      this.onCellChange();
+      this.save();
+      this.showToast('Dropdown removed.');
+    }
   }
 
   toggleMenu(menu: string, e: Event) {
@@ -578,7 +1522,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.activeMenu = this.activeMenu === menu ? null : menu;
   }
 
-  closeMenus() { this.activeMenu = null; }
+  closeMenus() { this.activeMenu = null; this.profileOpen = false; }
 
   newDoc() {
     this.api.createDocument('Untitled spreadsheet', 'sheet')
@@ -645,7 +1589,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         const val = this.cells[r][c] || '';
         const content = val.startsWith('data:image')
           ? `<img src="${val}" style="max-width:120px;max-height:80px;object-fit:contain;">`
-          : val.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          : val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         tbody += `<td style="${s}">${content}</td>`;
       }
       tbody += '</tr>';
@@ -675,7 +1619,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   selectCell(r: number, c: number) {
     this.selectedRow = r; this.selectedCol = c;
-    this.formulaBarValue = this.isImageCell(r,c) ? '[IMAGE]' : this.cells[r][c];
+    this.formulaBarValue = this.isImageCell(r, c) ? '[IMAGE]' : this.cells[r][c];
     this.currentFont = this.getFormat('font') || 'Arial';
     this.currentSize = this.getFormat('size') || '13px';
     this.currentSizeNum = parseInt(this.currentSize, 10) || 13;
@@ -721,7 +1665,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.onCellChange();
   }
 
-  toggleFormat(key: 'bold' | 'italic' | 'strikethrough') {
+  toggleFormat(key: 'bold' | 'italic' | 'strikethrough' | 'underline') {
     const ref = `${this.selectedRow},${this.selectedCol}`;
     if (!this.formats[ref]) this.formats[ref] = {};
     (this.formats[ref] as any)[key] = !(this.formats[ref] as any)[key];
@@ -730,12 +1674,12 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.onCellChange();
   }
 
-  applyFont(font: string) { 
+  applyFont(font: string) {
     this.currentFont = font;
-    this.setFormat('font', font); 
+    this.setFormat('font', font);
     this.closeMenus();
   }
-  
+
   applySizeNum(size: number) {
     this.currentSizeNum = size;
     this.currentSize = size + 'px';
@@ -756,10 +1700,83 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  togglePalette(which: string, e: Event) { 
+  togglePalette(which: string, e: Event) {
     e.stopPropagation();
     this.activeMenu = null;
-    this.activePalette = this.activePalette === which ? null : which; 
+    this.activePalette = this.activePalette === which ? null : which;
+  }
+
+  // ── New view/format/edit helpers ─────────────────────────────────────────
+  selectAll() {
+    this.rangeStart = { r: 0, c: 0 };
+    this.rangeEnd = { r: ROWS - 1, c: COLS - 1 };
+    this.closeMenus();
+  }
+
+  clearAllFormats() {
+    const minR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const maxR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    const maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    this.pushHistory();
+    for (let r = minR; r <= maxR; r++)
+      for (let c = minC; c <= maxC; c++)
+        delete this.formats[`${r},${c}`];
+    this.formats = { ...this.formats };
+    this.onCellChange(); this.save();
+    this.closeMenus(); this.showToast('Formats cleared.');
+  }
+
+  clearAll() {
+    this.pushHistory();
+    const minR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const maxR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    const maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    for (let r = minR; r <= maxR; r++)
+      for (let c = minC; c <= maxC; c++) {
+        this.cells[r][c] = '';
+        delete this.formats[`${r},${c}`];
+      }
+    this.formats = { ...this.formats };
+    this.onCellChange(); this.save(); this.closeMenus();
+    this.showToast('Cleared all values and formats.');
+  }
+
+  freezeCol() {
+    this.frozenCols = !this.frozenCols;
+    this.closeMenus();
+    this.showToast(this.frozenCols ? 'First column frozen.' : 'Column unfrozen.');
+  }
+
+  toggleGridlines() { this.showGridlines = !this.showGridlines; this.closeMenus(); }
+  toggleFormulaBar() { this.showFormulaBar = !this.showFormulaBar; this.closeMenus(); }
+  toggleHeaders() { this.showHeaders = !this.showHeaders; this.closeMenus(); }
+
+  setZoom(pct: number) { this.zoomLevel = pct; this.closeMenus(); }
+
+  insertCheckbox() {
+    this.pushHistory();
+    this.cells[this.selectedRow][this.selectedCol] = 'FALSE';
+    this.onCellChange(); this.save(); this.closeMenus();
+    this.showToast('Checkbox inserted. Edit cell to toggle TRUE/FALSE.');
+  }
+
+  removeDuplicates() {
+    const c = this.selectedCol;
+    const seen = new Set<string>();
+    this.pushHistory();
+    let removed = 0;
+    for (let r = 0; r < ROWS; r++) {
+      const v = this.cells[r][c];
+      if (v === '') continue;
+      if (seen.has(v)) {
+        for (let cc = 0; cc < COLS; cc++) this.cells[r][cc] = '';
+        removed++;
+      } else seen.add(v);
+    }
+    this.onCellChange(); this.save(); this.closeMenus();
+    this.showToast(`Removed ${removed} duplicate row(s).`);
   }
 
   pushHistory() {
@@ -790,7 +1807,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   copyCell() {
     this.clipboard = this.cells[this.selectedRow][this.selectedCol];
-    navigator.clipboard.writeText(this.clipboard).catch(() => {});
+    navigator.clipboard.writeText(this.clipboard).catch(() => { });
     this.closeMenus();
     this.showToast(`Copied: "${this.clipboard}"`);
   }
@@ -866,7 +1883,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   deleteCol() {
     this.pushHistory();
     const c = this.selectedCol;
-    for (const row of this.cells) { 
+    for (const row of this.cells) {
       row.splice(c, 1);
       row.push(''); // Maintain column count
     }
@@ -931,6 +1948,58 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     alert('Keyboard Shortcuts:\n\nCtrl+Z  Undo\nCtrl+Y  Redo\nCtrl+B  Bold\nCtrl+I  Italic\nCtrl+K  Insert link\nTab     Next cell\nEnter   Next row\nDelete  Clear cell');
   }
 
+  openApp(route: string) {
+    if (route === 'account') {
+      window.open('https://myaccount.google.com/', '_blank'); // Mock account nav
+      return;
+    }
+    this.sidePanelApp = route;
+  }
+
+  getTasksDone(): number {
+    return this.tasks ? this.tasks.filter((t: any) => t.done).length : 0;
+  }
+
+  addTask() {
+    if (this.newTask.trim()) {
+      this.tasks.push({ text: this.newTask.trim(), done: false });
+      this.newTask = '';
+      this.save();
+    }
+  }
+
+  removeTask(i: number) {
+    this.tasks.splice(i, 1);
+    this.save();
+  }
+
+  closeSidePanel() {
+    this.sidePanelApp = null;
+    this.sidePanelUrl = null;
+  }
+
+  isDateLike(val: string): boolean {
+    if (!val) return false;
+    // Match common date patterns: YYYY-MM-DD, DD/MM/YYYY
+    return /^\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}$/.test(val) && !isNaN(Date.parse(val));
+  }
+
+  getDateValue(r: number, c: number): string {
+    const val = this.cells[r][c];
+    if (!val) return '';
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return '';
+    return d.toISOString().split('T')[0]; // Return strictly YYYY-MM-DD for native input
+  }
+
+  setDateValue(r: number, c: number, val: string) {
+    if (val) {
+      this.cells[r][c] = val; // Native date input provides YYYY-MM-DD
+      this.onCellChange();
+      this.save();
+    }
+  }
+
   trashDoc() {
     if (confirm('Move this spreadsheet to trash? This cannot be undone.')) {
       this.api.deleteDocument(this.docId).subscribe(() => this.router.navigate(['/']));
@@ -941,17 +2010,445 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   getCellStyle(r: number, c: number): Record<string, string> {
     const fmt = this.formats[`${r},${c}`];
     if (!fmt) return {};
-    
+
     const style: Record<string, string> = {};
     if (fmt.bold) style['font-weight'] = 'bold';
     if (fmt.italic) style['font-style'] = 'italic';
-    if (fmt.strikethrough) style['text-decoration'] = 'line-through';
+    const td: string[] = [];
+    if (fmt.strikethrough) td.push('line-through');
+    if (fmt.underline) td.push('underline');
+    if (td.length) style['text-decoration'] = td.join(' ');
     if (fmt.color) style['color'] = fmt.color;
     if (fmt.bg) style['background-color'] = fmt.bg;
     if (fmt.align) style['text-align'] = fmt.align;
+    if (fmt.vertAlign === 'top') style['vertical-align'] = 'top';
+    else if (fmt.vertAlign === 'middle') style['vertical-align'] = 'middle';
+    else if (fmt.vertAlign === 'bottom') style['vertical-align'] = 'bottom';
     if (fmt.font) style['font-family'] = fmt.font;
     if (fmt.size) style['font-size'] = fmt.size;
+    if (fmt.wrap) { style['white-space'] = 'normal'; style['word-break'] = 'break-word'; }
+    if (fmt.borders?.all) {
+      style['border-top'] = '1px solid #000';
+      style['border-bottom'] = '1px solid #000';
+      style['border-left'] = '1px solid #000';
+      style['border-right'] = '1px solid #000';
+    } else if (fmt.borders) {
+      if (fmt.borders.top) style['border-top'] = '1px solid #000';
+      if (fmt.borders.bottom) style['border-bottom'] = '1px solid #000';
+      if (fmt.borders.left) style['border-left'] = '1px solid #000';
+      if (fmt.borders.right) style['border-right'] = '1px solid #000';
+    }
     return style;
+  }
+
+  // ── Number formatting ─────────────────────────────────────────────────────
+  setNumFormat(fmt: 'currency' | 'percent' | 'number' | 'general') {
+    this.setFormat('numFormat', fmt);
+  }
+
+  increaseDecimals() {
+    const ref = `${this.selectedRow},${this.selectedCol}`;
+    if (!this.formats[ref]) this.formats[ref] = {};
+    this.formats[ref].decimals = (this.formats[ref].decimals ?? 0) + 1;
+    this.formats = { ...this.formats };
+    this.onCellChange();
+  }
+
+  decreaseDecimals() {
+    const ref = `${this.selectedRow},${this.selectedCol}`;
+    if (!this.formats[ref]) this.formats[ref] = {};
+    const cur = this.formats[ref].decimals ?? 0;
+    this.formats[ref].decimals = Math.max(0, cur - 1);
+    this.formats = { ...this.formats };
+    this.onCellChange();
+  }
+
+  private applyNumFormat(val: string, fmt: CellFormat): string {
+    const num = parseFloat(val);
+    if (isNaN(num)) return val;
+    const dec = fmt.decimals ?? (fmt.numFormat === 'currency' ? 2 : fmt.numFormat === 'percent' ? 1 : 0);
+    if (fmt.numFormat === 'currency') return '$' + num.toFixed(dec);
+    if (fmt.numFormat === 'percent') return (num * 100).toFixed(dec) + '%';
+    if (fmt.numFormat === 'number') return num.toFixed(dec);
+    return dec > 0 ? num.toFixed(dec) : val;
+  }
+
+  // ── Text wrap ────────────────────────────────────────────────────────────
+  toggleWrap() {
+    const ref = `${this.selectedRow},${this.selectedCol}`;
+    if (!this.formats[ref]) this.formats[ref] = {};
+    this.formats[ref].wrap = !this.formats[ref].wrap;
+    this.formats = { ...this.formats };
+    this.onCellChange();
+  }
+
+  // ── Merge cells ───────────────────────────────────────────────────────────
+  mergeCells() {
+    if (!this.rangeStart || !this.rangeEnd) { this.showToast('Select a range first.'); return; }
+    const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+    const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+    const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+    const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    if (minR === maxR && minC === maxC) { this.showToast('Select more than one cell to merge.'); return; }
+    this.pushHistory();
+    // Keep top-left value, clear others, mark merged
+    const topLeft = this.cells[minR][minC];
+    for (let r = minR; r <= maxR; r++)
+      for (let c = minC; c <= maxC; c++) {
+        if (r === minR && c === minC) { this.cells[r][c] = topLeft; continue; }
+        this.cells[r][c] = '';
+        // Mark non-primary cells as hidden by merge
+        const ref = `${r},${c}`;
+        if (!this.formats[ref]) this.formats[ref] = {};
+        (this.formats[ref] as any)['_mergedInto'] = `${minR},${minC}`;
+      }
+    const ref = `${minR},${minC}`;
+    if (!this.formats[ref]) this.formats[ref] = {};
+    (this.formats[ref] as any)['_mergeSpan'] = { rows: maxR - minR + 1, cols: maxC - minC + 1 };
+    this.formats = { ...this.formats };
+    this.onCellChange(); this.save();
+    this.showToast('Cells merged.');
+  }
+
+  unmerge() {
+    const ref = `${this.selectedRow},${this.selectedCol}`;
+    const span = (this.formats[ref] as any)?._mergeSpan;
+    if (!span) { this.showToast('No merged cell selected.'); return; }
+    this.pushHistory();
+    const minR = this.selectedRow, minC = this.selectedCol;
+    for (let r = minR; r < minR + span.rows; r++)
+      for (let c = minC; c < minC + span.cols; c++) {
+        const k = `${r},${c}`;
+        if (this.formats[k]) { delete (this.formats[k] as any)._mergedInto; delete (this.formats[k] as any)._mergeSpan; }
+      }
+    this.formats = { ...this.formats };
+    this.onCellChange(); this.save();
+    this.showToast('Cells unmerged.');
+  }
+
+  // ── Borders ───────────────────────────────────────────────────────────────
+  setBorders(type: 'all' | 'outer' | 'none') {
+    const minR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const maxR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    const maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    this.pushHistory();
+    for (let r = minR; r <= maxR; r++) {
+      for (let c = minC; c <= maxC; c++) {
+        const ref = `${r},${c}`;
+        if (!this.formats[ref]) this.formats[ref] = {};
+        if (type === 'none') { this.formats[ref].borders = {}; continue; }
+        if (type === 'all') { this.formats[ref].borders = { all: true }; continue; }
+        if (type === 'outer') {
+          this.formats[ref].borders = {
+            top: r === minR, bottom: r === maxR,
+            left: c === minC, right: c === maxC
+          };
+        }
+      }
+    }
+    this.formats = { ...this.formats };
+    this.onCellChange(); this.save();
+    this.showToast('Borders applied.');
+  }
+
+  // ── Fill Down / Fill Right ─────────────────────────────────────────────────
+  fillDown() {
+    if (!this.rangeStart || !this.rangeEnd) return;
+    const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+    const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+    const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+    const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    this.pushHistory();
+    for (let c = minC; c <= maxC; c++)
+      for (let r = minR + 1; r <= maxR; r++)
+        this.cells[r][c] = this.cells[minR][c];
+    this.onCellChange(); this.save();
+    this.showToast('Filled down.');
+  }
+
+  fillRight() {
+    if (!this.rangeStart || !this.rangeEnd) return;
+    const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+    const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+    const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+    const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    this.pushHistory();
+    for (let r = minR; r <= maxR; r++)
+      for (let c = minC + 1; c <= maxC; c++)
+        this.cells[r][c] = this.cells[r][minC];
+    this.onCellChange(); this.save();
+    this.showToast('Filled right.');
+  }
+
+  // ── Find & Replace ────────────────────────────────────────────────────────
+  openFind() { this.findModalOpen = true; this.findQuery = ''; this.replaceQuery = ''; this.findStatus = ''; }
+
+  private buildFindMatches() {
+    this.findMatches = [];
+    if (!this.findQuery) return;
+    const q = this.findQuery.toLowerCase();
+    for (let r = 0; r < ROWS; r++)
+      for (let c = 0; c < COLS; c++)
+        if (this.cells[r][c].toLowerCase().includes(q))
+          this.findMatches.push({ r, c });
+  }
+
+  findNext() {
+    this.buildFindMatches();
+    if (!this.findMatches.length) { this.findStatus = 'No matches found.'; return; }
+    this.findMatchIdx = (this.findMatchIdx + 1) % this.findMatches.length;
+    const m = this.findMatches[this.findMatchIdx];
+    this.selectCell(m.r, m.c);
+    this.findStatus = `Match ${this.findMatchIdx + 1} of ${this.findMatches.length}`;
+  }
+
+  findAll() {
+    this.buildFindMatches();
+    if (!this.findMatches.length) { this.findStatus = 'No matches found.'; return; }
+    // Select entire range of matches
+    const rows = this.findMatches.map(m => m.r), cols = this.findMatches.map(m => m.c);
+    this.rangeStart = { r: Math.min(...rows), c: Math.min(...cols) };
+    this.rangeEnd = { r: Math.max(...rows), c: Math.max(...cols) };
+    this.findStatus = `Found ${this.findMatches.length} matches.`;
+  }
+
+  replaceOne() {
+    this.buildFindMatches();
+    if (!this.findMatches.length) { this.findStatus = 'No matches found.'; return; }
+    this.findMatchIdx = (this.findMatchIdx + 1) % this.findMatches.length;
+    const m = this.findMatches[this.findMatchIdx];
+    this.pushHistory();
+    const q = new RegExp(this.findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    this.cells[m.r][m.c] = this.cells[m.r][m.c].replace(q, this.replaceQuery);
+    this.onCellChange(); this.save();
+    this.findStatus = `Replaced 1 instance.`;
+  }
+
+  replaceAll() {
+    this.buildFindMatches();
+    if (!this.findMatches.length) { this.findStatus = 'No matches found.'; return; }
+    this.pushHistory();
+    const q = new RegExp(this.findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    let count = 0;
+    for (const m of this.findMatches) {
+      this.cells[m.r][m.c] = this.cells[m.r][m.c].replace(q, this.replaceQuery);
+      count++;
+    }
+    this.findMatches = []; this.findMatchIdx = -1;
+    this.onCellChange(); this.save();
+    this.findStatus = `Replaced ${count} instances.`;
+  }
+
+  // ── Multiple Sheets ───────────────────────────────────────────────────────
+  private saveCurrentSheet() {
+    this.sheets[this.currentSheetIdx] = {
+      name: this.sheets[this.currentSheetIdx].name,
+      cells: this.cells.map(row => [...row]),
+      formats: { ...this.formats },
+      validations: { ...this.validations }
+    };
+  }
+
+  switchSheet(idx: number) {
+    if (idx === this.currentSheetIdx) return;
+    this.saveCurrentSheet();
+    this.currentSheetIdx = idx;
+    const s = this.sheets[idx];
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) this.cells[r][c] = s.cells[r]?.[c] ?? '';
+    this.formats = { ...s.formats };
+    this.validations = { ...s.validations };
+    this.rangeStart = null; this.rangeEnd = null;
+    this.selectedRow = 0; this.selectedCol = 0;
+    this.formulaBarValue = '';
+  }
+
+  addSheet() {
+    this.saveCurrentSheet();
+    const n = this.sheets.length + 1;
+    this.sheets.push({
+      name: `Sheet${n}`,
+      cells: Array.from({ length: ROWS }, () => Array(COLS).fill('')),
+      formats: {}, validations: {}
+    });
+    this.switchSheet(this.sheets.length - 1);
+    this.save();
+  }
+
+  renameSheet(idx: number) {
+    const cur = this.sheets[idx].name;
+    const name = window.prompt('Rename sheet:', cur);
+    if (name && name.trim()) { this.sheets[idx] = { ...this.sheets[idx], name: name.trim() }; this.save(); }
+  }
+
+  deleteSheet(idx: number) {
+    if (this.sheets.length <= 1) { this.showToast('Cannot delete the only sheet.'); return; }
+    if (!window.confirm(`Delete "${this.sheets[idx].name}"?`)) return;
+    this.sheets.splice(idx, 1);
+    this.currentSheetIdx = Math.min(this.currentSheetIdx, this.sheets.length - 1);
+    this.switchSheet(this.currentSheetIdx);
+    this.save();
+  }
+
+  // ── Formula Engine ────────────────────────────────────────────────────────
+  private evalCell(r: number, c: number, visited = new Set<string>()): string {
+    const raw = this.cells[r][c];
+    if (!raw || !raw.startsWith('=')) {
+      const fmt = this.formats[`${r},${c}`];
+      if (fmt?.numFormat && raw !== '') return this.applyNumFormat(raw, fmt);
+      return raw;
+    }
+    const key = `${r},${c}`;
+    if (visited.has(key)) return '#CIRCULAR!';
+    visited.add(key);
+    try { return String(this.evalExpr(raw.slice(1).trim().toUpperCase(), visited)); }
+    catch { return '#ERROR!'; }
+  }
+
+  private getCellVal(ref: string, visited: Set<string>): number | string {
+    const m = ref.match(/^([A-Z]+)(\d+)$/);
+    if (!m) return 0;
+    const c = m[1].charCodeAt(0) - 65, r = parseInt(m[2]) - 1;
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return 0;
+    const v = this.evalCell(r, c, new Set(visited));
+    return v === '' ? 0 : (isNaN(Number(v)) ? v : Number(v));
+  }
+
+  private getRangeVals(range: string, visited: Set<string>): (number | string)[] {
+    const m = range.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+    if (!m) return [];
+    const c1 = m[1].charCodeAt(0) - 65, r1 = parseInt(m[2]) - 1;
+    const c2 = m[3].charCodeAt(0) - 65, r2 = parseInt(m[4]) - 1;
+    const vals: (number | string)[] = [];
+    for (let r = Math.min(r1, r2); r <= Math.max(r1, r2); r++)
+      for (let c = Math.min(c1, c2); c <= Math.max(c1, c2); c++)
+        vals.push(this.getCellVal(String.fromCharCode(65 + c) + (r + 1), visited));
+    return vals;
+  }
+
+  private evalExpr(expr: string, visited: Set<string>): number | string {
+    // Functions
+    const fnMatch = expr.match(/^(SUM|AVERAGE|AVG|COUNT|COUNTA|MAX|MIN|IF|AND|OR|CONCATENATE|CONCAT|LEN|UPPER|LOWER|TRIM|LEFT|RIGHT|MID|ROUND|ABS|MOD|SQRT|POWER|TEXT|TODAY|NOW|ISNUMBER|ISBLANK)\((.*)\)$/);
+    if (fnMatch) {
+      const fn = fnMatch[1], args = this.parseArgs(fnMatch[2]);
+      // Resolve each arg: either a range, cell ref, string literal, or number
+      const resolve = (a: string): (number | string)[] => {
+        const t = a.trim();
+        if (/^[A-Z]+\d+:[A-Z]+\d+$/.test(t)) return this.getRangeVals(t, visited);
+        if (/^[A-Z]+\d+$/.test(t)) return [this.getCellVal(t, visited)];
+        if (/^".*"$/.test(t)) return [t.slice(1, -1)];
+        return [this.evalExpr(t, visited)];
+      };
+      const flatArgs = args.flatMap(a => resolve(a.trim().toUpperCase()));
+      const nums = flatArgs.filter(v => typeof v === 'number' || !isNaN(Number(v))).map(Number);
+      switch (fn) {
+        case 'SUM': return nums.reduce((a, b) => a + b, 0);
+        case 'AVERAGE': case 'AVG': return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
+        case 'COUNT': return nums.length;
+        case 'COUNTA': return flatArgs.filter(v => v !== '' && v !== 0).length;
+        case 'MAX': return nums.length ? Math.max(...nums) : 0;
+        case 'MIN': return nums.length ? Math.min(...nums) : 0;
+        case 'ABS': return Math.abs(nums[0] ?? 0);
+        case 'ROUND': return Math.round((nums[0] ?? 0) * Math.pow(10, nums[1] ?? 0)) / Math.pow(10, nums[1] ?? 0);
+        case 'SQRT': return Math.sqrt(nums[0] ?? 0);
+        case 'MOD': return (nums[0] ?? 0) % (nums[1] ?? 1);
+        case 'POWER': return Math.pow(nums[0] ?? 0, nums[1] ?? 1);
+        case 'LEN': return String(flatArgs[0] ?? '').length;
+        case 'UPPER': return String(flatArgs[0] ?? '').toUpperCase();
+        case 'LOWER': return String(flatArgs[0] ?? '').toLowerCase();
+        case 'TRIM': return String(flatArgs[0] ?? '').trim();
+        case 'LEFT': return String(flatArgs[0] ?? '').slice(0, nums[1] ?? 1);
+        case 'RIGHT': return String(flatArgs[0] ?? '').slice(-(nums[1] ?? 1));
+        case 'MID': return String(flatArgs[0] ?? '').slice((nums[1] ?? 1) - 1, (nums[1] ?? 1) - 1 + (nums[2] ?? 1));
+        case 'CONCATENATE': case 'CONCAT': return flatArgs.map(String).join('');
+        case 'TODAY': return new Date().toLocaleDateString();
+        case 'NOW': return new Date().toLocaleString();
+        case 'ISNUMBER': return !isNaN(Number(flatArgs[0])) ? 'TRUE' : 'FALSE';
+        case 'ISBLANK': return flatArgs[0] === '' ? 'TRUE' : 'FALSE';
+        case 'IF': {
+          const rawCond = args[0]?.trim().toUpperCase() ?? '';
+          let cond: any = false;
+          try { cond = this.evalExpr(rawCond, visited); } catch { cond = false; }
+          const truthy = cond === 'TRUE' || (typeof cond === 'number' && cond !== 0) || cond === true;
+          const branch = args[truthy ? 1 : 2]?.trim() ?? '';
+          if (/^".*"$/.test(branch)) return branch.slice(1, -1);
+          try { return this.evalExpr(branch.toUpperCase(), visited); } catch { return branch; }
+        }
+        case 'AND': return flatArgs.every(v => v === 'TRUE' || (typeof v === 'number' && v !== 0)) ? 'TRUE' : 'FALSE';
+        case 'OR': return flatArgs.some(v => v === 'TRUE' || (typeof v === 'number' && v !== 0)) ? 'TRUE' : 'FALSE';
+        case 'TEXT': return String(flatArgs[0] ?? '');
+      }
+    }
+    // Comparison operators
+    for (const op of ['>=', '<=', '<>', '!=', '>', '<', '=']) {
+      const idx = expr.indexOf(op);
+      if (idx > 0) {
+        const lv = this.evalExpr(expr.slice(0, idx).trim(), visited);
+        const rv = this.evalExpr(expr.slice(idx + op.length).trim(), visited);
+        const ln = Number(lv), rn = Number(rv);
+        const ls = String(lv), rs = String(rv);
+        const cmp = !isNaN(ln) && !isNaN(rn) ? ln - rn : ls.localeCompare(rs);
+        if (op === '>=') return cmp >= 0 ? 'TRUE' : 'FALSE';
+        if (op === '<=') return cmp <= 0 ? 'TRUE' : 'FALSE';
+        if (op === '<>' || op === '!=') return cmp !== 0 ? 'TRUE' : 'FALSE';
+        if (op === '>') return cmp > 0 ? 'TRUE' : 'FALSE';
+        if (op === '<') return cmp < 0 ? 'TRUE' : 'FALSE';
+        if (op === '=') return cmp === 0 ? 'TRUE' : 'FALSE';
+      }
+    }
+    // String concat with &
+    if (expr.includes('&')) {
+      return expr.split('&').map(p => {
+        const t = p.trim();
+        if (/^".*"$/.test(t)) return t.slice(1, -1);
+        if (/^[A-Z]+\d+$/.test(t)) return String(this.getCellVal(t, visited));
+        try { return String(this.evalExpr(t, visited)); } catch { return t; }
+      }).join('');
+    }
+    // Arithmetic: +, -, *, /  (right-to-left for +/- to handle precedence)
+    const arithParts = expr.match(/([+\-*/^])/);
+    if (arithParts) {
+      // Simple tokenizer for arithmetic
+      const tokens = expr.split(/([+\-*/^])/);
+      if (tokens.length >= 3) {
+        const vals = tokens.filter((_, i) => i % 2 === 0).map(t => {
+          const tt = t.trim();
+          if (/^[A-Z]+\d+$/.test(tt)) return Number(this.getCellVal(tt, visited));
+          if (/^".*"$/.test(tt)) return NaN;
+          return Number(this.evalExpr(tt, visited));
+        });
+        const ops = tokens.filter((_, i) => i % 2 === 1);
+        let result = vals[0];
+        for (let i = 0; i < ops.length; i++) {
+          if (ops[i] === '+') result += vals[i + 1];
+          else if (ops[i] === '-') result -= vals[i + 1];
+          else if (ops[i] === '*') result *= vals[i + 1];
+          else if (ops[i] === '/') result = vals[i + 1] !== 0 ? result / vals[i + 1] : Infinity;
+          else if (ops[i] === '^') result = Math.pow(result, vals[i + 1]);
+        }
+        return isNaN(result) ? '#VALUE!' : result;
+      }
+    }
+    // Cell reference
+    if (/^[A-Z]+\d+$/.test(expr)) return this.getCellVal(expr, visited);
+    // String literal
+    if (/^".*"$/.test(expr)) return expr.slice(1, -1);
+    // Plain number
+    if (!isNaN(Number(expr))) return Number(expr);
+    return '#VALUE!';
+  }
+
+  private parseArgs(argsStr: string): string[] {
+    const args: string[] = [];
+    let depth = 0, cur = '';
+    for (const ch of argsStr) {
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      else if (ch === ',' && depth === 0) { args.push(cur); cur = ''; continue; }
+      cur += ch;
+    }
+    if (cur) args.push(cur);
+    return args;
   }
 
   // --- Sync Engine ---
@@ -965,7 +2462,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     for (let r = 0; r < ROWS; r++)
       for (let c = 0; c < COLS; c++)
         if (this.cells[r][c]) { if (!s[r]) s[r] = {}; s[r][c] = this.cells[r][c]; }
-    
+
     // Cleanup empty formats before saving
     const cleanFormats: Record<string, CellFormat> = {};
     Object.keys(this.formats).forEach(k => {
@@ -975,7 +2472,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       }
     });
 
-    return { cells: s, formats: cleanFormats };
+    return {
+      cells: s,
+      formats: cleanFormats,
+      validations: this.validations,
+      calendarNotes: this.calendarNotes,
+      globalNotes: this.globalNotes,
+      tasks: this.tasks
+    };
   }
 
   save() {
@@ -1036,7 +2540,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       return;
     }
     const max = Math.max(...vals, 1);
-    const colors = ['#4285f4','#ea4335','#fbbc04','#34a853','#673ab7','#ff9800','#00bcd4','#e91e63','#8bc34a','#795548'];
+    const colors = ['#4285f4', '#ea4335', '#fbbc04', '#34a853', '#673ab7', '#ff9800', '#00bcd4', '#e91e63', '#8bc34a', '#795548'];
     const bw = 36; const gh = 160; const gw = vals.length * (bw + 8) + 20;
     let svg = `<svg width="${gw}" height="${gh + 40}" xmlns="http://www.w3.org/2000/svg" style="background:#fff;border:1px solid #e0e0e0;border-radius:4px;">`;
     vals.forEach((v, i) => {
@@ -1044,7 +2548,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       const x = 10 + i * (bw + 8);
       const y = gh - h + 10;
       svg += `<rect x="${x}" y="${y}" width="${bw}" height="${h}" fill="${colors[i % colors.length]}" rx="2"/>`;
-      svg += `<text x="${x + bw/2}" y="${y - 4}" font-size="10" text-anchor="middle" fill="#555">${v}</text>`;
+      svg += `<text x="${x + bw / 2}" y="${y - 4}" font-size="10" text-anchor="middle" fill="#555">${v}</text>`;
     });
     svg += '</svg>';
     const encoded = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
@@ -1053,7 +2557,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     // Open in new window as a preview
     const win = window.open('', '_blank', 'width=600,height=400');
     if (win) {
-      win.document.write(`<html><body style="margin:20px;font-family:sans-serif;"><h3>Chart preview — Column ${String.fromCharCode(65+col)}</h3>${svg}<p style="color:#888;font-size:13px;">Close this window when done.</p></body></html>`);
+      win.document.write(`<html><body style="margin:20px;font-family:sans-serif;"><h3>Chart preview — Column ${String.fromCharCode(65 + col)}</h3>${svg}<p style="color:#888;font-size:13px;">Close this window when done.</p></body></html>`);
     }
   }
 

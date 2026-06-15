@@ -3,23 +3,32 @@ from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
-load_dotenv()
+load_dotenv(override=True)
 
-DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
-DB_PORT = os.getenv("DB_PORT", "3306")
-DB_NAME = os.getenv("DB_NAME", "gdocsheet")
-DB_USER = os.getenv("DB_USER", "root")
-DB_PASS = os.getenv("DB_PASS", "")
+# ── Connects to the VMAIL database ──────────────────────────
+# GDoc has no separate DB — all tables (documents, document_shares)
+# live inside the vmail DB alongside users, mails, etc.
+DB_HOST = os.getenv("DB_HOST", "74.225.249.46")
+DB_PORT = os.getenv("DB_PORT", "3307")
+DB_NAME = os.getenv("DB_NAME", "vmail")
+DB_USER = os.getenv("DB_USER", "chat_bot")
+DB_PASS = os.getenv("DB_PASSWORD", "password")
 
-DATABASE_URL = f"mysql+aiomysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
+DATABASE_URL = (
+    f"mysql+aiomysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
+)
 
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    pool_size=20,        # keep 20 connections open
-    max_overflow=80,     # allow up to 100 total (handles 1000 users via FastAPI async)
-    pool_recycle=3600,   # recycle connections every hour (prevents MySQL timeout drops)
-    pool_pre_ping=True,  # test connection before using (auto-reconnect on drop)
+    pool_size=20,
+    max_overflow=80,
+    pool_recycle=300,
+    pool_timeout=15,
+    pool_pre_ping=True,
+    connect_args={
+        "connect_timeout": 10
+    }
 )
 
 SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
