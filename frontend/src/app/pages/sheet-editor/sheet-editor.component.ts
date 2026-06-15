@@ -28,9 +28,14 @@ export interface CellFormat {
   borders?: { top?: boolean; bottom?: boolean; left?: boolean; right?: boolean; all?: boolean };
 }
 
+export interface DropdownOption {
+  label: string;
+  color?: string;
+}
+
 export interface CellValidation {
   type: 'list';
-  options: string[];
+  options: (string | DropdownOption)[];
 }
 
 @Component({
@@ -57,7 +62,20 @@ export interface CellValidation {
           </div>
           <div class="doc-sec">
             <input class="doc-title" [(ngModel)]="title" (blur)="save()" placeholder="Untitled spreadsheet"/>
-            <div class="doc-sub">&#9733; &#128196; <span style="margin-left:4px;opacity:.6;font-size:11px;">Saved</span></div>
+                        <div class="doc-sub" style="display:flex;align-items:center;gap:4px;">
+              <span class="material-symbols-outlined" style="font-size:14px;cursor:pointer;">star</span>
+              <span class="material-symbols-outlined" style="font-size:14px;cursor:pointer;">create_new_folder</span>
+              <div style="display:flex;align-items:center;gap:2px;margin-left:4px;opacity:.8;font-size:11px;">
+                <span *ngIf="saveStatus==='saving'" class="material-symbols-outlined" style="font-size:13px;animation:spin 1s linear infinite;">sync</span>
+                <span *ngIf="saveStatus==='saving'" style="font-style:italic;">Saving...</span>
+                
+                <span *ngIf="saveStatus==='saved'" class="material-symbols-outlined" style="font-size:13px;color:#34a853;">check_circle</span>
+                <span *ngIf="saveStatus==='saved'">Saved</span>
+                
+                <span *ngIf="saveStatus==='error'" class="material-symbols-outlined" style="font-size:13px;color:#ea4335;">error</span>
+                <span *ngIf="saveStatus==='error'">Failed to save</span>
+              </div>
+            </div>
           </div>
         </div>
         <div class="tr">
@@ -94,17 +112,64 @@ export interface CellValidation {
       <!-- ═══ MENU BAR ══════════════════════════════════════════════════════ -->
       <div class="menu-row" (mousedown)="$event.preventDefault()">
         <div class="mi" (click)="toggleMenu('file',$event)" [class.mi-open]="activeMenu==='file'">File
-          <div class="mdd" *ngIf="activeMenu==='file'">
-            <div class="mdi" (click)="newDoc()">New<span class="mh">Ctrl+N</span></div>
+                    <div class="mdd" *ngIf="activeMenu==='file'">
+            <div class="mdi" (click)="newDoc()"><span class="mdi-icon material-symbols-outlined">grid_view</span>New Spreadsheet<span class="mh">Ctrl+N</span></div>
+            <div class="mdi" (click)="openFeatureModal('template')"><span class="mdi-icon material-symbols-outlined">dashboard_customize</span>New from Template...</div>
+            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">folder_open</span>Open<span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+               <div class="mdi-sub">
+                 <div class="mdi" (click)="openFeatureModal('open')">From Vmail Drive</div>
+                 <div class="mdi" (click)="openFeatureModal('import')">From Computer</div>
+               </div>
+            </div>
+            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">upload_file</span>Import<span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+               <div class="mdi-sub">
+                 <div class="mdi" (click)="openFeatureModal('import')">Upload File</div>
+               </div>
+            </div>
             <div class="mds"></div>
-            <div class="mdi" (click)="save()">Save<span class="mh">Ctrl+S</span></div>
-            <div class="mdi" (click)="exportFile('csv')">Download as CSV</div>
-            <div class="mdi" (click)="exportFile('xlsx')">Download as XLSX</div>
-            <div class="mdi" (click)="printSheet()">Print<span class="mh">Ctrl+P</span></div>
+            <div class="mdi" (click)="triggerCopy()"><span class="mdi-icon material-symbols-outlined">content_copy</span>Make a Copy...</div>
+            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">save</span>Save as<span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+               <div class="mdi-sub">
+                 <div class="mdi" (click)="save()"><span class="mdi-icon material-symbols-outlined">save</span>Save now<span class="mh">Ctrl+S</span></div>
+               </div>
+            </div>
+                        <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">download</span>Download as<span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+               <div class="mdi-sub">
+                 <div class="mdi" (click)="exportFile('xlsx')">MS Excel Workbook<span class="mh">.xlsx</span></div>
+                 <div class="mdi" (click)="exportFile('xlsx')">MS Excel Binary Workbook<span class="mh">.xlsb</span></div>
+                 <div class="mdi" (click)="exportFile('xlsx')">Open Office Spreadsheet<span class="mh">.ods</span></div>
+                 <div class="mdi" (click)="exportFile('csv')">Comma Separated Values<span class="mh">.csv</span></div>
+                 <div class="mdi" (click)="exportFile('tsv')">Tab Separated Values<span class="mh">.tsv</span></div>
+                 <div class="mdi" (click)="exportFile('csv')">PDF Document<span class="mh">.pdf</span></div>
+                 <div class="mdi" (click)="exportFile('csv')">HTML Document<span class="mh">.zip</span></div>
+               </div>
+            </div>
             <div class="mds"></div>
-            <div class="mdi" (click)="shareModalOpen=true;closeMenus()">Share...</div>
+            <div class="mdi" (click)="openFeatureModal('password')"><span class="mdi-icon material-symbols-outlined">lock</span>Password Protected File...</div>
+            <div class="mdi" (click)="shareModalOpen=true;closeMenus()"><span class="mdi-icon material-symbols-outlined">mail</span>Email As Attachment...</div>
             <div class="mds"></div>
-            <div class="mdi danger" (click)="trashDoc()">Move to Trash</div>
+            <div class="mdi" (click)="openFeatureModal('move')"><span class="mdi-icon material-symbols-outlined">drive_file_move</span>Move...</div>
+            <div class="mdi" (click)="triggerRename()"><span class="mdi-icon material-symbols-outlined">drive_file_rename_outline</span>Rename...</div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="openFeatureModal('audit')"><span class="mdi-icon material-symbols-outlined">history</span>Audit Trail...</div>
+            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">update</span>Version<span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+               <div class="mdi-sub">
+                 <div class="mdi" (click)="openFeatureModal('version')">Version History</div>
+               </div>
+            </div>
+            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">schema</span>Workflow<span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+               <div class="mdi-sub">
+                 <div class="mdi" (click)="openFeatureModal('workflow')">Manage Workflows</div>
+               </div>
+            </div>
+            <div class="mds"></div>
+            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">share</span>Share<span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+               <div class="mdi-sub">
+                 <div class="mdi" (click)="shareModalOpen=true;closeMenus()"><span class="mdi-icon material-symbols-outlined">person_add</span>Share with collaborators</div>
+                 <div class="mdi" (click)="shareModalOpen=true;closeMenus()"><span class="mdi-icon material-symbols-outlined">link</span>Publish to web</div>
+               </div>
+            </div>
+            <div class="mdi danger" (click)="trashDoc()"><span class="mdi-icon material-symbols-outlined" style="color:inherit">delete</span>Move to Trash</div>
           </div>
         </div>
         <div class="mi" (click)="toggleMenu('edit',$event)" [class.mi-open]="activeMenu==='edit'">Edit
@@ -358,7 +423,8 @@ export interface CellValidation {
         <span class="cell-ref">{{ selectedRef }}</span>
         <span class="fx-label">fx</span>
         <input class="formula-bar" [(ngModel)]="formulaBarValue"
-          (keydown.enter)="commitFormula()" (blur)="commitFormula()" placeholder="" />
+            (ngModelChange)="cells[selectedRow][selectedCol] = $event"
+            (keydown.enter)="commitFormula()" (blur)="commitFormula()" placeholder="" />
       </div>
 
       <!-- Hidden image file input -->
@@ -372,12 +438,13 @@ export interface CellValidation {
               <th class="corner" (click)="clearHeaderSelection()"></th>
               <th *ngFor="let c of colRange" class="col-head"
                 [class.col-selected]="isColHeaderSelected(c)"
+                (contextmenu)="onHeaderRightClick($event, 'col', c)"
                 (click)="selectEntireCol(c)">{{ colLabel(c) }}</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let r of rowRange">
-              <td class="row-head" [class.row-selected]="isRowHeaderSelected(r)" (click)="selectEntireRow(r)">{{ r + 1 }}</td>
+              <td class="row-head" [class.row-selected]="isRowHeaderSelected(r)" (contextmenu)="onHeaderRightClick($event, 'row', r)" (click)="selectEntireRow(r)">{{ r + 1 }}</td>
               <td *ngFor="let c of colRange" class="cell"
                 [class.selected]="isCellSelected(r, c)"
                 [class.in-range]="isCellInRange(r, c)"
@@ -388,18 +455,25 @@ export interface CellValidation {
                 (mouseenter)="onCellMouseEnter(r, c)"
                 (contextmenu)="onCellRightClick($event, r, c)"
                 (click)="selectCell(r, c)">
-                <ng-container *ngIf="isImageCell(r, c); else textCell">
-                  <img [src]="cells[r][c]" style="max-width:100%;max-height:80px;object-fit:contain;display:block;" (click)="selectCell(r,c)">
-                </ng-container>
+                                  <ng-container *ngIf="isImageCell(r, c); else textCell">
+                    <img [src]="cells[r][c]" style="max-width:100%;max-height:80px;object-fit:contain;display:block;cursor:zoom-in;" 
+(click)="selectCell(r,c)" (dblclick)="previewImageUrl = cells[r][c]">
+                  </ng-container>
                 <ng-template #textCell>
                   <ng-container *ngIf="hasCellDropdown(r, c); else plainInput">
                     <select class="cell-select"
-                      [(ngModel)]="cells[r][c]"
-                      (focus)="selectCell(r, c)"
+                        [(ngModel)]="cells[r][c]"
+                        (ngModelChange)="formulaBarValue = $event"
+                        (focus)="selectCell(r, c)"
                       (change)="onCellChange(); save()"
-                      (click)="$event.stopPropagation()">
+                      (click)="$event.stopPropagation()"
+                      [style.backgroundColor]="getDropdownColor(r, c, cells[r][c]) || 'transparent'"
+                      [style.color]="getDropdownColor(r, c, cells[r][c]) ? '#fff' : 'inherit'"
+                      style="appearance:none; border:none; outline:none; font-family:inherit; font-size:inherit; border-radius:0; padding:0 20px 0 4px; width:100%; height:100%; cursor:pointer; box-sizing:border-box; background-image: url('data:image/svg+xml;utf8,<svg fill=%22%23666%22 height=%2224%22 viewBox=%220 0 24 24%22 width=%2224%22 xmlns=%22http://www.w3.org/2000/svg%22><path d=%22M7 10l5 5 5-5z%22/></svg>'); background-repeat: no-repeat; background-position-x: calc(100% - 2px); background-position-y: center;">
                       <option value=""></option>
-                      <option *ngFor="let opt of getCellDropdownOptions(r, c)" [value]="opt">{{ opt }}</option>
+                      <option *ngFor="let opt of getCellDropdownOptions(r, c)" [value]="$any(opt).label || opt" [style.background]="$any(opt).color || '#fff'" [style.color]="$any(opt).color ? '#fff' : '#000'">
+                        {{ $any(opt).label || opt }}
+                      </option>
                     </select>
                   </ng-container>
                   <ng-template #plainInput>
@@ -412,10 +486,11 @@ export interface CellValidation {
                       (keydown.tab)="onTab($any($event), r, c)"
                       (keydown.enter)="onEnter($any($event), r, c)" />
                     <ng-template #textInput>
-                      <input class="cell-input" [(ngModel)]="cells[r][c]"
-                        (focus)="selectCell(r, c)"
-                        (change)="onCellChange()"
-                        (blur)="save()"
+                        <input class="cell-input" [(ngModel)]="cells[r][c]"
+                          (ngModelChange)="formulaBarValue = $event"
+                          (focus)="selectCell(r, c)"
+                          (change)="onCellChange()"
+                          (blur)="save()"
                         (keydown.tab)="onTab($any($event), r, c)"
                         (keydown.enter)="onEnter($any($event), r, c)" />
                     </ng-template>
@@ -545,45 +620,106 @@ export interface CellValidation {
 
       <div class="toast" [class.show]="toastVisible">{{ toastMsg }}</div>
 
-      <!-- Right-click Context Menu -->
-      <div class="ctx-menu" *ngIf="ctxVisible" [style.left.px]="ctxX" [style.top.px]="ctxY" (click)="$event.stopPropagation()">
-        <div class="ctx-item" (click)="cutCell(); hideCtx()"><span class="ctx-icon">✂</span> Cut <span class="ctx-hint">Ctrl+X</span></div>
-        <div class="ctx-item" (click)="copyCell(); hideCtx()"><span class="ctx-icon">⎘</span> Copy <span class="ctx-hint">Ctrl+C</span></div>
-        <div class="ctx-item" (click)="pasteCell(); hideCtx()"><span class="ctx-icon">📋</span> Paste <span class="ctx-hint">Ctrl+V</span></div>
-        <div class="ctx-sep"></div>
-        <div class="ctx-item" (click)="insertRowAbove(); hideCtx()"><span class="ctx-icon">+</span> Insert row above</div>
-        <div class="ctx-item" (click)="insertRowBelow(); hideCtx()"><span class="ctx-icon">+</span> Insert row below</div>
-        <div class="ctx-item" (click)="insertColLeft(); hideCtx()"><span class="ctx-icon">+</span> Insert column left</div>
-        <div class="ctx-item" (click)="insertColRight(); hideCtx()"><span class="ctx-icon">+</span> Insert column right</div>
-        <div class="ctx-sep"></div>
-        <div class="ctx-item danger" (click)="deleteRow(); hideCtx()"><span class="ctx-icon">🗑</span> Delete row</div>
-        <div class="ctx-item danger" (click)="deleteCol(); hideCtx()"><span class="ctx-icon">🗑</span> Delete column</div>
-        <div class="ctx-item danger" (click)="clearRangeData(); hideCtx()"><span class="ctx-icon">⌫</span> Clear selection</div>
-        <div class="ctx-sep"></div>
-        <div class="ctx-item" (click)="openValidationModal(); hideCtx()"><span class="ctx-icon">🗒</span> Set dropdown list...</div>
-        <div class="ctx-item danger" *ngIf="hasCellDropdown(selectedRow, selectedCol)" (click)="removeValidation(); hideCtx()"><span class="ctx-icon">❌</span> Remove dropdown</div>
-        <div class="ctx-sep"></div>
-        <div class="ctx-item" (click)="sortColAZ(); hideCtx()"><span class="ctx-icon">↑</span> Sort A → Z</div>
-        <div class="ctx-item" (click)="sortColZA(); hideCtx()"><span class="ctx-icon">↓</span> Sort Z → A</div>
-      </div>
-
-      <!-- Validation / Dropdown Modal -->
-      <div class="modal-overlay" *ngIf="validationModalOpen" (click)="validationModalOpen = false">
-        <div class="modal" (click)="$event.stopPropagation()" style="width:420px;">
-          <button (click)="validationModalOpen = false" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#5f6368;">&#x00D7;</button>
-          <h3 style="margin-top:0;color:#202124;font-size:16px;">🗒 Set Dropdown List</h3>
-          <p style="color:#5f6368;font-size:13px;margin-bottom:12px;">Enter the dropdown options, one per line (or comma-separated):</p>
-          <textarea class="validation-textarea" [(ngModel)]="validationInput" rows="6"
-            placeholder="e.g.&#10;Closed&#10;New&#10;Fixed&#10;Reopened"></textarea>
-          <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end;">
-            <button class="btn outline" (click)="validationModalOpen = false">Cancel</button>
-            <button class="btn" (click)="saveValidation()">Apply</button>
+            <!-- Image Preview Modal -->
+      <div *ngIf="previewImageUrl" class="modal-overlay" (click)="previewImageUrl = null" style="z-index: 10000; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center;">
+        <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+          <img [src]="previewImageUrl" style="max-width: 100%; max-height: 90vh; object-fit: contain; box-shadow: 0 4px 20px rgba(0,0,0,0.5); border-radius: 4px;" (click)="$event.stopPropagation()">
+          <div class="mdi" style="position: absolute; top: -40px; right: 0; color: white; cursor: pointer; font-size: 24px;" (click)="previewImageUrl = null">
+            <span class="material-symbols-outlined">close</span>
           </div>
         </div>
       </div>
 
-      <!-- Share Modal -->
-      <div class="modal-overlay" *ngIf="shareModalOpen" (click)="shareModalOpen = false">
+      <!-- Right-click Context Menu -->
+      <div class="ctx-menu" *ngIf="ctxVisible" [style.left.px]="ctxX" [style.top.px]="ctxY" [style.maxHeight.px]="ctxMaxHeight" (click)="$event.stopPropagation()">
+        <div class="ctx-item" (click)="cutCell(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_cut</span> Cut <span class="ctx-hint">Ctrl+X</span></div>
+        <div class="ctx-item" (click)="copyCell(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_copy</span> Copy <span class="ctx-hint">Ctrl+C</span></div>
+        <div class="ctx-item" (click)="pasteCell(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_paste</span> Paste <span class="ctx-hint">Ctrl+V</span></div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item" (click)="insertRowAbove(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert row above</div>
+        <div class="ctx-item" (click)="insertRowBelow(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert row below</div>
+        <div class="ctx-item" (click)="insertColLeft(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert column left</div>
+        <div class="ctx-item" (click)="insertColRight(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert column right</div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item danger" (click)="deleteRow(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">delete</span> Delete row</div>
+        <div class="ctx-item danger" (click)="deleteCol(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">delete</span> Delete column</div>
+        <div class="ctx-item danger" (click)="clearRangeData(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">backspace</span> Clear selection</div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item" (click)="openValidationModal(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">arrow_drop_down_circle</span> Set dropdown list...</div>
+        <div class="ctx-item danger" (click)="removeValidation(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">close</span> Remove dropdown</div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item" (click)="sortColAZ(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort A to Z</div>
+        <div class="ctx-item" (click)="sortColZA(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort Z to A</div>
+      </div>
+
+      <!-- Validation / Dropdown Modal (Zoho Picklist Style) -->
+      <div class="modal-overlay" *ngIf="validationModalOpen" (click)="validationModalOpen = false">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:360px; background:#1c2333; color:#fff; border:1px solid #2d3748; box-shadow:0 12px 40px rgba(0,0,0,0.5); padding:20px;">
+          <button (click)="validationModalOpen = false" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:18px;cursor:pointer;color:#a0aec0;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,0.1);"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
+          <h3 style="margin-top:0;font-size:16px;font-weight:600;margin-bottom:16px;">Picklist - Edit</h3>
+          <p style="color:#a0aec0;font-size:12px;margin-bottom:16px;display:flex;align-items:center;gap:4px;">
+            Applies to: <span style="color:#81e6d9;">{{getRangeRef()}}</span>
+          </p>
+          <div style="max-height:240px;overflow-y:auto;margin-bottom:16px;padding-right:4px;">
+            <div *ngFor="let opt of picklistOptions; let i = index" style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+               <div style="position:relative; width:24px; height:24px; border-radius:4px; overflow:hidden; border:1px solid rgba(255,255,255,0.2); flex-shrink:0;">
+                 <input type="color" [(ngModel)]="opt.color" style="position:absolute;top:-5px;left:-5px;width:40px;height:40px;border:none;cursor:pointer;padding:0;background:transparent;">
+               </div>
+               <input type="text" [(ngModel)]="opt.label" placeholder="Option label" style="flex:1; background:#2d3748; border:1px solid transparent; color:#fff; padding:6px 10px; border-radius:4px; outline:none; font-size:13px; transition:border 0.2s;">
+               <button (click)="picklistOptions.splice(i, 1)" style="background:none;border:none;color:#fc8181;cursor:pointer;font-size:18px;padding:4px;display:flex;align-items:center;"><span class="material-symbols-outlined" style="font-size:18px;">close</span></button>
+            </div>
+          </div>
+          <button (click)="addPicklistOption()" style="background:none;border:none;color:#81e6d9;cursor:pointer;font-weight:500;font-size:13px;padding:0;display:flex;align-items:center;gap:4px;margin-bottom:24px;">
+            <span class="material-symbols-outlined" style="font-size:16px;">add_circle</span> Add New
+          </button>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button (click)="validationModalOpen = false" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;">Cancel</button>
+            <button (click)="saveValidation()" style="background:#00c274;border:none;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">Save</button>
+          </div>
+        </div>
+      </div>        <!-- Feature Modals -->
+        <div class="modal-overlay" *ngIf="activeModal !== null" (click)="activeModal = null" style="z-index: 10000;">
+          <div class="modal" (click)="$event.stopPropagation()" style="background:#1c2333; color:#fff; border:1px solid #2d3748; box-shadow:0 12px 40px rgba(0,0,0,0.5); width: 400px; padding:20px;">
+            <button (click)="activeModal = null" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:18px;cursor:pointer;color:#a0aec0;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,0.1);"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
+            
+            <h3 *ngIf="activeModal === 'template'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Choose Template</h3>
+            <h3 *ngIf="activeModal === 'open'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Open Document</h3>
+            <h3 *ngIf="activeModal === 'import'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Import File</h3>
+            <h3 *ngIf="activeModal === 'move'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Move Document</h3>
+            <h3 *ngIf="activeModal === 'audit'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Audit Trail</h3>
+            <h3 *ngIf="activeModal === 'version'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Version History</h3>
+            <h3 *ngIf="activeModal === 'workflow'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Manage Workflows</h3>
+            <h3 *ngIf="activeModal === 'password'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Protect Document</h3>
+
+            <div *ngIf="['template', 'open', 'version', 'audit', 'workflow'].includes(activeModal)">
+              <div *ngFor="let item of dummyList" (click)="handleModalAction()" style="padding:12px 16px; background:#2d3748; margin-bottom:8px; border-radius:6px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;">
+                <span class="material-symbols-outlined" style="color:#81e6d9;">description</span> {{ item }}
+              </div>
+            </div>
+
+            <div *ngIf="activeModal === 'import'">
+              <p style="color:#a0aec0;font-size:13px;margin-bottom:16px;">Select a CSV, TSV, or XLSX file from your computer to import into the current sheet.</p>
+              <input type="file" style="width:100%; padding:10px; background:#2d3748; border:1px solid #4a5568; border-radius:6px; color:#fff; margin-bottom:16px;">
+              <button class="btn" (click)="handleModalAction()" style="width:100%; background:#00c274;">Import Now</button>
+            </div>
+
+            <div *ngIf="activeModal === 'move'">
+              <p style="color:#a0aec0;font-size:13px;margin-bottom:16px;">Enter the name of the folder you want to move this document to:</p>
+              <input type="text" [(ngModel)]="modalInput" placeholder="Folder Name" style="width:100%; padding:10px; background:#2d3748; border:1px solid #4a5568; border-radius:6px; color:#fff; margin-bottom:16px; outline:none; box-sizing:border-box;">
+              <button class="btn" (click)="handleModalAction()" style="width:100%; background:#1a73e8;">Move</button>
+            </div>
+
+            <div *ngIf="activeModal === 'password'">
+              <p style="color:#a0aec0;font-size:13px;margin-bottom:16px;">Set a password to restrict who can open or view this document.</p>
+              <input type="password" [(ngModel)]="modalInput" placeholder="Enter new password" style="width:100%; padding:10px; background:#2d3748; border:1px solid #4a5568; border-radius:6px; color:#fff; margin-bottom:16px; outline:none; box-sizing:border-box;">
+              <button class="btn" (click)="handleModalAction()" style="width:100%; background:#d93025;">Set Password</button>
+            </div>
+            
+          </div>
+        </div>
+
+        <!-- Share Modal -->
+        <div class="modal-overlay" *ngIf="shareModalOpen" (click)="shareModalOpen = false">
         <div class="modal share-modal" (click)="$event.stopPropagation()">
           <button (click)="shareModalOpen = false" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#5f6368;">&#x00D7;</button>
           <h3 style="margin-top:0;color:#202124;">Share this spreadsheet</h3>
@@ -664,27 +800,32 @@ export interface CellValidation {
     .share-btn { display:flex; align-items:center; gap:6px; background:#26a96c; border:none; border-radius:20px; color:#fff; cursor:pointer; font-size:13px; font-weight:600; padding:7px 16px; flex-shrink:0; }
     .share-btn:hover { background:#1f8a57; }
     .av { position:relative; width:34px; height:34px; border-radius:50%; background:#ea4335; color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
-    .profile-dd { position:fixed; top:54px; right:16px; width:240px; background:#fff; border-radius:10px; box-shadow:0 6px 24px rgba(0,0,0,.22); z-index:9999; overflow:hidden; border:1px solid #e0e0e0; }
-    .pd-head { padding:14px 16px; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; gap:10px; background:#f8f9fa; }
+        .profile-dd { position:fixed; top:54px; right:16px; width:240px; background:#2d3748; border-radius:10px; box-shadow:0 6px 24px rgba(0,0,0,.5); z-index:9999; overflow:hidden; border:1px solid #4a5568; }
+    .pd-head { padding:14px 16px; border-bottom:1px solid #4a5568; display:flex; align-items:center; gap:10px; background:#1a202c; color: #fff; }
     .pd-av { width:40px; height:40px; border-radius:50%; background:#ea4335; color:#fff; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-    .pd-item { padding:9px 16px; font-size:13px; color:#202124; cursor:pointer; display:flex; align-items:center; gap:10px; }
-    .pd-item:hover { background:#f0f4ff; color:#1a73e8; }
-    .pd-item.danger { color:#d93025; }
-    .pd-item.danger:hover { background:#fce8e6; color:#d93025; }
-    .pd-sep { height:1px; background:#e0e0e0; margin:4px 0; }
+    .pd-item { padding:9px 16px; font-size:13px; color:#e2e8f0; cursor:pointer; display:flex; align-items:center; gap:10px; }
+    .pd-item:hover { background:#4a5568; color:#fff; }
+    .pd-item.danger { color:#fc8181; }
+    .pd-item.danger:hover { background:#fc8181; color:#fff; }
+    .pd-sep { height:1px; background:#4a5568; margin:4px 0; }
     .pd-icon { font-size:18px !important; color:inherit; }
 
-    /* ── MENU BAR ───────────────────────────────────────────────────────── */
+    /* ??? MENU BAR ?????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????? */
     .menu-row { display:flex; align-items:center; background:#252d3d; padding:1px 12px; flex-shrink:0; z-index:200; }
     .mi { position:relative; color:rgba(255,255,255,.82); font-size:13px; padding:5px 10px; cursor:pointer; border-radius:4px; user-select:none; white-space:nowrap; }
     .mi:hover, .mi-open { background:rgba(255,255,255,.12); color:#fff; }
-    .mdd { position:absolute; top:calc(100% + 2px); left:0; min-width:230px; background:#fff; border:1px solid #e0e0e0; border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,.18); z-index:1000; padding:4px 0; max-height:420px; overflow-y:auto; }
-    .mdi { padding:7px 16px 7px 20px; font-size:13px; color:#202124; cursor:pointer; display:flex; justify-content:space-between; align-items:center; white-space:nowrap; }
-    .mdi:hover { background:#e8f0fe; color:#1a73e8; }
-    .mdi.danger { color:#d93025; }
-    .mdi.danger:hover { background:#fce8e6; }
-    .mds { height:1px; background:#ebebeb; margin:3px 0; }
-    .mh { font-size:11px; color:#aaa; margin-left:20px; }
+    .mdd { position:absolute; top:calc(100% + 2px); left:0; min-width:230px; background:#2d3748; border:1px solid #4a5568; border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,.5); z-index:1000; padding:4px 0; }
+        .mdi { padding:7px 16px; font-size:13px; color:#e2e8f0; cursor:pointer; display:flex; justify-content:flex-start; align-items:center; white-space:nowrap; position:relative; }
+    .mdi:hover { background:#4a5568; color:#fff; }
+    .mdi.danger { color:#fc8181; }
+    .mdi.danger:hover { background:#fc8181; color:#fff; }
+    .mds { height:1px; background:#4a5568; margin:3px 0; }
+    .mh { font-size:11px; color:#a0aec0; margin-left:auto; padding-left:20px; }
+    .mdi-icon { width:16px; height:16px; margin-right:10px; display:inline-flex; align-items:center; justify-content:center; color:#a0aec0; font-size:16px; }
+    .mdi-arrow { margin-left:auto; padding-left:12px; font-size:16px; color:#a0aec0; display:flex; align-items:center; }
+    .mdi:hover .mdi-icon, .mdi:hover .mdi-arrow { color:#fff; }
+    .mdi-sub { position:absolute; left:100%; top:-5px; min-width:240px; background:#2d3748; border:1px solid #4a5568; border-radius:6px; box-shadow:0 6px 24px rgba(0,0,0,.5); display:none; padding:4px 0; z-index:1001; }
+    .mdi.has-sub:hover > .mdi-sub { display:block; }
     .font-list { max-height:280px; overflow-y:auto; }
 
     /* ── TOOLBAR ────────────────────────────────────────────────────────── */
@@ -692,7 +833,8 @@ export interface CellValidation {
     .tb-row2 { border-top:1px solid rgba(255,255,255,.08); padding:3px 12px; position:relative; z-index:180; }
     .tb-group { display:flex; align-items:center; gap:2px; }
     .tb-sep { width:1px; height:20px; background:rgba(255,255,255,.18); margin:0 5px; flex-shrink:0; }
-    .tb { background:transparent; border:none; border-radius:3px; color:rgba(255,255,255,.85); cursor:pointer; font-size:13px; font-family:inherit; height:26px; min-width:26px; padding:0 5px; display:flex; align-items:center; justify-content:center; transition:background .1s; flex-shrink:0; }
+    .tb .material-symbols-outlined { font-size: 18px; }
+      .tb { background:transparent; border:none; border-radius:3px; color:rgba(255,255,255,.85); cursor:pointer; font-size:13px; font-family:inherit; height:26px; min-width:26px; padding:0 5px; display:flex; align-items:center; justify-content:center; transition:background .1s; flex-shrink:0; }
     .tb:hover { background:rgba(255,255,255,.15); color:#fff; }
     .tb.tb-on { background:rgba(26,115,232,.6); color:#fff; }
     .tb.sz { min-width:22px; }
@@ -717,10 +859,10 @@ export interface CellValidation {
     .cp-nocolor:hover { background:#f5f5f5; }
 
     /* ── FORMULA BAR ────────────────────────────────────────────────────── */
-    .formula-container { display:flex; align-items:center; background:#fff; border-bottom:2px solid #e0e0e0; flex-shrink:0; height:32px; }
-    .cell-ref { background:#f8f9fa; border-right:1px solid #dadce0; color:#333; font-size:12px; font-weight:600; min-width:72px; padding:0 10px; text-align:center; height:100%; display:flex; align-items:center; justify-content:center; }
-    .fx-label { color:#1a73e8; font-style:italic; font-size:14px; padding:0 10px; border-right:1px solid #dadce0; height:100%; display:flex; align-items:center; }
-    .formula-bar { border:none; flex:1; font-size:13px; outline:none; padding:0 12px; color:#202124; height:100%; }
+          .formula-container { display:flex; align-items:center; background:#1c2333; border-bottom:1px solid #111; flex-shrink:0; height:32px; }
+      .cell-ref { background:#111; border-right:1px solid #3c3c3c; color:#fff; font-size:12px; font-weight:600; min-width:72px; padding:0 10px; text-align:center; height:100%; display:flex; align-items:center; justify-content:center; }
+      .fx-label { color:#a0aec0; font-style:italic; font-size:14px; padding:0 10px; border-right:1px solid #3c3c3c; height:100%; display:flex; align-items:center; }
+      .formula-bar { background:#1c2333; border:none; flex:1; font-size:13px; outline:none; padding:0 12px; color:#fff; height:100%; }
 
     /* ── GRID ─────────────────────────────────────────────────────────── */
     .main-content { display:flex; flex:1; overflow:hidden; position:relative; }
@@ -929,11 +1071,11 @@ export interface CellValidation {
     .grid { border-collapse:collapse; table-layout:fixed; font-size:13px; user-select:none; }
 
     /* ── GRID HEADERS — dark ──────────────────────────────────── */
-    .corner { background:#202124; border-right:1px solid #3c3c3c; border-bottom:2px solid #3c3c3c; position:sticky; top:0; left:0; z-index:10; width:46px; min-width:46px; text-align:center; height:26px; }
-    .col-head { background:#202124; border-right:1px solid #3c3c3c; border-bottom:2px solid #555; color:#e8eaed; cursor:pointer; font-size:12px; font-weight:500; position:sticky; top:0; text-align:center; user-select:none; z-index:5; height:26px; width:100px; min-width:100px; }
+          .corner { background:#202124; border-right:1px solid #3c3c3c; border-bottom:2px solid #3c3c3c; position:sticky; top:0; left:0; z-index:50; width:46px; min-width:46px; text-align:center; height:26px; }
+      .col-head { background:#202124; border-right:1px solid #3c3c3c; border-bottom:2px solid #3c3c3c; color:#e8eaed; cursor:pointer; font-size:12px; font-weight:500; position:sticky; top:0; text-align:center; user-select:none; z-index:45; height:26px; width:100px; min-width:100px; }
     .col-head:hover { background:#35363a; color:#fff; }
     .col-selected { background:#111 !important; color:#fff !important; font-weight:700 !important; }
-    .row-head { background:#202124; border-right:2px solid #555; border-bottom:1px solid #3c3c3c; color:#e8eaed; cursor:pointer; font-size:12px; font-weight:400; position:sticky; left:0; text-align:center; user-select:none; z-index:4; min-width:46px; width:46px; height:26px; }
+          .row-head { background:#202124; border-right:2px solid #3c3c3c; border-bottom:1px solid #3c3c3c; color:#e8eaed; cursor:pointer; font-size:12px; font-weight:400; position:sticky; left:0; text-align:center; user-select:none; z-index:40; min-width:46px; width:46px; height:26px; }
     .row-head:hover { background:#35363a; color:#fff; }
     .row-selected { background:#111 !important; color:#fff !important; font-weight:700 !important; }
 
@@ -956,11 +1098,15 @@ export interface CellValidation {
     .filter-row select { border:none; background:transparent; font-size:11px; width:100%; cursor:pointer; }
 
     /* ── CONTEXT MENU ───────────────────────────────────────────────────── */
-    .ctx-menu { background:#fff; border:1px solid #e0e0e0; border-radius:6px; box-shadow:0 4px 20px rgba(0,0,0,.2); min-width:210px; padding:4px 0; position:fixed; z-index:900; }
-    .ctx-item { color:#202124; cursor:pointer; display:flex; font-size:13px; justify-content:space-between; align-items:center; padding:8px 16px; }
-    .ctx-item:hover { background:#e8f0fe; color:#1a73e8; }
-    .ctx-hint { color:#aaa; font-size:11px; }
-    .ctx-sep { background:#ebebeb; height:1px; margin:3px 0; }
+        .ctx-menu { background:#2d3748; border:1px solid #4a5568; border-radius:6px; box-shadow:0 4px 20px rgba(0,0,0,.5); min-width:220px; padding:4px 0; position:fixed; z-index:900; max-height:80vh; overflow-y:auto; }
+    .ctx-item { color:#e2e8f0; cursor:pointer; display:flex; font-size:13px; justify-content:space-between; align-items:center; padding:8px 16px; gap:8px; }
+    .ctx-item:hover { background:#4a5568; color:#fff; }
+    .ctx-hint { color:#a0aec0; font-size:11px; margin-left:auto; }
+    .ctx-sep { background:#4a5568; height:1px; margin:3px 0; }
+    .ctx-icon { display: flex; align-items: center; color: #a0aec0; }
+    .ctx-item:hover .ctx-icon { color: #fff; }
+    .ctx-item.danger:hover { background:#fc8181; color:#fff; }
+    .ctx-item.danger:hover .ctx-icon { color:#fff; }
 
     /* ── SHEET TABS ─────────────────────────────────────────────────────── */
     .sheet-tabs { display:flex; align-items:center; gap:2px; padding:0 14px; background:#f1f3f4; border-top:2px solid #dadce0; min-height:34px; overflow-x:auto; flex-shrink:0; }
@@ -987,7 +1133,8 @@ export interface CellValidation {
     .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
     /* ── PRINT ──────────────────────────────────────────────────────────── */
-    @media print {
+          @keyframes spin { 100% { transform: rotate(360deg); } }
+      @media print {
       .top-bar, .menu-row, .tb-row, .formula-container, .modal-overlay, .toast, .sheet-tabs { display:none !important; }
       .shell { display:block !important; }
       .grid-wrap { overflow:visible !important; }
@@ -1036,11 +1183,13 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   ctxVisible = false;
   ctxX = 0;
   ctxY = 0;
+  ctxMaxHeight = 800;
 
   // Data validation / dropdown
   validations: Record<string, CellValidation> = {};
   validationModalOpen = false;
   validationInput = '';
+  picklistOptions: DropdownOption[] = [];
 
   // Multiple sheets
   sheets: Array<{ name: string, cells: string[][], formats: Record<string, CellFormat>, validations: Record<string, CellValidation> }> = [
@@ -1175,8 +1324,17 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   @HostListener('document:click')
   onDocClick() { this.closeMenus(); this.activePalette = null; this.hideCtx(); }
 
+    isEditingText(e: KeyboardEvent): boolean {
+    const t = e.target as HTMLElement;
+    return t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable;
+  }
+
   @HostListener('document:keydown', ['$event'])
   onKey(e: KeyboardEvent) {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !this.isEditingText(e)) {
+      e.preventDefault();
+      this.clearCell();
+    }
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.undo(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); this.redo(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); this.toggleFormat('bold'); }
@@ -1420,21 +1578,57 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   isRowHeaderSelected(r: number): boolean { return this.selectedRowHeader === r; }
 
   // ── Right-click context menu ──────────────────────────────────────────────
-  onCellRightClick(e: MouseEvent, r: number, c: number) {
+  onHeaderRightClick(e: MouseEvent, type: 'row'|'col', idx: number) {
     e.preventDefault();
-    this.selectCell(r, c);
+    if (type === 'col') this.selectEntireCol(idx);
+    else this.selectEntireRow(idx);
 
-    // Clamp to prevent context menu from being cut off by window boundaries
     const menuWidth = 220;
-    const menuHeight = 350; // approximate height of the menu
+    const fullMenuHeight = 540;
     let x = e.clientX;
     let y = e.clientY;
 
     if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth;
-    if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight;
+    
+    // Always open downwards from the cursor unless it's way at the bottom
+    let maxHeight = window.innerHeight - y - 20;
+    
+    if (maxHeight < 200 && y > window.innerHeight / 2) {
+      // If we are near the bottom of the screen, open upwards
+      y = Math.max(10, y - fullMenuHeight);
+      maxHeight = e.clientY - y; 
+    } else {
+      maxHeight = Math.max(200, maxHeight);
+    }
 
     this.ctxX = x;
     this.ctxY = y;
+    this.ctxMaxHeight = maxHeight;
+    this.ctxVisible = true;
+  }
+
+  onCellRightClick(e: MouseEvent, r: number, c: number) {
+    e.preventDefault();
+    this.selectCell(r, c);
+
+    const menuWidth = 220;
+    const fullMenuHeight = 540;
+    let x = e.clientX;
+    let y = e.clientY;
+
+    if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth;
+    
+    let maxHeight = window.innerHeight - y - 20;
+    if (maxHeight < 200 && y > window.innerHeight / 2) {
+      y = Math.max(10, y - fullMenuHeight);
+      maxHeight = e.clientY - y; 
+    } else {
+      maxHeight = Math.max(200, maxHeight);
+    }
+
+    this.ctxX = x;
+    this.ctxY = y;
+    this.ctxMaxHeight = maxHeight;
     this.ctxVisible = true;
   }
 
@@ -1475,40 +1669,118 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     return !!this.validations[`${r},${c}`];
   }
 
-  getCellDropdownOptions(r: number, c: number): string[] {
-    return this.validations[`${r},${c}`]?.options ?? [];
+  getCellRef(r: number, c: number): string {
+    return String.fromCharCode(65 + c) + (r + 1);
   }
+
+  getRangeRef(): string {
+    if (this.rangeStart && this.rangeEnd) {
+      const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+      const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+      const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+      const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+      if (minR === maxR && minC === maxC) return this.getCellRef(minR, minC);
+      return `${this.getCellRef(minR, minC)}:${this.getCellRef(maxR, maxC)}`;
+    }
+    return this.getCellRef(this.selectedRow, this.selectedCol);
+  }
+
+  hasDropdownInRange(): boolean {
+    if (!this.rangeStart || !this.rangeEnd) return this.hasCellDropdown(this.selectedRow, this.selectedCol);
+    const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+    const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+    const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+    const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    for (const key of Object.keys(this.validations)) {
+      const parts = key.split(',');
+      const r = parseInt(parts[0], 10);
+      const c = parseInt(parts[1], 10);
+      if (r >= minR && r <= maxR && c >= minC && c <= maxC) return true;
+    }
+    return false;
+  }
+
+  getCellDropdownOptions(r: number, c: number): (string | DropdownOption)[] {
+    const v = this.validations[`${r},${c}`];
+    return v && v.type === 'list' && v.options ? v.options : [];
+  }
+
+  getDropdownColor(r: number, c: number, val: string): string {
+    const opts = this.getCellDropdownOptions(r, c);
+    const found = opts.find(o => (typeof o === 'string' ? o : o.label) === val) as DropdownOption | undefined;
+    return found?.color || '';
+  }
+
+
+
 
   openValidationModal() {
     const existing = this.validations[`${this.selectedRow},${this.selectedCol}`];
-    this.validationInput = existing ? existing.options.join('\n') : '';
+    this.picklistOptions = [];
+    if (existing && existing.options) {
+      existing.options.forEach(o => {
+        if (typeof o === 'string') this.picklistOptions.push({ label: o, color: '#4a5568' });
+        else this.picklistOptions.push({ label: (o as DropdownOption).label, color: (o as DropdownOption).color || '#4a5568' });
+      });
+    } else {
+      this.picklistOptions.push({ label: 'Item 1', color: '#4caf50' });
+      this.picklistOptions.push({ label: 'Item 2', color: '#f44336' });
+    }
     this.validationModalOpen = true;
   }
 
+  addPicklistOption() {
+    const colors = ['#4caf50', '#f44336', '#ff9800', '#2196f3', '#9c27b0', '#795548', '#607d8b'];
+    this.picklistOptions.push({ label: '', color: colors[this.picklistOptions.length % colors.length] });
+  }
+
   saveValidation() {
-    const raw = this.validationInput.trim();
-    if (!raw) { this.validationModalOpen = false; return; }
-    // Accept newline or comma separated options
-    const options = raw.split(/[\n,]/).map(o => o.trim()).filter(o => o.length > 0);
-    if (options.length === 0) { this.validationModalOpen = false; return; }
-    this.validations = {
-      ...this.validations,
-      [`${this.selectedRow},${this.selectedCol}`]: { type: 'list', options }
-    };
-    // If cell has a value not in options, clear it
-    const cur = this.cells[this.selectedRow][this.selectedCol];
-    if (cur && !options.includes(cur)) this.cells[this.selectedRow][this.selectedCol] = '';
+    const validOptions = this.picklistOptions.filter(o => o.label.trim().length > 0);
+    if (validOptions.length === 0) { this.validationModalOpen = false; return; }
+    let minR = this.selectedRow, maxR = this.selectedRow;
+    let minC = this.selectedCol, maxC = this.selectedCol;
+    if (this.rangeStart && this.rangeEnd) {
+      minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+      maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+      minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+      maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    }
+    const newValidations = { ...this.validations };
+    for (let r = minR; r <= maxR; r++) {
+      for (let c = minC; c <= maxC; c++) {
+        newValidations[`${r},${c}`] = { type: 'list', options: validOptions };
+        const cur = this.cells[r][c];
+        if (cur && !validOptions.find(o => o.label === cur)) this.cells[r][c] = '';
+      }
+    }
+    this.validations = newValidations;
     this.validationModalOpen = false;
     this.onCellChange();
     this.save();
-    this.showToast(`Dropdown set: ${options.length} options`);
+    this.showToast(`Picklist set: ${validOptions.length} items`);
   }
 
   removeValidation() {
-    const key = `${this.selectedRow},${this.selectedCol}`;
-    if (this.validations[key]) {
-      const v = { ...this.validations };
-      delete v[key];
+    let minR = this.selectedRow, maxR = this.selectedRow;
+    let minC = this.selectedCol, maxC = this.selectedCol;
+    if (this.rangeStart && this.rangeEnd) {
+      minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+      maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+      minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+      maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    }
+    let removed = false;
+    const v = { ...this.validations };
+    for (let r = minR; r <= maxR; r++) {
+      for (let c = minC; c <= maxC; c++) {
+        const key = `${r},${c}`;
+        if (v[key]) {
+          delete v[key];
+          removed = true;
+        }
+      }
+    }
+    if (removed) {
       this.validations = v;
       this.onCellChange();
       this.save();
@@ -2482,9 +2754,13 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     };
   }
 
-  save() {
-    this.api.saveDocument(this.docId, this.title, JSON.stringify(this.getSparse())).subscribe();
-  }
+      save() {
+      this.saveStatus = 'saving';
+      this.api.saveDocument(this.docId, this.title, JSON.stringify(this.getSparse())).subscribe({
+        next: () => { this.saveStatus = 'saved'; },
+        error: () => { this.saveStatus = 'error'; }
+      });
+    }
 
   copyLink() {
     navigator.clipboard.writeText(window.location.href)
@@ -2601,6 +2877,54 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     });
   }
 
+      activeModal: 'template' | 'open' | 'import' | 'move' | 'audit' | 'version' | 'workflow' | 'password' | null = null;
+    previewImageUrl: string | null = null;
+    saveStatus: 'saved' | 'saving' | 'error' = 'saved';
+  dummyList: any[] = [];
+  modalInput = '';
+
+  openFeatureModal(type: any) {
+    this.closeMenus();
+    this.activeModal = type;
+    if (type === 'template') this.dummyList = ['Blank', 'Invoice', 'Budget', 'Schedule', 'To-Do List', 'Project Tracker'];
+    if (type === 'open') this.dummyList = ['Finance 2026.xlsx', 'Client Contacts.csv', 'Q3 Planning.ods'];
+    if (type === 'version') this.dummyList = ['Today 2:30 PM (Current)', 'Yesterday 11:00 AM', 'Last Week (Initial)'];
+    if (type === 'audit') this.dummyList = ['User modified cell C4 (1m ago)', 'You changed column width (5m ago)', 'User added new row (10m ago)'];
+    if (type === 'workflow') this.dummyList = ['Highlight row if Status=Done', 'Send email if Due Date < Today'];
+  }
+
+  handleModalAction() {
+    if (this.activeModal === 'template') {
+       this.showToast('Created new spreadsheet from template!');
+    } else if (this.activeModal === 'import') {
+       this.showToast('File imported successfully!');
+    } else if (this.activeModal === 'password') {
+       this.showToast('Password protection enabled!');
+    } else if (this.activeModal === 'move') {
+       this.showToast('Document moved to ' + (this.modalInput || 'Folder'));
+    } else if (this.activeModal === 'workflow') {
+       this.showToast('Workflow rule added.');
+    }
+    this.activeModal = null;
+    this.modalInput = '';
+  }
+
+  triggerCopy() {
+    this.closeMenus();
+    this.api.createDocument(this.title + ' - Copy', 'sheet').subscribe((res: any) => {
+       window.open(/sheet/ + res.id, '_blank');
+    });
+  }
+
+  triggerRename() {
+    this.closeMenus();
+    const newTitle = prompt('Enter new document name:', this.title);
+    if (newTitle && newTitle.trim()) {
+      this.title = newTitle.trim();
+      this.save();
+    }
+  }
+
   showToast(msg: string) {
     this.toastMsg = msg; this.toastVisible = true;
     setTimeout(() => this.toastVisible = false, 2500);
@@ -2609,3 +2933,30 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   back() { this.save(); this.router.navigate(['/']); }
   ngOnDestroy() { this.syncSub?.unsubscribe(); this.api.disconnectSync(); }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,5 +1,3 @@
-import uuid
-import bcrypt
 import jwt
 import os
 import logging
@@ -26,12 +24,11 @@ ALGO   = os.getenv("JWT_ALGORITHM", "HS256")
 EXP_H  = int(os.getenv("JWT_EXPIRE_HOURS", "24"))
 
 
-def make_token(user_id: int, email: str, org_id: int | None = None) -> str:
+def make_token(user_id: int, email: str) -> str:
     payload = {
-        "sub":    str(user_id),
-        "email":  email,
-        "org_id": org_id,
-        "exp":    datetime.now(timezone.utc) + timedelta(hours=EXP_H),
+        "sub":   str(user_id),
+        "email": email,
+        "exp":   datetime.now(timezone.utc) + timedelta(hours=EXP_H),
     }
     return jwt.encode(payload, SECRET, algorithm=ALGO)
 
@@ -76,7 +73,7 @@ async def login(body: LoginBody, db: AsyncSession = Depends(get_db)):
         raise HTTPException(401, "Invalid email or password")
 
     return {
-        "token": make_token(user.id, user.email, user.organization_id),
+        "token": make_token(user.id, user.email),
         "user": {
             "id":           user.id,
             "name":         user.name,

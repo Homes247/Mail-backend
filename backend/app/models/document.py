@@ -15,7 +15,7 @@ class Document(Base):
     id:           Mapped[str]      = mapped_column(String(36),  primary_key=True, default=lambda: str(uuid.uuid4()))
     title:        Mapped[str]      = mapped_column(String(500), default="Untitled")
     doc_type:     Mapped[str]      = mapped_column(String(20))   # sheet | doc | slide
-    content:      Mapped[str]      = mapped_column(Text)
+    content:      Mapped[str]      = mapped_column(Text,         default="{}")
     owner_id:     Mapped[int]      = mapped_column(Integer,      nullable=False)   # FK → vmail users.id (INT)
     share_token:  Mapped[str]      = mapped_column(String(64),   nullable=True)
     is_public:    Mapped[int]      = mapped_column(Integer,      default=0)

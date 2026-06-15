@@ -1,4 +1,3 @@
-from datetime import datetime
 import uuid
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import String, DateTime, Integer
