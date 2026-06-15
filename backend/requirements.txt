@@ -9,3 +9,4 @@ PyJWT
 openpyxl
 python-docx
 python-pptx
+fpdf2

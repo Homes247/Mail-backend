@@ -47,6 +47,10 @@ export class ApiService implements OnDestroy {
     return this.http.post(`${this.base}/export`, { doc_id, format }, { responseType: 'blob' });
   }
 
+  searchUsers(query: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/auth/search-users?q=${encodeURIComponent(query)}`);
+  }
+
   connectSync(docId: string): Observable<SyncMessage> {
     this.disconnectSync();
     this.currentDocId = docId;

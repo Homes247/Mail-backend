@@ -97,6 +97,39 @@ async def me(authorization: str = Header(None), db: AsyncSession = Depends(get_d
     }
 
 
+@router.get("/search-users")
+async def search_users(q: str = "", authorization: str = Header(None), db: AsyncSession = Depends(get_db)):
+    # Verify current user to secure the endpoint
+    current_user = await get_current_user(authorization, db)
+    
+    if not q or len(q) < 2:
+        return []
+        
+    from sqlalchemy import or_
+    result = await db.execute(
+        select(User).where(
+            User.is_active == 1,
+            User.organization_id == current_user.organization_id,
+            or_(
+                User.name.ilike(f"%{q}%"),
+                User.email.ilike(f"%{q}%")
+            )
+        ).limit(10)
+    )
+    users = result.scalars().all()
+    
+    return [
+        {
+            "id": u.id,
+            "name": u.name,
+            "email": u.email,
+            "avatar_color": u.avatar_color,
+            "avatar_url": u.avatar_url
+        }
+        for u in users
+    ]
+
+
 async def get_current_user(
     authorization: str = Header(None),
     db: AsyncSession = Depends(get_db),

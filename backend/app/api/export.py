@@ -20,8 +20,14 @@ async def export_document(body: ExportRequest, db: AsyncSession = Depends(get_db
 
     content = json.loads(doc.content or "{}")
 
-    if body.format == "csv":
-        return _export_csv(doc.title, content)
+    if body.format in ["csv", "tsv"]:
+        return _export_csv(doc.title, content, delimiter='\t' if body.format == 'tsv' else ',')
+    elif body.format in ["xlsx", "xlsb", "ods"]:
+        return _export_xlsx(doc.title, content)
+    elif body.format == "html":
+        return _export_html_zip(doc.title, content)
+    elif body.format == "pdf":
+        return _export_pdf(doc.title, content)
     elif body.format == "docx":
         return _export_docx(doc.title, content)
     elif body.format == "pptx":
@@ -30,10 +36,10 @@ async def export_document(body: ExportRequest, db: AsyncSession = Depends(get_db
         raise HTTPException(400, "Unsupported format")
 
 
-def _export_csv(title: str, content: dict) -> StreamingResponse:
+def _export_csv(title: str, content: dict, delimiter: str = ',') -> StreamingResponse:
     import csv, io
     output = io.StringIO()
-    writer = csv.writer(output)
+    writer = csv.writer(output, delimiter=delimiter)
 
     cells = content.get("cells", {})
     if cells:
@@ -48,10 +54,68 @@ def _export_csv(title: str, content: dict) -> StreamingResponse:
             writer.writerow(row_data)
 
     buf = io.BytesIO(output.getvalue().encode('utf-8'))
+    ext = "tsv" if delimiter == '\t' else "csv"
     return StreamingResponse(
         buf,
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{title}.csv"'}
+        headers={"Content-Disposition": f'attachment; filename="{title}.{ext}"'}
+    )
+
+def _export_xlsx(title: str, content: dict) -> StreamingResponse:
+    import io
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Sheet1"
+
+    cells = content.get("cells", {})
+    if cells:
+        for r_str, cols in cells.items():
+            r = int(r_str) + 1  # 1-indexed for excel
+            for c_str, val in cols.items():
+                c = int(c_str) + 1
+                try:
+                    ws.cell(row=r, column=c, value=val)
+                except Exception:
+                    ws.cell(row=r, column=c, value=str(val))
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{title}.xlsx"'}
+    )
+
+def _export_html_zip(title: str, content: dict) -> StreamingResponse:
+    import io, zipfile
+    html_parts = [f"<html><head><title>{title}</title><style>table {{ border-collapse: collapse; }} td {{ border: 1px solid #ddd; padding: 4px; }}</style></head><body>"]
+    html_parts.append(f"<h2>{title}</h2><table>")
+    
+    cells = content.get("cells", {})
+    if cells:
+        max_row = max((int(r) for r in cells.keys()), default=-1)
+        max_col = max((int(c) for r in cells.values() for c in r.keys()), default=-1)
+        for r in range(max_row + 1):
+            html_parts.append("<tr>")
+            for c in range(max_col + 1):
+                val = cells.get(str(r), {}).get(str(c), "")
+                html_parts.append(f"<td>{val}</td>")
+            html_parts.append("</tr>")
+            
+    html_parts.append("</table></body></html>")
+    html_str = "".join(html_parts)
+    
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"{title}.html", html_str.encode("utf-8"))
+    
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{title}_html.zip"'}
     )
 
 
@@ -117,4 +181,47 @@ def _export_pptx(title: str, content: dict) -> StreamingResponse:
         buf,
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={"Content-Disposition": f'attachment; filename="{title}.pptx"'}
+    )
+
+def _export_pdf(title: str, content: dict) -> StreamingResponse:
+    from fpdf import FPDF
+    import io
+    
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("helvetica", size=10)
+    
+    # Title
+    safe_title = title.encode('latin-1', 'replace').decode('latin-1')
+    pdf.set_font("helvetica", style="B", size=14)
+    pdf.cell(0, 10, safe_title, new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.set_font("helvetica", size=10)
+    
+    cells = content.get("cells", {})
+    if cells:
+        max_row = max((int(r) for r in cells.keys()), default=-1)
+        max_col = max((int(c) for r in cells.values() for c in r.keys()), default=-1)
+        
+        # Calculate optimal column widths (simplified)
+        col_widths = [20] * (max_col + 1)
+        for c in range(max_col + 1):
+            max_len = 5 # min width
+            for r in range(max_row + 1):
+                val = str(cells.get(str(r), {}).get(str(c), ""))
+                if len(val) > max_len:
+                    max_len = len(val)
+            col_widths[c] = min(max_len * 2.5, 60) 
+
+        for r in range(max_row + 1):
+            for c in range(max_col + 1):
+                val = str(cells.get(str(r), {}).get(str(c), ""))
+                safe_val = val.encode('latin-1', 'replace').decode('latin-1')
+                pdf.cell(col_widths[c], 8, safe_val, border=1)
+            pdf.ln(8)
+
+    buf = io.BytesIO(pdf.output())
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{title}.pdf"'}
     )
