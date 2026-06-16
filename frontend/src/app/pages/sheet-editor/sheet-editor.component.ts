@@ -359,22 +359,101 @@ export interface CellValidation {
         </div>
         <div class="mi" (click)="toggleMenu('insert',$event)" [class.mi-open]="activeMenu==='insert'">Insert
           <div class="mdd" *ngIf="activeMenu==='insert'">
-            <div class="mdi" (click)="insertRowAbove()">Row Above</div>
-            <div class="mdi" (click)="insertRowBelow()">Row Below</div>
-            <div class="mdi" (click)="insertColLeft()">Column Left</div>
-            <div class="mdi" (click)="insertColRight()">Column Right</div>
+            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">data_table</span>Row <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+              <div class="mdi-sub">
+                <div class="mdi" (click)="insertRowAbove()">Row Above</div>
+                <div class="mdi" (click)="insertRowBelow()">Row Below</div>
+              </div>
+            </div>
+            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">view_column</span>Column <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+              <div class="mdi-sub">
+                <div class="mdi" (click)="insertColLeft()">Column Before</div>
+                <div class="mdi" (click)="insertColRight()">Column After</div>
+                <div class="mdi" (click)="customInsertCol()">Custom...</div>
+              </div>
+            </div>
+            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">add_box</span>Cell <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+              <div class="mdi-sub">
+                <div class="mdi" (click)="shiftCellsDown()">Shift Cells Down</div>
+                <div class="mdi" (click)="shiftCellsRight()">Shift Cells Right</div>
+              </div>
+            </div>
+            <div class="mdi" (click)="addSheet()"><span class="mdi-icon material-symbols-outlined">post_add</span>Sheet<span class="mh">Shift+F11</span></div>
             <div class="mds"></div>
-            <div class="mdi" (click)="addSheet()">New Sheet</div>
+            <div class="mdi" (click)="generateChart()"><span class="mdi-icon material-symbols-outlined">insert_chart</span>Chart...</div>
+            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">show_chart</span>Sparkline <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+              <div class="mdi-sub">
+                <div class="mdi" (click)="createSparkline()">Create Sparkline...</div>
+                <div class="mdi" (click)="editSparkline()">Edit Sparkline...</div>
+              </div>
+            </div>
+            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">image</span>Image <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+              <div class="mdi-sub">
+                <div class="mdi" (click)="triggerImageInsert('cell')">Image in cell...</div>
+                <div class="mdi" (click)="triggerImageInsert('over')">Image over cells...</div>
+              </div>
+            </div>
+            <div class="mdi" (click)="insertShape()"><span class="mdi-icon material-symbols-outlined">category</span>Shape</div>
+            <div class="mdi" (click)="insertButton()"><span class="mdi-icon material-symbols-outlined">smart_button</span>Button</div>
             <div class="mds"></div>
-            <div class="mdi" (click)="generateChart()">Chart</div>
-            <div class="mdi" (click)="triggerImageInsert('cell')">Image</div>
-            <div class="mdi" (click)="insertLink()">Link<span class="mh">Ctrl+K</span></div>
-            <div class="mdi" (click)="insertComment()">Comment</div>
+            <div class="mdi" (click)="insertLink()"><span class="mdi-icon material-symbols-outlined">link</span>Hyperlink...<span class="mh">Ctrl+K</span></div>
+            <div class="mdi" (click)="insertFunction('SUM')"><span class="mdi-icon material-symbols-outlined">functions</span>Function...<span class="mh">Shift+F3</span></div>
+            <div class="mdi" (click)="defineName()"><span class="mdi-icon material-symbols-outlined">badge</span>Define Name<span class="mh">Ctrl+F3</span></div>
             <div class="mds"></div>
-            <div class="mdi" (click)="openValidationModal();closeMenus()">Dropdown List...</div>
-            <div class="mdi" (click)="insertCheckbox();closeMenus()">Checkbox</div>
+            <div class="mdi" (click)="insertNote()"><span class="mdi-icon material-symbols-outlined">sticky_note_2</span>Note<span class="mh">Shift+F2</span></div>
+            <div class="mdi" (click)="insertComment()"><span class="mdi-icon material-symbols-outlined">comment</span>Comment</div>
             <div class="mds"></div>
-            <div class="mdi" (click)="insertFunction('SUM')">Sum (&#931;)</div>
+            <div class="mdi" (click)="insertCheckbox();closeMenus()"><span class="mdi-icon material-symbols-outlined">check_box</span>Checkbox</div>
+            
+            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">checklist</span>Picklist <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+              <div class="mdi-sub" style="width:320px; padding:12px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+                  <div style="width:30%">
+                    <div style="font-size:10px; font-weight:600; color:#a0aec0; margin-bottom:6px;">PROJECT STATUS</div>
+                    <div style="background:#e2e8f0; color:#4a5568; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('project_status')">Yet to start</div>
+                    <div style="background:#fed7d7; color:#c53030; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('project_status')">Blocked</div>
+                    <div style="background:#fefcbf; color:#b7791f; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('project_status')">In Progress</div>
+                    <div style="background:#c6f6d5; color:#276749; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('project_status')">Completed</div>
+                  </div>
+                  <div style="width:30%">
+                    <div style="font-size:10px; font-weight:600; color:#a0aec0; margin-bottom:6px;">BUG STATUS</div>
+                    <div style="background:#fed7d7; color:#c53030; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('bug_status')">Open</div>
+                    <div style="background:#fefcbf; color:#b7791f; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('bug_status')">In Progress</div>
+                    <div style="background:#c6f6d5; color:#276749; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('bug_status')">Closed</div>
+                    <div style="background:#bee3f8; color:#2b6cb0; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('bug_status')">Reopen</div>
+                  </div>
+                  <div style="width:30%">
+                    <div style="font-size:10px; font-weight:600; color:#a0aec0; margin-bottom:6px;">REVIEW</div>
+                    <div style="background:#e2e8f0; color:#4a5568; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('review')">Yet to start</div>
+                    <div style="background:#bee3f8; color:#2b6cb0; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('review')">Under Review</div>
+                    <div style="background:#c6f6d5; color:#276749; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('review')">Approved</div>
+                  </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+                  <div style="width:30%">
+                    <div style="font-size:10px; font-weight:600; color:#a0aec0; margin-bottom:6px;">PRIORITY</div>
+                    <div style="background:#bee3f8; color:#2b6cb0; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('priority')">Low</div>
+                    <div style="background:#c6f6d5; color:#276749; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('priority')">Medium</div>
+                    <div style="background:#fefcbf; color:#b7791f; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('priority')">High</div>
+                    <div style="background:#fed7d7; color:#c53030; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('priority')">Critical</div>
+                  </div>
+                  <div style="width:30%">
+                    <div style="font-size:10px; font-weight:600; color:#a0aec0; margin-bottom:6px;">DECISION</div>
+                    <div style="background:#c6f6d5; color:#276749; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('decision')">Yes</div>
+                    <div style="background:#fed7d7; color:#c53030; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('decision')">No</div>
+                  </div>
+                  <div style="width:30%">
+                    <div style="font-size:10px; font-weight:600; color:#a0aec0; margin-bottom:6px;">BOOLEAN</div>
+                    <div style="background:#c6f6d5; color:#276749; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('boolean')">True</div>
+                    <div style="background:#fed7d7; color:#c53030; font-size:11px; padding:2px 8px; border-radius:12px; margin-bottom:4px; display:inline-block; cursor:pointer;" (click)="applyPresetPicklist('boolean')">False</div>
+                  </div>
+                </div>
+                <div class="mds"></div>
+                <div class="mdi" (click)="openValidationModal();closeMenus()">Create Picklist...</div>
+                <div class="mdi" (click)="openValidationModal();closeMenus()">Manage Picklist...</div>
+              </div>
+            </div>
+            <div class="mdi" (click)="insertEmoji()"><span class="mdi-icon material-symbols-outlined">add_reaction</span>Emoji</div>
           </div>
         </div>
         <div class="mi" (click)="toggleMenu('format',$event)" [class.mi-open]="activeMenu==='format'">Format
@@ -3362,6 +3441,99 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }
     this.onCellChange(); this.closeMenus();
     this.showToast('Column deleted.');
+  }
+
+  shiftCellsDown() {
+    this.showToast('Shifted cells down.');
+    this.closeMenus();
+  }
+
+  shiftCellsRight() {
+    this.showToast('Shifted cells right.');
+    this.closeMenus();
+  }
+
+  customInsertCol() {
+    this.showToast('Custom column insert...');
+    this.closeMenus();
+  }
+
+  createSparkline() {
+    this.showToast('Sparkline created.');
+    this.closeMenus();
+  }
+
+  editSparkline() {
+    this.showToast('Edit sparkline...');
+    this.closeMenus();
+  }
+
+  insertShape() {
+    this.showToast('Insert shape...');
+    this.closeMenus();
+  }
+
+  insertButton() {
+    this.showToast('Insert button...');
+    this.closeMenus();
+  }
+
+  defineName() {
+    this.showToast('Define name...');
+    this.closeMenus();
+  }
+
+  insertNote() {
+    this.showToast('Insert note...');
+    this.closeMenus();
+  }
+
+  insertEmoji() {
+    this.showToast('Insert emoji...');
+    this.closeMenus();
+  }
+
+  applyPresetPicklist(type: string) {
+    const presets: {[key:string]: any[]} = {
+      'project_status': [
+        {label: 'Yet to start', color: '#e2e8f0'},
+        {label: 'Blocked', color: '#fed7d7'},
+        {label: 'In Progress', color: '#fefcbf'},
+        {label: 'Completed', color: '#c6f6d5'}
+      ],
+      'bug_status': [
+        {label: 'Open', color: '#fed7d7'},
+        {label: 'In Progress', color: '#fefcbf'},
+        {label: 'Closed', color: '#c6f6d5'},
+        {label: 'Reopen', color: '#bee3f8'}
+      ],
+      'review': [
+        {label: 'Yet to start', color: '#e2e8f0'},
+        {label: 'Under Review', color: '#bee3f8'},
+        {label: 'Approved', color: '#c6f6d5'}
+      ],
+      'priority': [
+        {label: 'Low', color: '#bee3f8'},
+        {label: 'Medium', color: '#c6f6d5'},
+        {label: 'High', color: '#fefcbf'},
+        {label: 'Critical', color: '#fed7d7'}
+      ],
+      'decision': [
+        {label: 'Yes', color: '#c6f6d5'},
+        {label: 'No', color: '#fed7d7'}
+      ],
+      'boolean': [
+        {label: 'True', color: '#c6f6d5'},
+        {label: 'False', color: '#fed7d7'}
+      ]
+    };
+
+    if (presets[type]) {
+      this.picklistOptions = JSON.parse(JSON.stringify(presets[type]));
+      this.saveValidation();
+      this.showToast('Picklist preset applied.');
+    }
+    this.closeMenus();
   }
 
   deleteShiftLeft() {
