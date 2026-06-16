@@ -15,8 +15,8 @@ export interface SyncMessage {
 
 @Injectable({ providedIn: 'root' })
 export class ApiService implements OnDestroy {
-  private base = environment.apiUrl;
-  private wsBase = environment.wsUrl;
+  base = environment.apiUrl;
+  wsBase = environment.wsUrl;
   private socket: WebSocket | null = null;
   private currentDocId: string | null = null;
   private messageSubject = new Subject<SyncMessage>();
@@ -43,12 +43,49 @@ export class ApiService implements OnDestroy {
     return this.http.delete(`${this.base}/documents/${id}`);
   }
 
+  restoreDocument(id: string): Observable<any> {
+    return this.http.put(`${this.base}/documents/${id}`, { is_trashed: 0 });
+  }
+
+  shareDocument(docId: string, email: string, permission: string): Observable<any> {
+    return this.http.post(`${this.base}/documents/${docId}/share`, { email, permission });
+  }
+
   exportDocument(doc_id: string, format: string): Observable<Blob> {
     return this.http.post(`${this.base}/export`, { doc_id, format }, { responseType: 'blob' });
   }
 
   searchUsers(query: string): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/auth/search-users?q=${encodeURIComponent(query)}`);
+  }
+
+  // CHAT ENDPOINTS
+  getChatConversations(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/chat/conversations`);
+  }
+
+  getChatMessages(userId: number): Observable<any> {
+    return this.http.get<any>(`${this.base}/chat/messages/${userId}`);
+  }
+
+  sendChatMessage(toUserId: number, message: string): Observable<any> {
+    return this.http.post<any>(`${this.base}/chat/send`, { to_user_id: toUserId, message });
+  }
+
+  getChatChannels(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/chat/channels`);
+  }
+
+  getChannelMessages(channelId: number): Observable<any> {
+    return this.http.get<any>(`${this.base}/chat/channels/${channelId}/messages`);
+  }
+
+  sendChannelMessage(channelId: number, message: string): Observable<any> {
+    return this.http.post<any>(`${this.base}/chat/channels/${channelId}/send`, { message });
+  }
+
+  getChatContacts(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/chat/contacts`);
   }
 
   connectSync(docId: string): Observable<SyncMessage> {

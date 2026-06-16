@@ -3,13 +3,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
+import { ChatWidgetComponent } from '../../components/chat-widget/chat-widget.component';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-doc-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ChatWidgetComponent],
   template: `
     <div class="shell" (click)="closeMenus($event)">
       <div class="top-bar">
@@ -334,9 +335,39 @@ import { AuthService } from '../../services/auth.service';
         </div>
       </div>
 
+      <div class="bottom-chat-bar">
+         <div class="bcb-item" (click)="toggleWidget('chat')">
+            <span class="material-symbols-outlined" style="color:#d32f2f;">chat</span>
+            <span>Unread Chats</span>
+            <div class="bcb-badge">0</div>
+         </div>
+         <div class="bcb-item" (click)="toggleWidget('channels')">
+            <span class="material-symbols-outlined" style="color:#5f6368;">group</span>
+            <span>Channels</span>
+         </div>
+         <div class="bcb-item" (click)="toggleWidget('contacts')">
+            <span class="material-symbols-outlined" style="color:#5f6368;">person</span>
+            <span>Contacts</span>
+         </div>
+      </div>
+
+      <app-chat-widget [activeWidget]="activeWidget" (close)="activeWidget=null"></app-chat-widget>
+
     </div>
   `,
   styles: [`
+    /* Bottom Chat Bar */
+    .bottom-chat-bar { position: fixed; bottom: 0; left: 0; display: flex; background: #f8f9fa; border-top: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0; z-index: 9999; height: 36px; border-top-right-radius: 6px; box-shadow: 0 -2px 5px rgba(0,0,0,0.05); }
+    .bcb-item { display: flex; align-items: center; gap: 8px; padding: 0 16px; cursor: pointer; border-right: 1px solid #e0e0e0; font-size: 13px; font-weight: 500; color: #202124; transition: background 0.2s; position: relative; }
+    .bcb-item:hover { background: #e8f0fe; }
+    .bcb-item .material-symbols-outlined { font-size: 18px; }
+    .bcb-badge { position: absolute; top: -6px; left: 16px; background: #d32f2f; color: #fff; font-size: 10px; font-weight: bold; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
+
+    /* Widgets */
+    .widget-panel { position: fixed; bottom: 48px; right: 24px; width: 300px; background: #fff; border-radius: 8px; border: 1px solid #e0e0e0; z-index: 10000; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .wp-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #e0e0e0; font-weight: 500; color: #202124; background: #f8f9fa; }
+    .wp-body { padding: 16px; flex: 1; min-height: 200px; display: flex; flex-direction: column; }
+
     .shell { display: flex; flex-direction: column; height: 100vh; background: #f9fbfd; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
     
     .top-bar {
@@ -506,6 +537,11 @@ import { AuthService } from '../../services/auth.service';
   `]
 })
 export class DocEditorComponent implements OnInit, OnDestroy {
+  activeWidget: string | null = null;
+  toggleWidget(w: string) {
+    if (this.activeWidget === w) this.activeWidget = null;
+    else this.activeWidget = w;
+  }
   docId = '';
   activeFontFamily = 'Arial';
   activeFontSize = 11;

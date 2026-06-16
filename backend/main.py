@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.database import engine, Base
-from app.api import documents, export, auth
+from app.api import documents, export, auth, chat
 
 load_dotenv(override=True)
 
@@ -108,6 +108,7 @@ async def critical_error_catcher(request: Request, call_next):
 app.include_router(auth.router,      prefix="/api/auth",      tags=["auth"])
 app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
 app.include_router(export.router,    prefix="/api",           tags=["export"])
+app.include_router(chat.router,      prefix="/api/chat",      tags=["chat"])
 
 
 @app.websocket("/ws/{doc_id}")

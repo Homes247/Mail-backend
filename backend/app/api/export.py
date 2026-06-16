@@ -1,3 +1,4 @@
+from openpyxl.utils import bound_dictionary
 import io, json
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -13,24 +14,31 @@ class ExportRequest(BaseModel):
     format: str  # csv | docx | pptx
 
 @router.post("/export")
-async def export_document(body: ExportRequest, db: AsyncSession = Depends(get_db)):
-    doc = await db.get(Document, body.doc_id)
+async def export_document_post(body: ExportRequest, db: AsyncSession = Depends(get_db)):
+    return await process_export(body.doc_id, body.format, db)
+
+@router.get("/export")
+async def export_document_get(doc_id: str, format: str, db: AsyncSession = Depends(get_db)):
+    return await process_export(doc_id, format, db)
+
+async def process_export(doc_id: str, format: str, db: AsyncSession):
+    doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(404, "Not found")
 
     content = json.loads(doc.content or "{}")
 
-    if body.format in ["csv", "tsv"]:
-        return _export_csv(doc.title, content, delimiter='\t' if body.format == 'tsv' else ',')
-    elif body.format in ["xlsx", "xlsb", "ods"]:
+    if format in ["csv", "tsv"]:
+        return _export_csv(doc.title, content, delimiter='\t' if format == 'tsv' else ',')
+    elif format in ["xlsx", "xlsb", "ods"]:
         return _export_xlsx(doc.title, content)
-    elif body.format == "html":
+    elif format == "html":
         return _export_html_zip(doc.title, content)
-    elif body.format == "pdf":
+    elif format == "pdf":
         return _export_pdf(doc.title, content)
-    elif body.format == "docx":
+    elif format == "docx":
         return _export_docx(doc.title, content)
-    elif body.format == "pptx":
+    elif format == "pptx":
         return _export_pptx(doc.title, content)
     else:
         raise HTTPException(400, "Unsupported format")
@@ -183,7 +191,7 @@ def _export_pptx(title: str, content: dict) -> StreamingResponse:
         headers={"Content-Disposition": f'attachment; filename="{title}.pptx"'}
     )
 
-def _export_pdf(title: str, content: dict) -> StreamingResponse:
+def _export_pdf(title: str, content: dict):
     from fpdf import FPDF
     import io
     
@@ -219,9 +227,10 @@ def _export_pdf(title: str, content: dict) -> StreamingResponse:
                 pdf.cell(col_widths[c], 8, safe_val, border=1)
             pdf.ln(8)
 
-    buf = io.BytesIO(pdf.output())
-    return StreamingResponse(
-        buf,
+    pdf_bytes = bytes(pdf.output())
+    from fastapi.responses import Response
+    return Response(
+        content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{title}.pdf"'}
     )

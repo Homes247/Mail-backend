@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
+import { ChatWidgetComponent } from '../../components/chat-widget/chat-widget.component';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -12,14 +13,14 @@ interface SlideData { id: string; title: string; pages: Record<string, Page>; pa
 @Component({
   selector: 'app-slide-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ChatWidgetComponent],
   template: `
     <div class="shell" (click)="closeMenus()">
       <div class="top-bar">
         <div class="top-left">
-          <div class="logo-box" (click)="back()" title="Back to Dashboard">
-            <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" fill="#f4b400"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1zm-4-4h-5v-1h5v1zm2-3H8V8h8v4zm-1-3H9v2h6v-2z"/></svg>
-          </div>
+          <button class="back" (click)="back()" title="Back to Dashboard">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="icon-sm"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          </button>
           <div class="doc-meta">
             <input class="title-input" [(ngModel)]="title" (blur)="save()" placeholder="Untitled presentation" />
             <div class="menu-bar" (mousedown)="$event.preventDefault()">
@@ -229,22 +230,57 @@ interface SlideData { id: string; title: string; pages: Record<string, Page>; pa
       <div class="toast" [class.show]="toastVisible">{{ toastMsg }}</div>
 
       <!-- Share Modal -->
-      <div class="modal-overlay" *ngIf="shareModalOpen" (click)="shareModalOpen = false">
-        <div class="modal share-modal" (click)="$event.stopPropagation()">
-          <button (click)="shareModalOpen = false" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#5f6368;">&#x00D7;</button>
-          <h3 style="margin-top:0;color:#202124;">Share this presentation</h3>
-          <p style="color:#5f6368;font-size:14px;margin-bottom:16px;">Choose how to share:</p>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <button class="btn" style="background:#25d366;color:#fff;" (click)="shareTo('whatsapp')">WhatsApp</button>
-            <button class="btn" style="background:#ea4335;color:#fff;" (click)="shareTo('email')">Email</button>
-            <button class="btn outline" (click)="copyLink(); shareModalOpen=false">Copy Link</button>
-          </div>
-          <div style="margin-top:16px;padding-top:16px;border-top:1px solid #e8eaed;">
-            <div style="font-size:12px;color:#5f6368;margin-bottom:8px;">Or share this link directly:</div>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <input type="text" [value]="currentUrl" readonly style="flex:1;padding:8px 10px;border:1px solid #dadce0;border-radius:4px;font-size:12px;color:#5f6368;background:#f8f9fa;outline:none;">
-              <button class="btn" (click)="copyLink(); shareModalOpen=false" style="white-space:nowrap;font-size:13px;">Copy</button>
+      <div class="modal-overlay" *ngIf="shareModalOpen" (click)="shareModalOpen = false; shareRoleDropdownOpen = false">
+        <div class="modal share-modal" (click)="$event.stopPropagation()" style="background:#202124; color:#e8eaed; border-radius:12px; padding:24px; width:520px; box-shadow:0 12px 40px rgba(0,0,0,.6); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; border:none; max-width:90vw;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="background:#f4b400; color:#fff; display:flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px;">
+                <span class="material-symbols-outlined" style="font-size:16px;">slideshow</span>
+              </div>
+              <h3 style="margin:0; font-size:18px; font-weight:500; color:#e8eaed;">Share "{{ title || 'Untitled presentation' }}"</h3>
             </div>
+            <button (click)="shareModalOpen = false" style="background:none; border:none; color:#9aa0a6; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:6px; border-radius:50%;">
+              <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+            </button>
+          </div>
+          <div style="position:relative; margin-bottom:32px;">
+            <div style="display:flex; align-items:center; gap:12px; position:relative;">
+              <div style="flex:1; display:flex; align-items:center; background:#1c1d1f; border:1px solid #5f6368; border-radius:4px; padding:0 12px; height:44px;">
+                <input type="text" [(ngModel)]="shareQuery" style="flex:1; background:transparent; border:none; color:#e8eaed; font-size:14px; outline:none; height:100%;" placeholder="Add people and groups">
+                <div (click)="shareRoleDropdownOpen = !shareRoleDropdownOpen" style="display:flex; align-items:center; gap:4px; color:#e8eaed; font-size:13px; cursor:pointer; padding-left:12px; position:relative;">
+                  {{ shareRole }} <span class="material-symbols-outlined" style="font-size:18px; opacity: 0.8;">arrow_drop_down</span>
+                  
+                  <div *ngIf="shareRoleDropdownOpen" style="position:absolute; top:30px; right:0; background:#2d3748; border:1px solid #4a5568; border-radius:4px; box-shadow:0 4px 12px rgba(0,0,0,0.5); z-index:100; min-width:100px;">
+                     <div (click)="shareRole = 'View'; shareRoleDropdownOpen = false; $event.stopPropagation()" style="padding:8px 12px; cursor:pointer; color:#e8eaed;">View</div>
+                     <div (click)="shareRole = 'Edit'; shareRoleDropdownOpen = false; $event.stopPropagation()" style="padding:8px 12px; cursor:pointer; color:#e8eaed;">Edit</div>
+                  </div>
+                </div>
+              </div>
+              <button (click)="performShare()" style="background:#f4b400; color:#fff; border:none; border-radius:24px; font-weight:500; font-size:14px; padding:0 24px; height:44px; cursor:pointer;">Share</button>
+            </div>
+          </div>
+          <div style="margin-bottom:32px;">
+            <div style="font-size:11px; font-weight:600; color:#9aa0a6; letter-spacing:0.8px; margin-bottom:16px;">WHO CAN ACCESS</div>
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <div style="display:flex; align-items:center; gap:16px;">
+                <div style="background:#303134; display:flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:50%; color:#e8eaed;">
+                  <span class="material-symbols-outlined" style="font-size:20px;">{{ isPublic ? 'public' : 'link' }}</span>
+                </div>
+                <div>
+                  <div style="font-size:14px; font-weight:600; color:#e8eaed;">{{ isPublic ? 'Public Link - Anyone on the internet can view' : 'Permalink - Private, not shared with anyone' }}</div>
+                </div>
+              </div>
+              <button *ngIf="!isPublic" (click)="isPublic = true" style="background:transparent; border:none; color:#9aa0a6; display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; cursor:pointer; padding:8px; border-radius:4px;">
+                 <span class="material-symbols-outlined" style="font-size:16px;">settings</span> Make Public
+              </button>
+              <button *ngIf="isPublic" (click)="isPublic = false" style="background:transparent; border:none; color:#9aa0a6; display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; cursor:pointer; padding:8px; border-radius:4px;">
+                 <span class="material-symbols-outlined" style="font-size:16px;">lock</span> Make Private
+              </button>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <button (click)="copyLink()" style="background:transparent; border:none; color:#e8eaed; font-size:14px; font-weight:500; border-radius:24px; padding:8px 12px; margin-left:-12px; cursor:pointer;">Copy Link</button>
+            <button (click)="shareModalOpen = false" style="background:#303134; color:#8ab4f8; font-size:14px; font-weight:500; border:none; border-radius:24px; padding:0 24px; height:40px; cursor:pointer;">Done</button>
           </div>
         </div>
       </div>
@@ -319,14 +355,50 @@ interface SlideData { id: string; title: string; pages: Record<string, Page>; pa
           </div>
         </div>
       </div>
+
+      <div class="bottom-chat-bar">
+         <div class="bcb-item" (click)="toggleWidget('chat')">
+            <span class="material-symbols-outlined" style="color:#d32f2f;">chat</span>
+            <span>Unread Chats</span>
+            <div class="bcb-badge">0</div>
+         </div>
+         <div class="bcb-item" (click)="toggleWidget('channels')">
+            <span class="material-symbols-outlined" style="color:#5f6368;">group</span>
+            <span>Channels</span>
+         </div>
+         <div class="bcb-item" (click)="toggleWidget('contacts')">
+            <span class="material-symbols-outlined" style="color:#5f6368;">person</span>
+            <span>Contacts</span>
+         </div>
+      </div>
+
+      <app-chat-widget [activeWidget]="activeWidget" (close)="activeWidget=null"></app-chat-widget>
     </div>
   `,
   styles: [`
+    /* Bottom Chat Bar */
+    .bottom-chat-bar { position: fixed; bottom: 0; left: 0; display: flex; background: #f8f9fa; border-top: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0; z-index: 9999; height: 36px; border-top-right-radius: 6px; box-shadow: 0 -2px 5px rgba(0,0,0,0.05); }
+    .bcb-item { display: flex; align-items: center; gap: 8px; padding: 0 16px; cursor: pointer; border-right: 1px solid #e0e0e0; font-size: 13px; font-weight: 500; color: #202124; transition: background 0.2s; position: relative; }
+    .bcb-item:hover { background: #e8f0fe; }
+    .bcb-item .material-symbols-outlined { font-size: 18px; }
+    .bcb-badge { position: absolute; top: -6px; left: 16px; background: #d32f2f; color: #fff; font-size: 10px; font-weight: bold; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
+
+    /* Widgets */
+    .widget-panel { position: fixed; bottom: 48px; right: 24px; width: 300px; background: #fff; border-radius: 8px; border: 1px solid #e0e0e0; z-index: 10000; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .wp-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #e0e0e0; font-weight: 500; color: #202124; background: #f8f9fa; }
+    .wp-body { padding: 16px; flex: 1; min-height: 200px; display: flex; flex-direction: column; }
     .shell { display: flex; flex-direction: column; height: 100vh; background: #f9fbfd; }
     
     .top-bar { display: flex; align-items: flex-start; justify-content: space-between; padding: 8px 16px 0; background: #f9fbfd; }
     .top-left { display: flex; align-items: flex-start; gap: 10px; }
-    .logo-box { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .back { 
+      background: none; border: none; cursor: pointer; color: #5f6368; 
+      display: flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px; border-radius: 50%;
+      margin-top: 4px;
+    }
+    .back:hover { background: #f1f3f4; }
+    .icon-sm { width: 16px; height: 16px; display: inline-block; vertical-align: middle; }
     .doc-meta { display: flex; flex-direction: column; gap: 2px; }
     .title-input { font-size: 18px; font-weight: 400; color: #202124; border: 1px solid transparent; border-radius: 4px; padding: 2px 6px; outline: none; background: transparent; width: 250px; }
     .title-input:focus { border-color: #1a73e8; background: #fff; }
@@ -450,6 +522,11 @@ interface SlideData { id: string; title: string; pages: Record<string, Page>; pa
   `]
 })
 export class SlideEditorComponent implements OnInit, OnDestroy {
+  activeWidget: string | null = null;
+  toggleWidget(w: string) {
+    if (this.activeWidget === w) this.activeWidget = null;
+    else this.activeWidget = w;
+  }
   @ViewChild('slideBody') slideBodyRef?: ElementRef<HTMLElement>;
 
   docId = '';
@@ -463,6 +540,10 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
   zoomDropdownOpen = false;
   data: SlideData = { id: '', title: '', pages: {}, pageOrder: [] };
   activeId = '';
+  shareQuery = '';
+  shareRole: 'View' | 'Edit' = 'View';
+  shareRoleDropdownOpen = false;
+  isPublic = false;
   toastVisible = false;
   toastMsg = '';
   history: string[] = [];
@@ -529,7 +610,7 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
   }
 
   closeMenus() { this.activeMenu = null; this.zoomDropdownOpen = false; }
-
+  
   get activePage() { return this.activeId ? this.data.pages[this.activeId] : null; }
 
   get initials() {
@@ -962,6 +1043,18 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
   copyLink() {
     navigator.clipboard.writeText(window.location.href)
       .then(() => this.showToast('Link copied! Anyone with the link can collaborate.'));
+  }
+
+  performShare() {
+    if (!this.shareQuery) return;
+    this.api.shareDocument(this.docId, this.shareQuery, this.shareRole.toLowerCase()).subscribe({
+      next: () => {
+        this.showToast(`Shared with ${this.shareQuery} as ${this.shareRole}`);
+        this.shareQuery = '';
+        this.shareModalOpen = false;
+      },
+      error: () => this.showToast('Failed to share: User not found.')
+    });
   }
 
   shareTo(platform: string) {
