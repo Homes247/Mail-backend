@@ -357,7 +357,7 @@ import { AuthService } from '../../services/auth.service';
   `,
   styles: [`
     /* Bottom Chat Bar */
-    .bottom-chat-bar { position: fixed; bottom: 0; left: 0; display: flex; background: #f8f9fa; border-top: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0; z-index: 9999; height: 36px; border-top-right-radius: 6px; box-shadow: 0 -2px 5px rgba(0,0,0,0.05); }
+    .bottom-chat-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #f8f9fa; border-top: 1px solid #e0e0e0; z-index: 9999; height: 36px; box-shadow: 0 -1px 3px rgba(0,0,0,0.05); }
     .bcb-item { display: flex; align-items: center; gap: 8px; padding: 0 16px; cursor: pointer; border-right: 1px solid #e0e0e0; font-size: 13px; font-weight: 500; color: #202124; transition: background 0.2s; position: relative; }
     .bcb-item:hover { background: #e8f0fe; }
     .bcb-item .material-symbols-outlined { font-size: 18px; }
@@ -368,7 +368,7 @@ import { AuthService } from '../../services/auth.service';
     .wp-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #e0e0e0; font-weight: 500; color: #202124; background: #f8f9fa; }
     .wp-body { padding: 16px; flex: 1; min-height: 200px; display: flex; flex-direction: column; }
 
-    .shell { display: flex; flex-direction: column; height: 100vh; background: #f9fbfd; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+    .shell { display: flex; flex-direction: column; height: calc(100vh - 36px); background: #f9fbfd; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
     
     .top-bar {
       display: flex; align-items: center; justify-content: space-between;

@@ -377,7 +377,7 @@ interface SlideData { id: string; title: string; pages: Record<string, Page>; pa
   `,
   styles: [`
     /* Bottom Chat Bar */
-    .bottom-chat-bar { position: fixed; bottom: 0; left: 0; display: flex; background: #f8f9fa; border-top: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0; z-index: 9999; height: 36px; border-top-right-radius: 6px; box-shadow: 0 -2px 5px rgba(0,0,0,0.05); }
+    .bottom-chat-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #f8f9fa; border-top: 1px solid #e0e0e0; z-index: 9999; height: 36px; box-shadow: 0 -1px 3px rgba(0,0,0,0.05); }
     .bcb-item { display: flex; align-items: center; gap: 8px; padding: 0 16px; cursor: pointer; border-right: 1px solid #e0e0e0; font-size: 13px; font-weight: 500; color: #202124; transition: background 0.2s; position: relative; }
     .bcb-item:hover { background: #e8f0fe; }
     .bcb-item .material-symbols-outlined { font-size: 18px; }
@@ -387,7 +387,7 @@ interface SlideData { id: string; title: string; pages: Record<string, Page>; pa
     .widget-panel { position: fixed; bottom: 48px; right: 24px; width: 300px; background: #fff; border-radius: 8px; border: 1px solid #e0e0e0; z-index: 10000; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     .wp-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #e0e0e0; font-weight: 500; color: #202124; background: #f8f9fa; }
     .wp-body { padding: 16px; flex: 1; min-height: 200px; display: flex; flex-direction: column; }
-    .shell { display: flex; flex-direction: column; height: 100vh; background: #f9fbfd; }
+    .shell { display: flex; flex-direction: column; height: calc(100vh - 36px); background: #f9fbfd; }
     
     .top-bar { display: flex; align-items: flex-start; justify-content: space-between; padding: 8px 16px 0; background: #f9fbfd; }
     .top-left { display: flex; align-items: flex-start; gap: 10px; }
