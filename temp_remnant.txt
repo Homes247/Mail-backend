@@ -1,0 +1,7 @@
+                  <div class="dd-item" (click)="toggleEquationToolbar()"><span class="material-symbols-outlined dd-icon">{{ showEquationToolbar ? 'check_box' : 'check_box_outline_blank' }}</span><span class="dd-text">Equation toolbar</span></div>
+                  <div class="dd-item" (click)="toggleRuler()"><span class="dd-text">{{ showRuler ? '✓ ' : '' }}Show ruler</span></div>
+                  <div class="dd-item" (click)="toggleEquationToolbar()"><span class="dd-text">{{ showEquationToolbar ? '✓ ' : '' }}Show equation toolbar</span></div>
+                  <div class="dd-item" (click)="toggleNonPrinting()"><span class="dd-text">{{ showNonPrinting ? '✓ ' : '' }}Show non-printing characters</span><span class="dd-hint">Ctrl+Shift+P</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="toggleFullScreen()"><span class="material-symbols-outlined dd-icon">fullscreen</span><span class="dd-text">Full screen</span></div>
+                </div>

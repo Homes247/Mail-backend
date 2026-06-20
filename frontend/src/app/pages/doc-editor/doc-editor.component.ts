@@ -12,7 +12,7 @@ import { AuthService } from '../../services/auth.service';
   standalone: true,
   imports: [CommonModule, FormsModule, ChatWidgetComponent],
   template: `
-    <div class="shell" (click)="closeMenus($event)">
+    <div class="shell" (click)="closeMenus($event)" [class.theme-dark]="isDarkMode" [class.reader-mode]="isReaderView">
       <!-- Header Bar -->
       <div class="header-bar">
         <div class="header-left">
@@ -77,22 +77,225 @@ import { AuthService } from '../../services/auth.service';
             <div class="menu-bar" (mousedown)="$event.preventDefault()">
               <div class="menu-item" (click)="toggleMenu('file', $event)" [class.active]="activeMenu === 'file'">
                 File
-                <div class="dropdown" *ngIf="activeMenu === 'file'">
-                  <div class="dd-item" (click)="newDoc()"><span class="material-symbols-outlined dd-icon">note_add</span><span class="dd-text">New</span></div>
-                  <div class="dd-item" (click)="docInput.click(); closeMenus()"><span class="material-symbols-outlined dd-icon">folder_open</span><span class="dd-text">Open</span><span class="dd-hint">Ctrl+O</span></div>
-                  <div class="dd-item" (click)="makeCopy()"><span class="material-symbols-outlined dd-icon">content_copy</span><span class="dd-text">Make a copy</span></div>
+                <div class="dropdown file-dd" *ngIf="activeMenu === 'file'" (scroll)="closeAllSubmenus()">
+                  <!-- New Document -->
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, sub1)">
+                     <span class="material-symbols-outlined dd-icon">note_add</span><span class="dd-text">New Document</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
+                     <div #sub1 class="sub-dropdown">
+                       <div class="dd-item" (click)="newDoc()"><span class="material-symbols-outlined dd-icon">draft</span><span class="dd-text">Blank Document</span></div>
+                       <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, sub12)">
+                          <span class="material-symbols-outlined dd-icon">post_add</span><span class="dd-text">Document Using Template...</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
+                          <div #sub12 class="sub-dropdown">
+                             <div class="dd-item" (click)="loadTemplate('resume')"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">description</span><span class="dd-text">Resume</span></div>
+                             <div class="dd-item" (click)="loadTemplate('letter')"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">description</span><span class="dd-text">Letter</span></div>
+                             <div class="dd-item" (click)="loadTemplate('proposal')"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">description</span><span class="dd-text">Project Proposal</span></div>
+                             <div class="dd-item" (click)="loadTemplate('notes')"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">description</span><span class="dd-text">Meeting Notes</span></div>
+                             <div class="dd-item" (click)="loadTemplate('brochure')"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">description</span><span class="dd-text">Brochure</span></div>
+                             <div class="dd-item" (click)="loadTemplate('newsletter')"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">description</span><span class="dd-text">Newsletter</span></div>
+                             <div class="dd-item" (click)="loadTemplate('invoice')"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">description</span><span class="dd-text">Invoice</span></div>
+                             <div class="dd-item" (click)="loadTemplate('report')"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">description</span><span class="dd-text">Business Report</span></div>
+                             <div class="dd-item" (click)="loadTemplate('plan')"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">description</span><span class="dd-text">Business Plan</span></div>
+                             <div class="dd-item" (click)="loadTemplate('essay')"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">description</span><span class="dd-text">Essay / Academic</span></div>
+                             <div class="dd-sep"></div>
+                             <div class="dd-item" (click)="showToast('Template Gallery opening')"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">grid_view</span><span class="dd-text">Template Gallery...</span></div>
+                          </div>
+                       </div>
+                     </div>
+                  </div>
+
+                  <!-- New Automation Template -->
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subAutoTemp)">
+                    <span class="material-symbols-outlined dd-icon">auto_awesome_mosaic</span><span class="dd-text">New Automation Template</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
+                    <div #subAutoTemp class="sub-dropdown">
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subMerge)">
+                        <span class="material-symbols-outlined dd-icon" style="margin-top:2px;">merge_type</span>
+                        <div style="display:flex; flex-direction:column; flex:1;">
+                          <span class="dd-text" style="color:#1a73e8;">Merge Template</span>
+                          <span style="font-size:10px; color:#5f6368; line-height:1;">Generate personalized documents in bulk</span>
+                        </div>
+                        <span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
+                        <div #subMerge class="sub-dropdown">
+                           <div class="dd-item" (click)="showToast('Design From Scratch')" style="align-items:flex-start;">
+                             <div style="display:flex; flex-direction:column;">
+                               <span class="dd-text" style="color:#1a73e8;">Design From Scratch</span>
+                               <span style="font-size:10px; color:#5f6368; line-height:1; margin-top:2px;">Build custom templates using a blank canvas</span>
+                             </div>
+                           </div>
+                           <div class="dd-item" (click)="showToast('Design Over PDF')" style="align-items:flex-start;">
+                             <div style="display:flex; flex-direction:column;">
+                               <span class="dd-text">Design Over PDF</span>
+                               <span style="font-size:10px; color:#5f6368; line-height:1; margin-top:2px;">Map merge fields to an existing PDF</span>
+                             </div>
+                           </div>
+                        </div>
+                      </div>
+                      <div class="dd-item" (click)="showToast('Fillable Template')" style="align-items:flex-start;">
+                        <span class="material-symbols-outlined dd-icon" style="margin-top:2px;">data_object</span>
+                        <div style="display:flex; flex-direction:column; flex:1;">
+                          <span class="dd-text">Fillable Template</span>
+                          <span style="font-size:10px; color:#5f6368; line-height:1;">Create and publish forms for users to fill</span>
+                        </div>
+                      </div>
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subSignTemp)" style="align-items:flex-start;">
+                        <span class="material-symbols-outlined dd-icon" style="margin-top:2px; color:#0f9d58;">draw</span>
+                        <div style="display:flex; flex-direction:column; flex:1;">
+                          <span class="dd-text">Sign Template</span>
+                          <span style="font-size:10px; color:#5f6368; line-height:1;">Collect signatures by automating document delivery</span>
+                        </div>
+                        <span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
+                        <div #subSignTemp class="sub-dropdown">
+                           <div class="dd-item" (click)="showToast('Sign with VMail Sign')"><span class="dd-text">Sign with VMail Sign</span></div>
+                        </div>
+                      </div>
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subLabelTemp)" style="align-items:flex-start;">
+                        <span class="material-symbols-outlined dd-icon" style="margin-top:2px;">label</span>
+                        <div style="display:flex; flex-direction:column; flex:1;">
+                          <span class="dd-text">Label Template</span>
+                          <span style="font-size:10px; color:#5f6368; line-height:1;">Create formatted labels ready for printing</span>
+                        </div>
+                        <span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
+                        <div #subLabelTemp class="sub-dropdown">
+                           <div class="dd-item" (click)="showToast('Label Template')"><span class="dd-text">Create Label</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="shareModalOpen = true; closeMenus()"><span class="material-symbols-outlined dd-icon">share</span><span class="dd-text">Share</span></div>
-                  <div class="dd-item" (click)="emailDoc()"><span class="material-symbols-outlined dd-icon">mail</span><span class="dd-text">Email</span></div>
-                  <div class="dd-item" (click)="exportFile('docx')"><span class="material-symbols-outlined dd-icon">download</span><span class="dd-text">Download (.docx)</span></div>
+
+                  <!-- Import -->
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subImport)">
+                    <span class="material-symbols-outlined dd-icon">login</span><span class="dd-text">Import</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
+                    <div #subImport class="sub-dropdown">
+                       <input type="file" #importInput (change)="importFile($event)" style="display:none" accept=".docx,.pdf,.txt,.html,.rtf">
+                       <div class="dd-item" (click)="triggerImport()"><span class="material-symbols-outlined dd-icon" style="font-size:16px; color:#1a73e8;">computer</span><span class="dd-text" style="color:#1a73e8;">From Computer</span></div>
+                       <div class="dd-item" (click)="cloudModalOpen = true; closeMenus()"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">cloud_download</span><span class="dd-text">From Cloud Drives</span></div>
+                    </div>
+                  </div>
+
+                  <!-- Open -->
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subOpen)">
+                    <span class="material-symbols-outlined dd-icon">folder_open</span><span class="dd-text">Open</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
+                    <div #subOpen class="sub-dropdown">
+                       <div style="padding: 4px 12px; font-size: 11px; font-weight: 600; color: #202124;">Recently Opened</div>
+                       <div class="dd-sep"></div>
+                       <ng-container *ngIf="recentDocs.length > 0">
+                         <div class="dd-item" *ngFor="let d of recentDocs" (click)="openDoc(d.id)">
+                           <span class="material-symbols-outlined dd-icon" style="font-size:16px;">description</span>
+                           <span class="dd-text" [title]="d.title">{{ (d.title && d.title.length > 30) ? (d.title | slice:0:30) + '...' : d.title || 'Untitled Document' }}</span>
+                         </div>
+                       </ng-container>
+                       <div *ngIf="recentDocs.length === 0" style="padding: 4px 12px; font-size: 12px; color: #5f6368;">No recent documents</div>
+                       <div class="dd-sep"></div>
+                       <div class="dd-item" (click)="docInput.click(); closeMenus()"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">folder</span><span class="dd-text">More Documents...</span></div>
+                    </div>
+                  </div>
+
                   <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="renameDoc()"><span class="material-symbols-outlined dd-icon">edit</span><span class="dd-text">Rename</span></div>
-                  <div class="dd-item" (click)="trashDoc()"><span class="material-symbols-outlined dd-icon">delete</span><span class="dd-text">Move to trash</span></div>
+
+                  <!-- Manage Documents -->
+                  <div class="dd-item" (click)="showToast('Manage Documents')"><span class="material-symbols-outlined dd-icon">folder_managed</span><span class="dd-text">Manage Documents</span></div>
+
                   <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="showVersionHistory()"><span class="material-symbols-outlined dd-icon">history</span><span class="dd-text">Version history</span></div>
-                  <div class="dd-item" (click)="makeOffline()"><span class="material-symbols-outlined dd-icon">offline_pin</span><span class="dd-text">Make available offline</span></div>
+
+                  <!-- Make a Copy -->
+                  <div class="dd-item" (click)="makeCopy()"><span class="material-symbols-outlined dd-icon">content_copy</span><span class="dd-text">Make a Copy...</span><span class="dd-hint">Ctrl+Shift+S</span></div>
+                  
+                  <!-- Save As -->
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subSaveAs)">
+                    <span class="material-symbols-outlined dd-icon">save</span><span class="dd-text">Save As</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
+                    <div #subSaveAs class="sub-dropdown">
+                       <div class="dd-item" (click)="saveAs()"><span class="material-symbols-outlined dd-icon" style="font-size:16px; color:#1a73e8;">save</span><span class="dd-text" style="color:#1a73e8;">Save As...</span></div>
+                       <div class="dd-item" (click)="saveAsTemplate()"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">receipt_long</span><span class="dd-text">Save As Template...</span></div>
+                       <div class="dd-item" (click)="cloudModalOpen = true; closeMenus()"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">cloud_upload</span><span class="dd-text">Save to Other Cloud Drives</span></div>
+                    </div>
+                  </div>
+
+                  <!-- Download As -->
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subDownload)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">download</span><span class="dd-text" style="color:#1a73e8;">Download As</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subDownload class="sub-dropdown">
+                       <div class="dd-item" (click)="exportFile('docx')"><span class="dd-text" style="color:#1a73e8;">MS Word (.DOCX)</span><span class="dd-hint" style="margin-left:auto; color:#5f6368;">.docx</span></div>
+                       <div class="dd-item" (click)="openPasswordModal('docx')"><span class="dd-text">Password Protected MS Word (.docx)</span><span class="dd-hint" style="margin-left:auto; color:#5f6368;">.docx</span></div>
+                       <div class="dd-item" (click)="exportFile('pdf')"><span class="dd-text" style="color:#1a73e8;">PDF (.PDF)</span><span class="dd-hint" style="margin-left:auto; color:#5f6368;">.pdf</span></div>
+                       <div class="dd-item" (click)="openPasswordModal('pdf')"><span class="dd-text">Password-Protected PDF (.PDF)</span><span class="dd-hint" style="margin-left:auto; color:#5f6368;">.pdf</span></div>
+                       <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subOtherFiles)">
+                          <span class="dd-text">Other File Formats</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
+                          <div #subOtherFiles class="sub-dropdown">
+                             <div class="dd-item" (click)="exportFile('html')"><span class="dd-text" style="color:#1a73e8;">Web Page (.html)</span><span class="dd-hint" style="margin-left:auto; color:#5f6368;">.html</span></div>
+                             <div class="dd-item" (click)="exportFile('txt')"><span class="dd-text" style="color:#1a73e8;">Plain Text (.txt)</span><span class="dd-hint" style="margin-left:auto; color:#5f6368;">.txt</span></div>
+                          </div>
+                       </div>
+                    </div>
+                  </div>
+
                   <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="showDetails()"><span class="material-symbols-outlined dd-icon">info</span><span class="dd-text">Details</span></div>
+
+                  <!-- Document Versions -->
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subVersions)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">history</span><span class="dd-text" style="color:#1a73e8;">Document Versions</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subVersions class="sub-dropdown">
+                       <div class="dd-item" (click)="showToast('Create Version')"><span class="material-symbols-outlined dd-icon" style="font-size:16px; color:#1a73e8;">history_toggle_off</span><span class="dd-text" style="color:#1a73e8;">Create Version</span></div>
+                       <div class="dd-item" (click)="showVersionHistory()"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">history</span><span class="dd-text">Version History...</span><span class="dd-hint">Ctrl+Alt+Shift+G</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-sep"></div>
+
+                  <!-- Mark As Final -->
+                  <div class="dd-item" (click)="markAsFinalModalOpen = true; closeMenus()"><span class="material-symbols-outlined dd-icon">task_alt</span><span class="dd-text">Mark As Final</span></div>
+
+                  <!-- Share -->
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subShare)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">share</span><span class="dd-text" style="color:#1a73e8;">Share</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subShare class="sub-dropdown">
+                       <div class="dd-item" (click)="shareModalOpen = true; closeMenus()"><span class="material-symbols-outlined dd-icon" style="font-size:16px; color:#1a73e8;">group_add</span><span class="dd-text" style="color:#1a73e8;">Invite Collaborators</span></div>
+                       <div class="dd-item" (click)="showToast('Share To Support')"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">support_agent</span><span class="dd-text">Share To Support</span></div>
+                       <div class="dd-item" (click)="emailDoc()"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">mail</span><span class="dd-text">Email As Attachment...</span></div>
+                    </div>
+                  </div>
+
+                  <!-- Publish -->
+                  <div class="dd-item" (click)="publishModalOpen = true; closeMenus()"><span class="material-symbols-outlined dd-icon">language</span><span class="dd-text">Publish</span></div>
+
+                  <!-- Send for sign -->
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subSign)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">draw</span><span class="dd-text" style="color:#1a73e8;">Send for sign</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subSign class="sub-dropdown">
+                       <div class="dd-item" (click)="showToast('VMail Sign')" style="align-items:flex-start;">
+                         <span class="material-symbols-outlined dd-icon" style="margin-top:2px; font-size:16px; color:#1a73e8;">draw</span>
+                         <div style="display:flex; flex-direction:column;">
+                           <span class="dd-text" style="color:#1a73e8;">Send For Sign Via VMail Sign</span>
+                           <span style="font-size:10px; color:#5f6368; line-height:1; margin-top:2px;">Collect digital signatures using VMail Sign</span>
+                         </div>
+                       </div>
+                       <div class="dd-item" (click)="showToast('Upload to Sign Services')" style="align-items:flex-start;">
+                         <span class="material-symbols-outlined dd-icon" style="margin-top:2px; font-size:16px;">verified</span>
+                         <div style="display:flex; flex-direction:column; flex:1;">
+                           <span class="dd-text">Upload to Sign Services</span>
+                           <span style="font-size:10px; color:#5f6368; line-height:1; margin-top:2px;">Collect signatures using your preferred<br>signature service</span>
+                         </div>
+                         <span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
+                       </div>
+                    </div>
+                  </div>
+
+                  <!-- Fill As Form -->
+                  <div class="dd-item" (click)="fillFormModalOpen = true; closeMenus()"><span class="material-symbols-outlined dd-icon">list_alt</span><span class="dd-text">Fill As Form</span></div>
+
+                  <div class="dd-sep"></div>
+
+                  <!-- Page Setup -->
+                  <div class="dd-item" (click)="pageSetupModalOpen = true; closeMenus()"><span class="material-symbols-outlined dd-icon">settings</span><span class="dd-text">Page Setup</span></div>
+
+                  <!-- Print -->
+                  <div class="dd-item" (click)="printDoc()"><span class="material-symbols-outlined dd-icon">print</span><span class="dd-text">Print</span><span class="dd-hint">Ctrl+P</span></div>
+
+                  <div class="dd-item" (click)="showDetails()"><span class="material-symbols-outlined dd-icon">info</span><span class="dd-text">Document Properties</span></div>
+
+                  <div class="dd-sep"></div>
+
+                  <div class="dd-item" (click)="trashDoc()"><span class="material-symbols-outlined dd-icon">delete</span><span class="dd-text">Move To Trash</span></div>
                 </div>
               </div>
               <div class="menu-item" (click)="toggleMenu('edit', $event)" [class.active]="activeMenu === 'edit'">
@@ -119,59 +322,847 @@ import { AuthService } from '../../services/auth.service';
               <div class="menu-item" (click)="toggleMenu('view', $event)" [class.active]="activeMenu === 'view'">
                 View
                 <div class="dropdown" *ngIf="activeMenu === 'view'">
-                  <div class="dd-item" (click)="toggleViewMode()"><span class="material-symbols-outlined dd-icon">edit_note</span><span class="dd-text">Mode: {{ viewMode }}</span></div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subDocView)">
+                    <span class="material-symbols-outlined dd-icon" style="color: #1a73e8;">plagiarism</span>
+                    <span class="dd-text" style="color: #1a73e8;">Document View : {{ documentViewType }}</span>
+                    <span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color: #1a73e8;">chevron_right</span>
+                    <div #subDocView class="sub-dropdown">
+                      <div class="dd-item" (click)="setDocumentView('Page View')"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ documentViewType === 'Page View' ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon" style="font-size:16px;">article</span><span class="dd-text" [style.color]="documentViewType === 'Page View' ? '#1a73e8' : ''">Page View</span></div>
+                      <div class="dd-item" (click)="setDocumentView('Web View')"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ documentViewType === 'Web View' ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon" style="font-size:16px;">web</span><span class="dd-text" [style.color]="documentViewType === 'Web View' ? '#1a73e8' : ''">Web View at Width: 100%</span></div>
+                    </div>
+                  </div>
+                  <div class="dd-item" (click)="toggleReaderView()"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ isReaderView ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon">menu_book</span><span class="dd-text">Reader View</span></div>
+                  <div class="dd-item" (click)="toggleFullScreen()"><span class="material-symbols-outlined dd-icon">fullscreen</span><span class="dd-text">Full Screen</span><span class="dd-hint">Ctrl+F11</span></div>
+                  
                   <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="togglePrintLayout()"><span class="material-symbols-outlined dd-icon">{{ showPrintLayout ? 'check_box' : 'check_box_outline_blank' }}</span><span class="dd-text">Print layout</span></div>
-                  <div class="dd-item" (click)="toggleRuler()"><span class="material-symbols-outlined dd-icon">{{ showRuler ? 'check_box' : 'check_box_outline_blank' }}</span><span class="dd-text">Ruler</span></div>
-                  <div class="dd-item" (click)="toggleEquationToolbar()"><span class="material-symbols-outlined dd-icon">{{ showEquationToolbar ? 'check_box' : 'check_box_outline_blank' }}</span><span class="dd-text">Equation toolbar</span></div>
-                  <div class="dd-item" (click)="toggleRuler()"><span class="dd-text">{{ showRuler ? '✓ ' : '' }}Show ruler</span></div>
-                  <div class="dd-item" (click)="toggleEquationToolbar()"><span class="dd-text">{{ showEquationToolbar ? '✓ ' : '' }}Show equation toolbar</span></div>
-                  <div class="dd-item" (click)="toggleNonPrinting()"><span class="dd-text">{{ showNonPrinting ? '✓ ' : '' }}Show non-printing characters</span><span class="dd-hint">Ctrl+Shift+P</span></div>
+                  
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subZoom)">
+                    <span class="material-symbols-outlined dd-icon" style="color: #1a73e8;">zoom_in</span>
+                    <span class="dd-text" style="color: #1a73e8;">Zoom : {{ zoomLevel }}%</span>
+                    <span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color: #1a73e8;">chevron_right</span>
+                    <div #subZoom class="sub-dropdown">
+                      <div class="dd-item" (click)="setZoom(200)"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ zoomLevel === 200 ? 'check' : '' }}</span><span class="dd-text" [style.color]="zoomLevel === 200 ? '#1a73e8' : ''">200%</span></div>
+                      <div class="dd-item" (click)="setZoom(175)"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ zoomLevel === 175 ? 'check' : '' }}</span><span class="dd-text" [style.color]="zoomLevel === 175 ? '#1a73e8' : ''">175%</span></div>
+                      <div class="dd-item" (click)="setZoom(150)"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ zoomLevel === 150 ? 'check' : '' }}</span><span class="dd-text" [style.color]="zoomLevel === 150 ? '#1a73e8' : ''">150%</span></div>
+                      <div class="dd-item" (click)="setZoom(125)"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ zoomLevel === 125 ? 'check' : '' }}</span><span class="dd-text" [style.color]="zoomLevel === 125 ? '#1a73e8' : ''">125%</span></div>
+                      <div class="dd-item" (click)="setZoom(100)"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ zoomLevel === 100 ? 'check' : '' }}</span><span class="dd-text" [style.color]="zoomLevel === 100 ? '#1a73e8' : ''">100%</span></div>
+                      <div class="dd-item" (click)="setZoom(75)"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ zoomLevel === 75 ? 'check' : '' }}</span><span class="dd-text" [style.color]="zoomLevel === 75 ? '#1a73e8' : ''">75%</span></div>
+                      <div class="dd-item" (click)="setZoom(50)"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ zoomLevel === 50 ? 'check' : '' }}</span><span class="dd-text" [style.color]="zoomLevel === 50 ? '#1a73e8' : ''">50%</span></div>
+                      <div class="dd-item" (click)="setZoom(25)"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ zoomLevel === 25 ? 'check' : '' }}</span><span class="dd-text" [style.color]="zoomLevel === 25 ? '#1a73e8' : ''">25%</span></div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" (click)="fitWidth()"><span class="dd-text" style="padding-left: 32px;">Fit Width</span></div>
+                      <div class="dd-item" (click)="fitPageToWindow()"><span class="dd-text" style="padding-left: 32px;">Fit Page To Window</span></div>
+                    </div>
+                  </div>
+                  
                   <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="toggleFullScreen()"><span class="material-symbols-outlined dd-icon">fullscreen</span><span class="dd-text">Full screen</span></div>
+                  
+                  <div class="dd-item" (click)="toggleNavigator()"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ showNavigator ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon">format_list_bulleted</span><span class="dd-text">Navigator</span></div>
+                  <div class="dd-item" (click)="toggleHideImages()"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ hideImages ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon">hide_image</span><span class="dd-text">Hide Images</span></div>
+                  <div class="dd-item" (click)="toggleRuler()"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ showRuler ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon">straighten</span><span class="dd-text">Ruler</span></div>
+                  
+                  <div class="dd-item" (click)="toggleBookmarks()"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ showBookmarks ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon">bookmark</span><span class="dd-text">Bookmarks</span></div>
+                  <div class="dd-item" (click)="toggleSmartGridLines()"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ showSmartGridLines ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon">grid_on</span><span class="dd-text">Smart Grid Lines</span></div>
+                  <div class="dd-item" (click)="toggleObjectIndicator()"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ showObjectIndicator ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon">anchor</span><span class="dd-text">Object Indicator</span></div>
+                  <div class="dd-item" (click)="toggleFormatting()"><span class="material-symbols-outlined dd-icon">format_paragraph</span><span class="dd-text">Toggle Formatting ...</span><span class="dd-hint">Ctrl+Shift+8</span></div>
+                  
+                  <div class="dd-sep"></div>
+                  
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subApp)">
+                    <span class="material-symbols-outlined dd-icon" style="color: #1a73e8;">light_mode</span><span class="dd-text" style="color: #1a73e8;">Appearance</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color: #1a73e8;">chevron_right</span>
+                    <div #subApp class="sub-dropdown">
+                      <div class="dd-item" (click)="setAppearance('System Default')"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ appearanceMode === 'System Default' ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon" style="font-size:16px; color:#1a73e8;">computer</span><span class="dd-text" [style.color]="appearanceMode === 'System Default' ? '#1a73e8' : ''">System Default</span></div>
+                      <div class="dd-item" (click)="setAppearance('Light Mode')"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ appearanceMode === 'Light Mode' ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon" style="font-size:16px;">light_mode</span><span class="dd-text" [style.color]="appearanceMode === 'Light Mode' ? '#1a73e8' : ''">Light Mode</span></div>
+                      <div class="dd-item" (click)="setAppearance('Dark Mode')"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ appearanceMode === 'Dark Mode' ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon" style="font-size:16px;">dark_mode</span><span class="dd-text" [style.color]="appearanceMode === 'Dark Mode' ? '#1a73e8' : ''">Dark Mode <span style="color:#5f6368; font-size: 12px;">(Excluding editor area)</span></span></div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" (click)="showToast('More Settings')"><span class="dd-text" style="padding-left: 32px;">More Settings</span></div>
+                    </div>
+                  </div>
+                  
+                  <div class="dd-sep"></div>
+                  
+                  <div class="dd-item" (click)="showToast('More View Options')"><span class="material-symbols-outlined dd-icon">more_horiz</span><span class="dd-text">More View Options ...</span></div>
                 </div>
               </div>
               <div class="menu-item" (click)="toggleMenu('insert', $event)" [class.active]="activeMenu === 'insert'">
                 Insert
                 <div class="dropdown" *ngIf="activeMenu === 'insert'">
-                  <div class="dd-item" (click)="imageInput.click(); closeMenus()"><span class="material-symbols-outlined dd-icon">image</span><span class="dd-text">Image</span></div>
-                  <div class="dd-item" (click)="insertTable()"><span class="material-symbols-outlined dd-icon">table</span><span class="dd-text">Table</span></div>
-                  <div class="dd-item" (click)="insertLink()"><span class="material-symbols-outlined dd-icon">link</span><span class="dd-text">Link</span><span class="dd-hint">Ctrl+K</span></div>
-                  <div class="dd-item" (click)="insertDrawing()"><span class="material-symbols-outlined dd-icon">draw</span><span class="dd-text">Drawing</span></div>
-                  <div class="dd-item" (click)="insertChart()"><span class="material-symbols-outlined dd-icon">bar_chart</span><span class="dd-text">Chart</span></div>
-                  <div class="dd-item" (click)="insertSymbol()"><span class="material-symbols-outlined dd-icon">special_character</span><span class="dd-text">Special characters</span></div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subImageInsert)">
+                    <span class="material-symbols-outlined dd-icon">image</span><span class="dd-text">Image</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subImageInsert class="sub-dropdown">
+                      <div class="dd-item" (click)="imageInput.click(); closeMenus()"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">upload</span><span class="dd-text" style="color:#1a73e8;">Upload...</span></div>
+                      <div class="dd-item" (click)="openImageModal('url')"><span class="material-symbols-outlined dd-icon">link</span><span class="dd-text">Insert a URL</span></div>
+                      <div class="dd-item" (click)="openImageModal('workdrive')"><span class="material-symbols-outlined dd-icon">cloud</span><span class="dd-text">Pick From WorkDrive</span></div>
+                      <div class="dd-item" (click)="openImageModal('library')"><span class="material-symbols-outlined dd-icon">photo_library</span><span class="dd-text">My Library</span></div>
+                      <div class="dd-item" (click)="openImageModal('gphotos')"><span class="material-symbols-outlined dd-icon">photo_camera</span><span class="dd-text">Google Photos</span></div>
+                      <div class="dd-item" (click)="openImageModal('flickr')"><span class="material-symbols-outlined dd-icon">camera</span><span class="dd-text">Flickr</span></div>
+                      <div class="dd-item" (click)="openImageModal('web')"><span class="material-symbols-outlined dd-icon">public</span><span class="dd-text">Pick From the Web</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subTableInsert)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">grid_on</span><span class="dd-text" style="color:#1a73e8;">Table</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subTableInsert class="sub-dropdown" style="min-width: 250px;">
+                      <div style="padding: 12px;" (mouseleave)="hoveredTableRow = 0; hoveredTableCol = 0">
+                        <div style="margin-bottom: 8px; font-size: 13px; font-weight: 600;">Table</div>
+                        <div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px;">
+                          <ng-container *ngFor="let r of tableGridRows">
+                            <div *ngFor="let c of tableGridCols" 
+                                 [style.border]="(r <= hoveredTableRow && c <= hoveredTableCol) ? '1px solid #1a73e8' : '1px solid #dadce0'" 
+                                 [style.background]="(r <= hoveredTableRow && c <= hoveredTableCol) ? '#e8f0fe' : 'transparent'" 
+                                 style="height: 16px; cursor: pointer;" 
+                                 (mouseenter)="hoveredTableRow = r; hoveredTableCol = c"
+                                 (click)="insertGridTable(hoveredTableRow + 1, hoveredTableCol + 1)">
+                            </div>
+                          </ng-container>
+                        </div>
+                        <div style="text-align: center; font-size: 11px; margin-top: 8px; color: #5f6368; font-weight: 600;">{{ hoveredTableRow + 1 }} x {{ hoveredTableCol + 1 }}</div>
+                      </div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" (click)="insertTable()"><span class="material-symbols-outlined dd-icon">table_view</span><span class="dd-text">Specify Rows And Columns</span></div>
+                      <div class="dd-item" style="color: #ccc; cursor: default;"><span class="material-symbols-outlined dd-icon" style="color: #ccc;">text_snippet</span><span class="dd-text">Convert Text To Table</span></div>
+                      <div class="dd-item" (click)="showToast('Insert A New Spreadsheet')"><span class="material-symbols-outlined dd-icon">grid_on</span><span class="dd-text">Insert A New Spreadsheet</span></div>
+                      <div class="dd-item" (click)="showToast('Pick An Existing Spreadsheet')"><span class="material-symbols-outlined dd-icon">library_add</span><span class="dd-text">Pick An Existing Spreadsheet</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item" (click)="insertTextBox()"><span class="material-symbols-outlined dd-icon">text_fields</span><span class="dd-text">Text Box</span></div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subQuickParts)">
+                    <span class="material-symbols-outlined dd-icon">post_add</span><span class="dd-text">Quick Parts</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subQuickParts class="sub-dropdown">
+                      <div class="dd-item" (click)="insertQuickPart()"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">post_add</span><span class="dd-text" style="color:#1a73e8;">Insert Signature Block</span></div>
+                      <div style="font-size: 11px; font-weight: bold; color: #5f6368; padding: 4px 16px; margin-top: 8px; border-bottom: 1px solid #eee; padding-bottom: 8px;">Use selection to</div>
+                      <div class="dd-item" (click)="saveQuickPart()"><span class="material-symbols-outlined dd-icon">save</span><span class="dd-text">Save to Quick Parts Gallery</span></div>
+                      <div class="dd-item" style="color: #ccc; cursor: default;"><span class="material-symbols-outlined dd-icon" style="color: #ccc;">add_circle</span><span class="dd-text">Create New</span></div>
+                      <div class="dd-item" (click)="showToast('Manage Quick Parts')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">settings</span><span class="dd-text" style="color:#1a73e8;">Manage Quick Parts</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item" (click)="insertDrawing()"><span class="material-symbols-outlined dd-icon">draw</span><span class="dd-text">Drawings...</span></div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subSymbols)">
+                    <span class="material-symbols-outlined dd-icon">special_character</span><span class="dd-text">Symbols...</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subSymbols class="sub-dropdown" style="width: 200px; padding: 12px; cursor: default;">
+                      <div style="font-size: 11px; font-weight: bold; color: #5f6368; margin-bottom: 8px;">Common Symbols</div>
+                      <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; text-align: center;">
+                        <span class="symbol-btn" (click)="insertText('©')">©</span>
+                        <span class="symbol-btn" (click)="insertText('®')">®</span>
+                        <span class="symbol-btn" (click)="insertText('™')">™</span>
+                        <span class="symbol-btn" (click)="insertText('€')">€</span>
+                        <span class="symbol-btn" (click)="insertText('£')">£</span>
+                        <span class="symbol-btn" (click)="insertText('¥')">¥</span>
+                        <span class="symbol-btn" (click)="insertText('•')">•</span>
+                        <span class="symbol-btn" (click)="insertText('✓')">✓</span>
+                        <span class="symbol-btn" (click)="insertText('×')">×</span>
+                        <span class="symbol-btn" (click)="insertText('÷')">÷</span>
+                        <span class="symbol-btn" (click)="insertText('±')">±</span>
+                        <span class="symbol-btn" (click)="insertText('∞')">∞</span>
+                        <span class="symbol-btn" (click)="insertText('∑')">∑</span>
+                        <span class="symbol-btn" (click)="insertText('∆')">∆</span>
+                        <span class="symbol-btn" (click)="insertText('π')">π</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subEquations)">
+                    <span class="material-symbols-outlined dd-icon">calculate</span><span class="dd-text">Equation...</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subEquations class="sub-dropdown" style="width: 220px; padding: 8px;">
+                      <div class="dd-item" (click)="insertText('A = πr²')"><span class="dd-text">Area of Circle (A = πr²)</span></div>
+                      <div class="dd-item" (click)="insertText('a² + b² = c²')"><span class="dd-text">Pythagorean (a² + b² = c²)</span></div>
+                      <div class="dd-item" (click)="insertText('x = (-b ± √(b² - 4ac)) / 2a')"><span class="dd-text">Quadratic Formula</span></div>
+                      <div class="dd-item" (click)="insertText('E = mc²')"><span class="dd-text">Mass-Energy Equivalence</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subChart)">
+                    <span class="material-symbols-outlined dd-icon">bar_chart</span><span class="dd-text">Chart</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subChart class="sub-dropdown" style="min-width: 220px;">
+                      <div style="font-size: 11px; font-weight: bold; color: #5f6368; padding: 4px 16px; margin-top: 4px; border-bottom: 1px solid #eee;">Bar</div>
+                      <div style="padding: 8px 16px; display: flex; gap: 16px;">
+                        <span class="material-symbols-outlined" style="color:#1a73e8; font-size:24px; cursor:pointer;" (click)="showToast('Bar Chart')">bar_chart</span>
+                        <span class="material-symbols-outlined" style="color:#34a853; font-size:24px; cursor:pointer;" (click)="showToast('Stacked Bar Chart')">stacked_bar_chart</span>
+                        <span class="material-symbols-outlined" style="color:#1a73e8; font-size:24px; cursor:pointer;" (click)="showToast('Waterfall Chart')">waterfall_chart</span>
+                      </div>
+                      <div style="font-size: 11px; font-weight: bold; color: #5f6368; padding: 4px 16px; margin-top: 4px; border-bottom: 1px solid #eee;">Line</div>
+                      <div style="padding: 8px 16px; display: flex; gap: 16px;">
+                        <span class="material-symbols-outlined" style="color:#34a853; font-size:24px; cursor:pointer;" (click)="showToast('Line Chart')">show_chart</span>
+                        <span class="material-symbols-outlined" style="color:#1a73e8; font-size:24px; cursor:pointer;" (click)="showToast('Stacked Line Chart')">stacked_line_chart</span>
+                      </div>
+                      <div style="font-size: 11px; font-weight: bold; color: #5f6368; padding: 4px 16px; margin-top: 4px; border-bottom: 1px solid #eee;">Pie</div>
+                      <div style="padding: 8px 16px; display: flex; gap: 16px;">
+                        <span class="material-symbols-outlined" style="color:#fbbc04; font-size:24px; cursor:pointer;" (click)="showToast('Pie Chart')">pie_chart</span>
+                        <span class="material-symbols-outlined" style="color:#1a73e8; font-size:24px; cursor:pointer;" (click)="showToast('Donut Chart')">donut_large</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subMedia)">
+                    <span class="material-symbols-outlined dd-icon">play_circle</span><span class="dd-text">Media</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subMedia class="sub-dropdown">
+                      <div class="dd-item" (click)="showToast('Insert Video')"><span class="material-symbols-outlined dd-icon">movie</span><span class="dd-text">Video</span></div>
+                      <div class="dd-item" (click)="showToast('Insert Audio')"><span class="material-symbols-outlined dd-icon">audio_file</span><span class="dd-text">Audio</span></div>
+                    </div>
+                  </div>
+                  
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subTOC)">
+                    <span class="material-symbols-outlined dd-icon">toc</span><span class="dd-text">Table of Contents...</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subTOC class="sub-dropdown">
+                      <div class="dd-item" (click)="insertTOC('plain')"><span class="material-symbols-outlined dd-icon">list_alt</span><span class="dd-text">Plain Text</span></div>
+                      <div class="dd-item" (click)="insertTOC('links')"><span class="material-symbols-outlined dd-icon">link</span><span class="dd-text">With Page Links</span></div>
+                    </div>
+                  </div>
+
                   <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="exec('insertHorizontalRule')"><span class="material-symbols-outlined dd-icon">horizontal_rule</span><span class="dd-text">Horizontal line</span></div>
-                  <div class="dd-item" (click)="insertBreak()"><span class="material-symbols-outlined dd-icon">insert_page_break</span><span class="dd-text">Page break</span></div>
+
+                  <div class="dd-item" (click)="insertLink()"><span class="material-symbols-outlined dd-icon">link</span><span class="dd-text">Link...</span><span class="dd-hint">Ctrl+K</span></div>
+                  <div class="dd-item" (click)="showToast('Bookmark')"><span class="material-symbols-outlined dd-icon">bookmark</span><span class="dd-text">Bookmark...</span></div>
+                  <div class="dd-item" (click)="showToast('Comment')"><span class="material-symbols-outlined dd-icon">comment</span><span class="dd-text">Comment</span><span class="dd-hint">Ctrl+Alt+M</span></div>
+
+                  <div class="dd-sep"></div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subPageBreak)">
+                    <span class="material-symbols-outlined dd-icon">insert_page_break</span><span class="dd-text">Page Break</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subPageBreak class="sub-dropdown">
+                      <div class="dd-item" (click)="insertBreak()"><span class="material-symbols-outlined dd-icon">insert_page_break</span><span class="dd-text">Page Break</span></div>
+                      <div class="dd-item" (click)="showToast('Section Break')"><span class="material-symbols-outlined dd-icon">vertical_split</span><span class="dd-text">Section Break</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subPageElements)">
+                    <span class="material-symbols-outlined dd-icon">contact_page</span><span class="dd-text">Page Elements</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subPageElements class="sub-dropdown">
+                      <div class="dd-item" (click)="showToast('Header')"><span class="material-symbols-outlined dd-icon">horizontal_rule</span><span class="dd-text">Header</span></div>
+                      <div class="dd-item" (click)="showToast('Footer')"><span class="material-symbols-outlined dd-icon">horizontal_rule</span><span class="dd-text">Footer</span></div>
+                      <div class="dd-item" (click)="showToast('Page Numbers')"><span class="material-symbols-outlined dd-icon">numbers</span><span class="dd-text">Page Numbers</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item" (click)="exec('insertHorizontalRule')"><span class="material-symbols-outlined dd-icon">horizontal_rule</span><span class="dd-text">Horizontal Line</span></div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subQrBarcode)">
+                    <span class="material-symbols-outlined dd-icon">qr_code_2</span><span class="dd-text">QR & Barcode</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subQrBarcode class="sub-dropdown">
+                      <div class="dd-item" (click)="showToast('Insert QR Code')"><span class="material-symbols-outlined dd-icon">qr_code</span><span class="dd-text">QR Code</span></div>
+                      <div class="dd-item" (click)="showToast('Insert Barcode')"><span class="material-symbols-outlined dd-icon">view_headline</span><span class="dd-text">Barcode</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subDropCap)">
+                    <span class="material-symbols-outlined dd-icon">format_shapes</span><span class="dd-text">Drop Cap</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subDropCap class="sub-dropdown">
+                      <div class="dd-item" (click)="applyDropCap('None')"><span class="material-symbols-outlined dd-icon">close</span><span class="dd-text">None</span></div>
+                      <div class="dd-item" (click)="applyDropCap('Dropped')"><span class="material-symbols-outlined dd-icon">format_shapes</span><span class="dd-text">Dropped</span></div>
+                      <div class="dd-item" (click)="applyDropCap('In margin')"><span class="material-symbols-outlined dd-icon">format_shapes</span><span class="dd-text">In margin</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item" (click)="showToast('Insert Code')"><span class="material-symbols-outlined dd-icon">code</span><span class="dd-text">Code</span></div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subSignature)">
+                    <span class="material-symbols-outlined dd-icon">draw</span><span class="dd-text">Signature</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subSignature class="sub-dropdown">
+                      <div class="dd-item" (click)="showToast('Draw Signature')"><span class="material-symbols-outlined dd-icon">draw</span><span class="dd-text">Draw Signature</span></div>
+                      <div class="dd-item" (click)="showToast('Upload Signature')"><span class="material-symbols-outlined dd-icon">upload</span><span class="dd-text">Upload Signature</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subReferences)">
+                    <span class="material-symbols-outlined dd-icon">library_books</span><span class="dd-text">References</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subReferences class="sub-dropdown">
+                      <div class="dd-item" (click)="showToast('Footnote')"><span class="material-symbols-outlined dd-icon">format_list_numbered</span><span class="dd-text">Footnote</span></div>
+                      <div class="dd-item" (click)="showToast('Endnote')"><span class="material-symbols-outlined dd-icon">format_list_numbered_rtl</span><span class="dd-text">Endnote</span></div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="menu-item" (click)="toggleMenu('format', $event)" [class.active]="activeMenu === 'format'">
                 Format
                 <div class="dropdown" *ngIf="activeMenu === 'format'">
-                  <div class="dd-item" (click)="exec('bold')"><span class="material-symbols-outlined dd-icon">format_bold</span><span class="dd-text">Bold</span><span class="dd-hint">Ctrl+B</span></div>
-                  <div class="dd-item" (click)="exec('italic')"><span class="material-symbols-outlined dd-icon">format_italic</span><span class="dd-text">Italic</span><span class="dd-hint">Ctrl+I</span></div>
-                  <div class="dd-item" (click)="exec('underline')"><span class="material-symbols-outlined dd-icon">format_underlined</span><span class="dd-text">Underline</span><span class="dd-hint">Ctrl+U</span></div>
-                  <div class="dd-item" (click)="exec('strikeThrough')"><span class="material-symbols-outlined dd-icon">strikethrough_s</span><span class="dd-text">Strikethrough</span></div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subTextFormat)">
+                    <span class="material-symbols-outlined dd-icon">text_format</span><span class="dd-text">Text Formatting</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subTextFormat class="sub-dropdown" style="min-width: 250px;">
+                      <div class="dd-item" (click)="exec('bold')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">format_bold</span><span class="dd-text" style="color:#1a73e8;">Bold</span><span class="dd-hint">Ctrl+B</span></div>
+                      <div class="dd-item" (click)="exec('italic')"><span class="material-symbols-outlined dd-icon">format_italic</span><span class="dd-text">Italic</span><span class="dd-hint">Ctrl+I</span></div>
+                      <div class="dd-item" (click)="exec('underline')"><span class="material-symbols-outlined dd-icon">format_underlined</span><span class="dd-text">Underline</span><span class="dd-hint">Ctrl+U</span></div>
+                      <div class="dd-item" (click)="exec('strikeThrough')"><span class="material-symbols-outlined dd-icon">strikethrough_s</span><span class="dd-text">Strikethrough</span><span class="dd-hint">Ctrl+Shift+X</span></div>
+                      <div class="dd-item" (click)="exec('superscript')"><span class="material-symbols-outlined dd-icon">superscript</span><span class="dd-text">Superscript</span><span class="dd-hint">Ctrl+.</span></div>
+                      <div class="dd-item" (click)="exec('subscript')"><span class="material-symbols-outlined dd-icon">subscript</span><span class="dd-text">Subscript</span><span class="dd-hint">Ctrl+,</span></div>
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subChangeCase)">
+                         <span class="material-symbols-outlined dd-icon">match_case</span><span class="dd-text">Change Case</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                         <div #subChangeCase class="sub-dropdown">
+                            <div class="dd-item" (click)="showToast('lowercase')"><span class="dd-text">lowercase</span></div>
+                            <div class="dd-item" (click)="showToast('UPPERCASE')"><span class="dd-text">UPPERCASE</span></div>
+                            <div class="dd-item" (click)="showToast('Title Case')"><span class="dd-text">Title Case</span></div>
+                         </div>
+                      </div>
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subCharSpace)">
+                         <span class="material-symbols-outlined dd-icon">format_letter_spacing</span><span class="dd-text">Character Spacing</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                         <div #subCharSpace class="sub-dropdown">
+                            <div class="dd-item" (click)="showToast('Normal')"><span class="dd-text">Normal</span></div>
+                            <div class="dd-item" (click)="showToast('Expanded')"><span class="dd-text">Expanded</span></div>
+                            <div class="dd-item" (click)="showToast('Condensed')"><span class="dd-text">Condensed</span></div>
+                         </div>
+                      </div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subFontFamily)">
+                         <span class="material-symbols-outlined dd-icon">font_download</span><span class="dd-text">Font Family: <span style="color:#1a73e8;">Roboto</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                         <div #subFontFamily class="sub-dropdown" style="max-height: 250px; overflow-y: auto;">
+                            <div class="dd-item" *ngFor="let f of fonts" (click)="execVal('fontName', f)"><span class="dd-text" [style.font-family]="f">{{f}}</span></div>
+                         </div>
+                      </div>
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subFontSize)">
+                         <span class="material-symbols-outlined dd-icon">format_size</span><span class="dd-text">Font Size: <span style="color:#1a73e8;">12 pt</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                         <div #subFontSize class="sub-dropdown" style="max-height: 250px; overflow-y: auto;">
+                            <div class="dd-item" *ngFor="let size of [8,9,10,11,12,14,18,24,30,36]" (click)="execVal('fontSize', size.toString())"><span class="dd-text">{{size}} pt</span></div>
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subParaStyle)">
+                    <span class="material-symbols-outlined dd-icon">format_shapes</span><span class="dd-text">Paragraph Style: <span style="color:#1a73e8;">Normal</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subParaStyle class="sub-dropdown" style="min-width: 250px;">
+                      <div class="dd-item" (click)="execVal('formatBlock', 'P')"><span class="dd-text" style="color:#1a73e8;">Normal</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-item" (click)="showToast('Title applied')"><span class="dd-text" style="color:#1a73e8; font-weight: bold; font-size: 16px;">Title</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-item" (click)="showToast('Subtitle applied')"><span class="dd-text" style="font-style: italic;">Subtitle</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-item" (click)="execVal('formatBlock', 'H1')"><span class="dd-text" style="font-weight: bold; font-size: 16px;">Heading 1</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-item" (click)="execVal('formatBlock', 'H2')"><span class="dd-text" style="font-weight: bold; font-size: 15px;">Heading 2</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-item" (click)="execVal('formatBlock', 'H3')"><span class="dd-text" style="font-weight: bold; font-size: 14px;">Heading 3</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-item" (click)="execVal('formatBlock', 'H4')"><span class="dd-text" style="font-weight: bold; font-style: italic;">Heading 4</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-item" (click)="execVal('formatBlock', 'H5')"><span class="dd-text" style="background:#444; color:#fff; padding:2px 4px;">Heading 5</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-item" (click)="execVal('formatBlock', 'H6')"><span class="dd-text" style="text-decoration: underline; color:#1a73e8;">Heading 6</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-item" (click)="execVal('formatBlock', 'BLOCKQUOTE')"><span class="dd-text" style="background:#e8f0fe; padding:2px 4px;">Quote</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" (click)="showToast('Set Next Paragraph Style')"><span class="material-symbols-outlined dd-icon">text_format</span><span class="dd-text">Set Next Paragraph Style</span></div>
+                      <div class="dd-item" (click)="showToast('Add From Style Library')"><span class="material-symbols-outlined dd-icon">library_add</span><span class="dd-text">Add From Style Library</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subAlign)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">format_align_left</span><span class="dd-text" style="color:#1a73e8;">Align</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subAlign class="sub-dropdown">
+                      <div class="dd-item" (click)="exec('justifyLeft')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">format_align_left</span><span class="dd-text" style="color:#1a73e8;">Align Left</span><span class="dd-hint">Ctrl+Shift+L</span></div>
+                      <div class="dd-item" (click)="exec('justifyCenter')"><span class="material-symbols-outlined dd-icon">format_align_center</span><span class="dd-text">Align Center</span><span class="dd-hint">Ctrl+Shift+E</span></div>
+                      <div class="dd-item" (click)="exec('justifyRight')"><span class="material-symbols-outlined dd-icon">format_align_right</span><span class="dd-text">Align Right</span><span class="dd-hint">Ctrl+Shift+R</span></div>
+                      <div class="dd-item" (click)="exec('justifyFull')"><span class="material-symbols-outlined dd-icon">format_align_justify</span><span class="dd-text">Justify</span><span class="dd-hint">Ctrl+Shift+J</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subLineSpacing)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">format_line_spacing</span><span class="dd-text" style="color:#1a73e8;">Line & Paragraph Spacing</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subLineSpacing class="sub-dropdown" style="min-width: 280px;">
+                      <div class="dd-item" (click)="showToast('Line Spacing 1.0')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">format_line_spacing</span><span class="dd-text" style="color:#1a73e8;">1.0 (Single)</span></div>
+                      <div class="dd-item" (click)="showToast('Line Spacing 1.2')"><span class="material-symbols-outlined dd-icon">check</span><span class="material-symbols-outlined dd-icon">format_line_spacing</span><span class="dd-text">1.2 (Normal)</span></div>
+                      <div class="dd-item" (click)="showToast('Line Spacing 1.5')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">format_line_spacing</span><span class="dd-text">1.5</span></div>
+                      <div class="dd-item" (click)="showToast('Line Spacing 2.0')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">format_line_spacing</span><span class="dd-text">2.0 (Double)</span></div>
+                      <div class="dd-item" (click)="showToast('Custom Spacing')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">linear_scale</span><span class="dd-text">Custom Spacing</span></div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subCharSpace2)">
+                         <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">format_letter_spacing</span><span class="dd-text">Character Spacing</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                         <div #subCharSpace2 class="sub-dropdown">
+                            <div class="dd-item" (click)="showToast('Normal')"><span class="dd-text">Normal</span></div>
+                            <div class="dd-item" (click)="showToast('Expanded')"><span class="dd-text">Expanded</span></div>
+                            <div class="dd-item" (click)="showToast('Condensed')"><span class="dd-text">Condensed</span></div>
+                         </div>
+                      </div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" (click)="showToast('Add Space Before')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">vertical_align_bottom</span><span class="dd-text">Add Space Before Paragraph</span></div>
+                      <div class="dd-item" (click)="showToast('Remove Space After')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">vertical_align_top</span><span class="dd-text">Remove Space After Paragraph</span></div>
+                      <div class="dd-item" (click)="showToast('More Spacing Options')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">more_horiz</span><span class="dd-text">More Paragraph Spacing Options</span></div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" (click)="showToast('Widow Control')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">subject</span><span class="dd-text">Enable Widow/Orphan Control</span></div>
+                      <div class="dd-item" (click)="showToast('Keep Lines')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">dehaze</span><span class="dd-text">Keep Lines Together</span></div>
+                      <div class="dd-item" (click)="showToast('Page Break Before')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">insert_page_break</span><span class="dd-text">Page Break Before</span></div>
+                      <div class="dd-item" (click)="showToast('Keep With Next')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">low_priority</span><span class="dd-text">Keep With Next</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subList)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">format_list_bulleted</span><span class="dd-text" style="color:#1a73e8;">List</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subList class="sub-dropdown">
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subBullets)">
+                         <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">format_list_bulleted</span><span class="dd-text" style="color:#1a73e8;">Bulleted List</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                         <div #subBullets class="sub-dropdown" style="min-width: 220px;">
+                            <div style="padding: 12px;">
+                               <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
+                                  <div style="border: 1px solid #dadce0; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px;" (click)="exec('insertUnorderedList')"><span style="font-size:10px; font-weight:bold; color:#5f6368;">NONE</span></div>
+                                  <div style="border: 1px solid #dadce0; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px;" (click)="exec('insertUnorderedList')"><span class="material-symbols-outlined" style="font-size: 16px;">fiber_manual_record</span></div>
+                                  <div style="border: 1px solid #dadce0; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px;" (click)="exec('insertUnorderedList')"><span class="material-symbols-outlined" style="font-size: 16px;">panorama_fish_eye</span></div>
+                                  <div style="border: 1px solid #dadce0; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px;" (click)="exec('insertUnorderedList')"><span class="material-symbols-outlined" style="font-size: 16px;">stop</span></div>
+                                  <div style="border: 1px solid #dadce0; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px;" (click)="exec('insertUnorderedList')"><span class="material-symbols-outlined" style="font-size: 16px;">check_box_outline_blank</span></div>
+                                  <div style="border: 1px solid #dadce0; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px;" (click)="exec('insertUnorderedList')"><span class="material-symbols-outlined" style="font-size: 16px;">play_arrow</span></div>
+                                  <div style="border: 1px solid #dadce0; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px;" (click)="exec('insertUnorderedList')"><span class="material-symbols-outlined" style="font-size: 16px;">change_history</span></div>
+                                  <div style="border: 1px solid #dadce0; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px;" (click)="exec('insertUnorderedList')"><span class="material-symbols-outlined" style="font-size: 16px;">star</span></div>
+                                  <div style="border: 1px solid #dadce0; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px;" (click)="exec('insertUnorderedList')"><span class="material-symbols-outlined" style="font-size: 16px;">adjust</span></div>
+                                  <div style="border: 1px solid #dadce0; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px;" (click)="exec('insertUnorderedList')"><span class="material-symbols-outlined" style="font-size: 16px; color:#1a73e8;">send</span></div>
+                                  <div style="border: 1px solid #dadce0; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px;" (click)="exec('insertUnorderedList')"><span class="material-symbols-outlined" style="font-size: 16px;">check</span></div>
+                                  <div style="border: 1px solid #dadce0; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px;" (click)="exec('insertUnorderedList')"><span class="material-symbols-outlined" style="font-size: 16px; color:#fbbc04;">widgets</span></div>
+                               </div>
+                            </div>
+                            <div class="dd-sep"></div>
+                            <div class="dd-item" (click)="showToast('Use Symbol')"><span class="dd-text">Use Symbol</span></div>
+                            <div class="dd-item" (click)="showToast('Use Image')"><span class="dd-text">Use Image</span></div>
+                         </div>
+                      </div>
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subNumbers)">
+                         <span class="material-symbols-outlined dd-icon">format_list_numbered</span><span class="dd-text">Numbered List</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                         <div #subNumbers class="sub-dropdown">
+                            <div class="dd-item" (click)="exec('insertOrderedList')"><span class="dd-text">1, 2, 3</span></div>
+                            <div class="dd-item" (click)="exec('insertOrderedList')"><span class="dd-text">a, b, c</span></div>
+                            <div class="dd-item" (click)="exec('insertOrderedList')"><span class="dd-text">i, ii, iii</span></div>
+                         </div>
+                      </div>
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subChecklist)">
+                         <span class="material-symbols-outlined dd-icon">checklist</span><span class="dd-text">Checklist</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                         <div #subChecklist class="sub-dropdown">
+                            <div class="dd-item" (click)="showToast('Insert Checklist')"><span class="dd-text">Standard</span></div>
+                            <div class="dd-item" (click)="showToast('Insert Strike-through Checklist')"><span class="dd-text">Strikethrough on check</span></div>
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subIndent)">
+                    <span class="material-symbols-outlined dd-icon">format_indent_increase</span><span class="dd-text">Indent</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subIndent class="sub-dropdown">
+                      <div class="dd-item" (click)="exec('indent')"><span class="material-symbols-outlined dd-icon">format_indent_increase</span><span class="dd-text">Increase Indent</span></div>
+                      <div class="dd-item" (click)="exec('outdent')"><span class="material-symbols-outlined dd-icon">format_indent_decrease</span><span class="dd-text">Decrease Indent</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subTextDir)">
+                    <span class="material-symbols-outlined dd-icon">format_textdirection_l_to_r</span><span class="dd-text">Text Direction</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subTextDir class="sub-dropdown">
+                      <div class="dd-item" (click)="showToast('Left to Right')"><span class="material-symbols-outlined dd-icon">format_textdirection_l_to_r</span><span class="dd-text">Left-to-Right</span></div>
+                      <div class="dd-item" (click)="showToast('Right to Left')"><span class="material-symbols-outlined dd-icon">format_textdirection_r_to_l</span><span class="dd-text">Right-to-Left</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item" (click)="showToast('Borders Options')"><span class="material-symbols-outlined dd-icon">border_all</span><span class="dd-text">Borders and Shading Options</span></div>
+
                   <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="exec('justifyLeft')"><span class="material-symbols-outlined dd-icon">format_align_left</span><span class="dd-text">Align left</span></div>
-                  <div class="dd-item" (click)="exec('justifyCenter')"><span class="material-symbols-outlined dd-icon">format_align_center</span><span class="dd-text">Align center</span></div>
-                  <div class="dd-item" (click)="exec('justifyRight')"><span class="material-symbols-outlined dd-icon">format_align_right</span><span class="dd-text">Align right</span></div>
-                  <div class="dd-item" (click)="exec('justifyFull')"><span class="material-symbols-outlined dd-icon">format_align_justify</span><span class="dd-text">Justify</span></div>
+
+                  <div class="dd-item" (click)="showToast('Format Painter')"><span class="material-symbols-outlined dd-icon">format_paint</span><span class="dd-text">Format Painter</span><span class="dd-hint">Ctrl+Shift+C</span></div>
+                  <div class="dd-item" (click)="exec('removeFormat')"><span class="material-symbols-outlined dd-icon">format_clear</span><span class="dd-text">Clear Formatting</span><span class="dd-hint">Ctrl+\</span></div>
+
+                  <div class="dd-sep"></div>
+
+                  <div class="dd-item" (click)="showToast('More Format Options')"><span class="material-symbols-outlined dd-icon">more_horiz</span><span class="dd-text">More Format Options...</span></div>
+                  <div class="dd-item" (click)="showToast('More Paragraph Options')"><span class="material-symbols-outlined dd-icon">more_horiz</span><span class="dd-text">More Paragraph Options...</span></div>
+                </div>
+              </div>
+              <div class="menu-item" (click)="toggleMenu('design', $event)" [class.active]="activeMenu === 'design'">
+                Design
+                <div class="dropdown" *ngIf="activeMenu === 'design'">
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subCurrentDesign)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">palette</span><span class="dd-text">Current Design: <span style="color:#1a73e8;">The Writer</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subCurrentDesign class="sub-dropdown" style="min-width: 250px;">
+                      <div style="padding: 16px; text-align: center;">
+                        <div style="font-weight: 600; color: #5f6368; margin-bottom: 8px;">The Writer</div>
+                        <div style="border: 1px solid #dadce0; padding: 16px; height: 180px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: flex-start; overflow: hidden; pointer-events: none;">
+                          <h1 style="color: #1a73e8; margin: 0 0 8px 0; font-size: 20px;">TITLE</h1>
+                          <div style="color: #5f6368; font-size: 10px; font-style: italic; margin-bottom: 8px;">Subtitle</div>
+                          <h2 style="margin: 0 0 4px 0; font-size: 16px;">Heading 1</h2>
+                          <div style="font-size: 8px; color: #5f6368; text-align: left; line-height: 1.2;">Lorem ipsum dolor sit amet adipiscing elit, fusce odio laoreet eleifend.</div>
+                        </div>
+                        <div style="display: flex; justify-content: center; gap: 4px; margin-top: 8px;">
+                          <div style="width: 6px; height: 6px; border-radius: 50%; background: #5f6368;"></div>
+                          <div style="width: 6px; height: 6px; border-radius: 50%; background: #dadce0;"></div>
+                        </div>
+                        <div style="margin-top: 12px;">
+                          <button style="width: 100%; padding: 6px; background: #fff; border: 1px solid #dadce0; color: #1a73e8; font-weight: 600; border-radius: 4px; cursor: pointer;">Save As...</button>
+                        </div>
+                      </div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" style="color:#ccc; cursor:default;"><span class="material-symbols-outlined dd-icon" style="color:#ccc;">edit_document</span><span class="dd-text">Rename Design</span></div>
+                      <div class="dd-item" (click)="showToast('Set As Default Design')"><span class="material-symbols-outlined dd-icon">check_circle</span><span class="dd-text">Set As Default Design</span></div>
+                      <div class="dd-item" (click)="showToast('Reset To Default')"><span class="material-symbols-outlined dd-icon">settings_backup_restore</span><span class="dd-text">Reset To Default</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subDesignGallery)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">style</span><span class="dd-text" style="color:#1a73e8;">Design Gallery</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subDesignGallery class="sub-dropdown">
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subMyDesigns)">
+                        <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">person</span><span class="dd-text" style="color:#1a73e8;">My Designs <span style="color:#8ab4f8; margin-left: 4px;">0</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                        <div #subMyDesigns class="sub-dropdown"><div class="dd-item" style="color:#9aa0a6;"><span class="dd-text">No Custom Designs Found</span></div></div>
+                      </div>
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subOrgDesigns)">
+                        <span class="material-symbols-outlined dd-icon" style="color:#ccc;">domain</span><span class="dd-text" style="color:#ccc;">Org Designs <span style="color:#dadce0; margin-left: 4px;">0</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#ccc;">chevron_right</span>
+                        <div #subOrgDesigns class="sub-dropdown"><div class="dd-item" style="color:#9aa0a6;"><span class="dd-text">No Org Designs Found</span></div></div>
+                      </div>
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subPresetDesigns)">
+                        <span class="material-symbols-outlined dd-icon">check</span><span class="material-symbols-outlined dd-icon">tune</span><span class="dd-text">Preset Designs <span style="color:#1a73e8; margin-left: 4px;">19</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                        <div #subPresetDesigns class="sub-dropdown"><div class="dd-item" (click)="showToast('Presets')"><span class="dd-text">Browse Presets...</span></div></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subFontSet)">
+                    <span class="material-symbols-outlined dd-icon">text_fields</span><span class="dd-text">Font Set</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subFontSet class="sub-dropdown" style="max-height: 350px; overflow-y: auto;">
+                      <div class="dd-item" (click)="showToast('Cabin')"><div style="display:flex; flex-direction:column;"><span class="dd-text">Cabin (Body)</span></div></div>
+                      <div class="dd-item" (click)="showToast('Istok Web')"><div style="display:flex; flex-direction:column;"><span class="dd-text">Istok Web (Headings)</span><span class="dd-text" style="color:#5f6368;">Istok Web (Body)</span></div></div>
+                      <div class="dd-item" (click)="showToast('PT Sans')"><div style="display:flex; flex-direction:column;"><span class="dd-text">PT Sans (Headings)</span><span class="dd-text" style="color:#5f6368;">Pontano Sans (Body)</span></div></div>
+                      <div class="dd-item" (click)="showToast('Work Sans')"><div style="display:flex; flex-direction:column;"><span class="dd-text">Work Sans (Headings)</span><span class="dd-text" style="color:#5f6368;">Work Sans (Body)</span></div></div>
+                      <div class="dd-item" (click)="showToast('Roboto')"><div style="display:flex; flex-direction:column;"><span class="dd-text" style="color:#1a73e8;">Roboto (Headings)</span><span class="dd-text" style="color:#1a73e8;">Roboto (Body)</span></div></div>
+                      <div class="dd-item" (click)="showToast('Rokkitt')"><div style="display:flex; flex-direction:column;"><span class="dd-text">Rokkitt (Headings)</span><span class="dd-text" style="color:#5f6368;">Rokkitt (Body)</span></div></div>
+                      <div class="dd-item" (click)="showToast('Quicksand')"><div style="display:flex; flex-direction:column;"><span class="dd-text">Quicksand (Headings)</span><span class="dd-text" style="color:#5f6368;">Quicksand (Body)</span></div></div>
+                      <div class="dd-item" (click)="showToast('Source Sans Pro')"><div style="display:flex; flex-direction:column;"><span class="dd-text">Source Sans Pro (Headings)</span><span class="dd-text" style="color:#5f6368;">Source Sans Pro (Body)</span></div></div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" (click)="showToast('Add Font Set')"><span class="material-symbols-outlined dd-icon" style="color:#34a853;">add_circle</span><span class="dd-text">Add Font Set</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subColorSet)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">color_lens</span><span class="dd-text">Color Set: <span style="color:#1a73e8;">Default</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subColorSet class="sub-dropdown" style="max-height: 350px; overflow-y: auto;">
+                      <div class="dd-item" (click)="showToast('Brushstrokes')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text">Brushstrokes</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#5a4325;"></div><div style="width:12px; height:12px; background:#e0ecf8;"></div><div style="width:12px; height:12px; background:#a39171;"></div><div style="width:12px; height:12px; background:#f47c6b;"></div><div style="width:12px; height:12px; background:#475765;"></div><div style="width:12px; height:12px; background:#7b9ea3;"></div><div style="width:12px; height:12px; background:#b2d235;"></div></div></div></div>
+                      <div class="dd-item" (click)="showToast('bold')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text">bold</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#333;"></div><div style="width:12px; height:12px; background:#f2e6d6;"></div><div style="width:12px; height:12px; background:#e85d50;"></div><div style="width:12px; height:12px; background:#00bcd4;"></div><div style="width:12px; height:12px; background:#ff9800;"></div><div style="width:12px; height:12px; background:#cddc39;"></div><div style="width:12px; height:12px; background:#e91e63;"></div></div></div></div>
+                      <div class="dd-item" (click)="showToast('Treasury')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text">Treasury</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#3e1f1f;"></div><div style="width:12px; height:12px; background:#f5da55;"></div><div style="width:12px; height:12px; background:#9eabc1;"></div><div style="width:12px; height:12px; background:#b274a7;"></div><div style="width:12px; height:12px; background:#a78869;"></div><div style="width:12px; height:12px; background:#8b9d82;"></div><div style="width:12px; height:12px; background:#6b7c84;"></div></div></div></div>
+                      <div class="dd-item" (click)="showToast('Default')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text" style="color:#1a73e8;">Default</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#1e5e3c;"></div><div style="width:12px; height:12px; background:#4285f4;"></div><div style="width:12px; height:12px; background:#fbbc04;"></div><div style="width:12px; height:12px; background:#34a853;"></div><div style="width:12px; height:12px; background:#9aa0a6;"></div><div style="width:12px; height:12px; background:#ff6d00;"></div><div style="width:12px; height:12px; background:#00bcd4;"></div></div></div></div>
+                      <div class="dd-item" (click)="showToast('Pinstripes')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text">Pinstripes</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#5a4342;"></div><div style="width:12px; height:12px; background:#f4f1e1;"></div><div style="width:12px; height:12px; background:#4caf50;"></div><div style="width:12px; height:12px; background:#cddc39;"></div><div style="width:12px; height:12px; background:#00bcd4;"></div><div style="width:12px; height:12px; background:#ff9800;"></div><div style="width:12px; height:12px; background:#795548;"></div></div></div></div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" (click)="showToast('Add Color Set')"><span class="material-symbols-outlined dd-icon" style="color:#34a853;">add_circle</span><span class="dd-text">Add Color Set</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-sep"></div>
+                  
+                  <div class="dd-item" (click)="showToast('Import Design')"><span class="material-symbols-outlined dd-icon">import_contacts</span><span class="dd-text">Import Design...</span></div>
+                  <div class="dd-item" (click)="showToast('Page Borders')"><span class="material-symbols-outlined dd-icon">border_outer</span><span class="dd-text">Page Borders</span></div>
+                  <div class="dd-item" (click)="showToast('Page Background')"><span class="material-symbols-outlined dd-icon">format_color_fill</span><span class="dd-text">Page Background...</span></div>
+                  
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="showToast('More Design Options')"><span class="material-symbols-outlined dd-icon">more_horiz</span><span class="dd-text">More Design Options...</span></div>
+                </div>
+              </div>
+              <div class="menu-item" (click)="toggleMenu('pagesetup', $event)" [class.active]="activeMenu === 'pagesetup'">
+                Page Setup
+                <div class="dropdown" *ngIf="activeMenu === 'pagesetup'">
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subPageSize)">
+                    <span class="material-symbols-outlined dd-icon">crop_portrait</span><span class="dd-text">Page Size: <span style="color:#1a73e8;">Letter (8.5" X 11")</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subPageSize class="sub-dropdown" style="max-height: 350px; overflow-y: auto;">
+                      <div class="dd-item" (click)="showToast('A4')"><span class="dd-text" style="color:#1a73e8;">A4 (8.27" X 11.69")</span></div>
+                      <div class="dd-item" (click)="showToast('Letter')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span><span class="dd-text">Letter (8.5" X 11")</span></div>
+                      <div class="dd-item" (click)="showToast('Legal')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">Legal (8.5" X 14")</span></div>
+                      <div class="dd-item" (click)="showToast('Executive')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">Executive (7.25" X 10.5")</span></div>
+                      <div class="dd-item" (click)="showToast('Envelope_10')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">Envelope_10 (4.13" X 9.5")</span></div>
+                      <div class="dd-item" (click)="showToast('Tabloid')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">Tabloid (11" X 17")</span></div>
+                      <div class="dd-item" (click)="showToast('Statement')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">Statement (5.5" X 8.5")</span></div>
+                      <div class="dd-item" (click)="showToast('Folio')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">Folio (8" X 13")</span></div>
+                      <div class="dd-item" (click)="showToast('A3')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">A3 (11.69" X 16.54")</span></div>
+                      <div class="dd-item" (click)="showToast('A5')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">A5 (5.83" X 8.27")</span></div>
+                      <div class="dd-item" (click)="showToast('B4')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">B4 (10.12" X 14.33")</span></div>
+                      <div class="dd-item" (click)="showToast('B5')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">B5 (7.17" X 10.12")</span></div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" (click)="showToast('More Sizes')"><span class="dd-text">More</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subOrientation)">
+                    <span class="material-symbols-outlined dd-icon">description</span><span class="dd-text">Orientation: <span style="color:#1a73e8;">Portrait</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subOrientation class="sub-dropdown">
+                      <div class="dd-item" (click)="showToast('Portrait')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">description</span><span class="dd-text" style="color:#1a73e8;">Portrait</span></div>
+                      <div class="dd-item" (click)="showToast('Landscape')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">note</span><span class="dd-text">Landscape</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subColumns)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">view_column</span><span class="dd-text" style="color:#1a73e8;">Columns: <span style="color:#1a73e8;">One</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subColumns class="sub-dropdown">
+                      <div class="dd-item" (click)="showToast('One')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">view_column</span><span class="dd-text" style="color:#1a73e8;">One</span></div>
+                      <div class="dd-item" (click)="showToast('Two')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">view_column_2</span><span class="dd-text">Two</span></div>
+                      <div class="dd-item" (click)="showToast('Three')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">view_column_3</span><span class="dd-text">Three</span></div>
+                      <div class="dd-item" (click)="showToast('Left')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">format_align_left</span><span class="dd-text">Left</span></div>
+                      <div class="dd-item" (click)="showToast('Right')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">format_align_right</span><span class="dd-text">Right</span></div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" (click)="showToast('More Columns')"><span class="dd-text">More</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subMargins)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">border_clear</span><span class="dd-text" style="color:#1a73e8;">Margins: <span style="color:#1a73e8;">Normal</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subMargins class="sub-dropdown">
+                      <div class="dd-item" (click)="showToast('Normal Margins')">
+                        <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span>
+                        <div style="border: 1px solid #1a73e8; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 8px;"><div style="border: 1px dashed #1a73e8; width: 14px; height: 22px;"></div></div>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text" style="color:#1a73e8;">Normal</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 1in, Left : 1in<br>Bottom: 1in, Right: 1in</span></div>
+                      </div>
+                      <div class="dd-item" (click)="showToast('Narrow Margins')">
+                        <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
+                        <div style="border: 1px solid #dadce0; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 8px;"><div style="border: 1px dashed #dadce0; width: 18px; height: 26px;"></div></div>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Narrow</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 0.5in, Left : 0.5in<br>Bottom: 0.5in, Right: 0.5in</span></div>
+                      </div>
+                      <div class="dd-item" (click)="showToast('Moderate Margins')">
+                        <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
+                        <div style="border: 1px solid #dadce0; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 8px;"><div style="border: 1px dashed #dadce0; width: 16px; height: 22px;"></div></div>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Moderate</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 1in, Left : 0.75in<br>Bottom: 1in, Right: 0.75in</span></div>
+                      </div>
+                      <div class="dd-item" (click)="showToast('Wide Margins')">
+                        <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
+                        <div style="border: 1px solid #dadce0; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 8px;"><div style="border: 1px dashed #dadce0; width: 10px; height: 22px;"></div></div>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Wide</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 1in, Left : 2.28in<br>Bottom: 1in, Right: 2.28in</span></div>
+                      </div>
+                      <div class="dd-item" (click)="showToast('No Margins')">
+                        <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
+                        <div style="border: 1px solid #dadce0; width: 24px; height: 32px; margin-right: 8px;"></div>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text">None</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 0in, Left : 0in<br>Bottom: 0in, Right: 0in</span></div>
+                      </div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" (click)="showToast('Custom Margins')"><span class="dd-text" style="font-weight: 500;">Custom margins ...</span></div>
+                    </div>
+                  </div>
+
+                  <div class="dd-sep"></div>
+
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subAdvancedPageSetup)" style="background: #e8f0fe;">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">settings_applications</span><span class="dd-text" style="color:#1a73e8;">Advanced Page Setup</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subAdvancedPageSetup class="sub-dropdown" style="min-width: 250px; padding: 0;">
+                      <div style="padding: 12px; background: #e8f0fe; cursor: pointer;" (click)="showToast('Document-Level Setup')">
+                        <div style="color: #1a73e8; font-weight: 600; margin-bottom: 4px;">Document-Level Setup</div>
+                        <div style="font-size: 11px; color: #5f6368; line-height: 1.4;">Configure the settings that you wish to apply to the entire document.</div>
+                      </div>
+                      <div style="padding: 12px; background: #fff; cursor: pointer;" (click)="showToast('Section-Level Setup')">
+                        <div style="font-weight: 600; margin-bottom: 4px;">Section-Level Setup</div>
+                        <div style="font-size: 11px; color: #5f6368; line-height: 1.4;">Configure the settings that you wish to apply only to a section.</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="dd-sep"></div>
+
+                  <div class="dd-item" (click)="showToast('More Page Setup Options')"><span class="material-symbols-outlined dd-icon">more_horiz</span><span class="dd-text">More Page Setup Options</span></div>
+                </div>
+              </div>
+              <div class="menu-item" (click)="toggleMenu('review', $event)" [class.active]="activeMenu === 'review'">
+                Review
+                <div class="dropdown" *ngIf="activeMenu === 'review'">
+                  <div class="dd-item" (click)="showToast('Add Comments')"><span class="material-symbols-outlined dd-icon">add_comment</span><span class="dd-text">Add Comments</span></div>
+                  <div class="dd-item" (click)="showToast('Show Comments')"><span class="material-symbols-outlined dd-icon">chat</span><span class="dd-text">Show Comments</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subCollab)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#ccc;">group</span><span class="dd-text" style="color:#ccc;">Collaboration : <span style="color:#8ab4f8;">Off</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#ccc;">chevron_right</span>
+                    <div #subCollab class="sub-dropdown"><div class="dd-item" style="color:#ccc; cursor:default;"><span class="dd-text">Off</span></div></div>
+                  </div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subTrack)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">published_with_changes</span><span class="dd-text" style="color:#1a73e8;">Track Changes: <span style="color:#1a73e8;">Off</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subTrack class="sub-dropdown">
+                      <div class="dd-item" (click)="showToast('Track On')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">On</span></div>
+                      <div class="dd-item" (click)="showToast('Track Off')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span><span class="dd-text" style="color:#1a73e8;">Off</span></div>
+                    </div>
+                  </div>
+                  <div class="dd-item" (click)="showToast('View Suggestions')"><span class="material-symbols-outlined dd-icon">rule</span><span class="dd-text">View Suggestions</span></div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subMarkup)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#ccc;">find_in_page</span><span class="dd-text" style="color:#ccc;">Markup View : <span style="color:#8ab4f8;">All Markup</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#ccc;">chevron_right</span>
+                    <div #subMarkup class="sub-dropdown"><div class="dd-item" style="color:#ccc; cursor:default;"><span class="dd-text">All Markup</span></div></div>
+                  </div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subMarkupColor)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">person_search</span><span class="dd-text" style="color:#1a73e8;">Markup Color</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subMarkupColor class="sub-dropdown" style="min-width: 300px;">
+                      <div style="padding: 12px;">
+                         <div style="color: #1a73e8; font-weight: 600; font-size: 13px; margin-bottom: 4px;">Pick Your Color</div>
+                         <div style="font-size: 11px; color: #5f6368; line-height: 1.4; margin-bottom: 12px;">Your cursor and the changes you make will appear in this color in this document.</div>
+                         <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #34a853; display: flex; align-items: center; justify-content: center; cursor: pointer;"><span class="material-symbols-outlined" style="color: #fff; font-size: 14px;">check</span></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #9c27b0; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #a1887f; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #26a69a; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #689f38; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #039be5; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #d32f2f; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #003cff; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #fbc02d; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #bcaaa4; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #81d4fa; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #1a237e; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #8d6e63; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #e91e63; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #f48fb1; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #ce93d8; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #ff0000; cursor: pointer;"></div>
+                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #ff6d00; cursor: pointer;"></div>
+                         </div>
+                         <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="material-symbols-outlined" style="font-size: 16px; color: #1a73e8; cursor: pointer;">check_box_outline_blank</span>
+                            <span style="font-size: 12px; color: #1a73e8; cursor: pointer;">Use as default color for new documents.</span>
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="dd-item" (click)="showToast('Compare Versions')"><span class="material-symbols-outlined dd-icon">compare</span><span class="dd-text">Compare Versions</span></div>
+                  <div class="dd-item" (click)="showToast('Combine Revisions')"><span class="material-symbols-outlined dd-icon">merge_type</span><span class="dd-text">Combine Revisions</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" style="color:#ccc; cursor:default;"><span class="material-symbols-outlined dd-icon" style="color:#ccc;">lock</span><span class="dd-text">Lock/Unlock Content</span></div>
+                  <div class="dd-item" (click)="showToast('Mask Content')"><span class="material-symbols-outlined dd-icon">visibility_off</span><span class="dd-text">Mask Content</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="showToast('Notification Settings')"><span class="material-symbols-outlined dd-icon">mark_email_unread</span><span class="dd-text">Notification Settings</span></div>
                 </div>
               </div>
               <div class="menu-item" (click)="toggleMenu('tools', $event)" [class.active]="activeMenu === 'tools'">
                 Tools
                 <div class="dropdown" *ngIf="activeMenu === 'tools'">
-                  <div class="dd-item" (click)="checkSpelling()"><span class="material-symbols-outlined dd-icon">spellcheck</span><span class="dd-text">Spelling and grammar</span></div>
-                  <div class="dd-item" (click)="showWordCount()"><span class="material-symbols-outlined dd-icon">123</span><span class="dd-text">Word count</span><span class="dd-hint">Ctrl+Shift+C</span></div>
-                  <div class="dd-item" (click)="openDictionary()"><span class="material-symbols-outlined dd-icon">dictionary</span><span class="dd-text">Dictionary</span><span class="dd-hint">Ctrl+Shift+Y</span></div>
+                  <div class="dd-item" (click)="showToast('Ask Zia')"><span class="material-symbols-outlined dd-icon">psychology</span><span class="dd-text">Ask Zia</span></div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subSpellCheck)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">spellcheck</span><span class="dd-text" style="color:#1a73e8;">Spell Check</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subSpellCheck class="sub-dropdown">
+                      <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Writing Suggestions</div>
+                      <div class="dd-item" (click)="showToast('Spelling Errors')"><span class="material-symbols-outlined dd-icon">check</span><span class="material-symbols-outlined dd-icon">spellcheck</span><span class="dd-text">Spelling Errors</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-item" (click)="showToast('Grammar')"><span class="material-symbols-outlined dd-icon">check</span><span class="material-symbols-outlined dd-icon">history_edu</span><span class="dd-text">Grammar</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-item" (click)="showToast('Writing Quality')"><span class="material-symbols-outlined dd-icon">check</span><span class="material-symbols-outlined dd-icon">draw</span><span class="dd-text">Writing Quality</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-sep"></div>
+                      <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Language</div>
+                      <div class="dd-item" (click)="showToast('Language')"><span class="material-symbols-outlined dd-icon">check</span><span class="material-symbols-outlined dd-icon">language</span><span class="dd-text">Language: <span style="color:#1a73e8;">English (US)</span></span></div>
+                    </div>
+                  </div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" style="color:#ccc; cursor:default;"><span class="material-symbols-outlined dd-icon" style="color:#ccc;">table_chart</span><span class="dd-text">Text to Table</span></div>
+                  <div class="dd-item" (click)="showToast('Translate Content')"><span class="material-symbols-outlined dd-icon">translate</span><span class="dd-text">Translate Content</span></div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subTransliteration)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">translate</span><span class="dd-text" style="color:#1a73e8;">Transliteration: <span style="color:#1a73e8;">None</span> <span class="material-symbols-outlined" style="font-size:14px; margin-left:2px; color:#5f6368;">info</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subTransliteration class="sub-dropdown" style="max-height: 350px; overflow-y: auto;">
+                      <div class="dd-item" (click)="showToast('None')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span><span class="dd-text" style="color:#1a73e8;">None</span></div>
+                      <div class="dd-item" *ngFor="let lang of ['Bengali','French','Gujarati','Hindi','Kannada','Malayalam','Marathi','Odia','Punjabi','Spanish','Tamil','Telugu']" (click)="showToast(lang)"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">{{lang}}</span></div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" (click)="showToast('Request Language')"><span class="dd-text" style="color:#1a73e8;">Request Language</span></div>
+                    </div>
+                  </div>
+                  <div class="dd-item" (click)="showToast('Focus Typing')"><span class="material-symbols-outlined dd-icon">center_focus_strong</span><span class="dd-text">Focus Typing</span></div>
+                  <div class="dd-item" (click)="showToast('Typewriter Sound')"><span class="material-symbols-outlined dd-icon">keyboard</span><span class="dd-text">Typewriter Sound</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="showToast('Thesaurus')"><span class="material-symbols-outlined dd-icon">auto_stories</span><span class="dd-text">Thesaurus</span></div>
+                  <div class="dd-item" (click)="showToast('Autocorrect')"><span class="material-symbols-outlined dd-icon">spellcheck</span><span class="dd-text">Autocorrect</span></div>
+                  <div class="dd-item" (click)="showToast('Personal Dictionary')"><span class="material-symbols-outlined dd-icon">import_contacts</span><span class="dd-text">Personal Dictionary</span></div>
+                  <div class="dd-item" (click)="showWordCount()"><span class="material-symbols-outlined dd-icon">pin</span><span class="dd-text">Word Count</span></div>
+                  <div class="dd-item" (click)="showToast('View Document Images')"><span class="material-symbols-outlined dd-icon">image</span><span class="dd-text">View Document Images</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subExtensions)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">extension</span><span class="dd-text" style="color:#1a73e8;">Extensions</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subExtensions class="sub-dropdown" style="max-height: 400px; overflow-y: auto;">
+                      <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Utility</div>
+                      <div class="dd-item" (click)="showToast('WordPress')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">public</span><span class="dd-text">WordPress</span></div>
+                      <div class="dd-item" (click)="showToast('Signeasy')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">draw</span><span class="dd-text">Signeasy</span></div>
+                      <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Publishing</div>
+                      <div class="dd-item" (click)="showToast('WordPress.org')"><span class="material-symbols-outlined dd-icon">public</span><span class="dd-text">WordPress.org</span></div>
+                      <div class="dd-item" (click)="showToast('Zoho Learn')"><span class="material-symbols-outlined dd-icon" style="color:#d32f2f;">school</span><span class="dd-text">Zoho Learn</span></div>
+                      <div class="dd-item" (click)="showToast('Blogger')"><span class="material-symbols-outlined dd-icon" style="color:#f57c00;">rss_feed</span><span class="dd-text">Blogger</span></div>
+                      <div class="dd-item" (click)="showToast('Zoho Connect')"><span class="material-symbols-outlined dd-icon" style="color:#1976d2;">hub</span><span class="dd-text">Zoho Connect</span></div>
+                      <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">AI Assistance</div>
+                      <div class="dd-item" (click)="showToast('ChatGPT Assistant')"><span class="material-symbols-outlined dd-icon" style="color:#388e3c;">smart_toy</span><span class="dd-text">ChatGPT Assistant</span></div>
+                      <div class="dd-item" (click)="showToast('Cohere Assistant')"><span class="material-symbols-outlined dd-icon" style="color:#5e35b1;">smart_toy</span><span class="dd-text">Cohere Assistant</span></div>
+                      <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Diagramming</div>
+                      <div class="dd-item" (click)="showToast('Zoho ChemStudio')"><span class="material-symbols-outlined dd-icon" style="color:#d32f2f;">science</span><span class="dd-text">Zoho ChemStudio</span></div>
+                      <div class="dd-item" (click)="showToast('Mermaid Chart')"><span class="material-symbols-outlined dd-icon" style="color:#c2185b;">schema</span><span class="dd-text">Mermaid Chart</span></div>
+                      <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Asset Library</div>
+                      <div class="dd-item" (click)="showToast('Unsplash')"><span class="material-symbols-outlined dd-icon">image</span><span class="dd-text">Unsplash</span></div>
+                      <div class="dd-item" (click)="showToast('Zoho Analytics')"><span class="material-symbols-outlined dd-icon" style="color:#d32f2f;">analytics</span><span class="dd-text">Zoho Analytics</span></div>
+                    </div>
+                  </div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="showToast('Engagement Insights')"><span class="material-symbols-outlined dd-icon">monitoring</span><span class="dd-text">Engagement Insights</span></div>
+                </div>
+              </div>
+              <div class="menu-item" (click)="toggleMenu('fields', $event)" [class.active]="activeMenu === 'fields'">
+                Fields
+                <div class="dropdown" *ngIf="activeMenu === 'fields'">
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subDate)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">calendar_today</span><span class="dd-text" style="color:#1a73e8;">Date</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subDate class="sub-dropdown" style="min-width: 200px;">
+                      <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Static Date</div>
+                      <div class="dd-item" (click)="showToast('Today Date')">
+                        <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Today's Date</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">(06/20/2026)</span></div>
+                      </div>
+                      <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Dynamic Dates</div>
+                      <div class="dd-item" (click)="showToast('Current Date')">
+                        <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Current Date</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">(06/20/2026)</span></div>
+                      </div>
+                      <div class="dd-item" (click)="showToast('Created Date')">
+                        <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Created Date</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">(06/17/2026)</span></div>
+                      </div>
+                      <div class="dd-item" (click)="showToast('Last Edited Date')">
+                        <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Last Edited Date</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">(06/19/2026)</span></div>
+                      </div>
+                      <div class="dd-sep"></div>
+                      <div class="dd-item" (click)="showToast('Create custom date field')"><span class="material-symbols-outlined dd-icon">edit_calendar</span><span class="dd-text">Create custom date field...</span></div>
+                    </div>
+                  </div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subPageNumber)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">123</span><span class="dd-text" style="color:#1a73e8;">Page Number</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <div #subPageNumber class="sub-dropdown">
+                      <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subInsertPageNumber)">
+                        <span class="dd-text" style="color:#1a73e8;">Insert Page Number</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                        <div #subInsertPageNumber class="sub-dropdown"><div class="dd-item"><span class="dd-text">Top Left</span></div><div class="dd-item"><span class="dd-text">Top Center</span></div><div class="dd-item"><span class="dd-text">Top Right</span></div><div class="dd-item"><span class="dd-text">Bottom Left</span></div><div class="dd-item"><span class="dd-text">Bottom Center</span></div><div class="dd-item"><span class="dd-text">Bottom Right</span></div></div>
+                      </div>
+                      <div class="dd-item" (click)="showToast('Format Page Number')"><span class="dd-text">Format Page Number</span></div>
+                      <div class="dd-item" (click)="showToast('Remove Page Numbers')"><span class="dd-text">Remove Page Numbers</span></div>
+                    </div>
+                  </div>
+                  <div class="dd-item" (click)="showToast('Page Count')"><span class="material-symbols-outlined dd-icon">pin</span><span class="dd-text">Page Count</span></div>
+                  <div class="dd-item" (click)="showToast('Author Name')"><span class="material-symbols-outlined dd-icon">person_outline</span><span class="dd-text">Author Name</span></div>
+                  <div class="dd-item" (click)="showToast('Document Name')"><span class="material-symbols-outlined dd-icon">description</span><span class="dd-text">Document Name</span></div>
+                  <div class="dd-item" (click)="showToast('Document Version')"><span class="material-symbols-outlined dd-icon">history</span><span class="dd-text">Document Version</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="showToast('First Name')"><span class="material-symbols-outlined dd-icon">badge</span><span class="dd-text">First Name</span></div>
+                  <div class="dd-item" (click)="showToast('Last Name')"><span class="material-symbols-outlined dd-icon">badge</span><span class="dd-text">Last Name</span></div>
+                  <div class="dd-item" (click)="showToast('Email')"><span class="material-symbols-outlined dd-icon">mail</span><span class="dd-text">Email</span></div>
+                  <div class="dd-item" (click)="showToast('Phone')"><span class="material-symbols-outlined dd-icon">call</span><span class="dd-text">Phone</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="showToast('Merge Fields')"><span class="material-symbols-outlined dd-icon">call_merge</span><span class="dd-text">Merge Fields ...</span></div>
+                  <div class="dd-item" (click)="showToast('Signer Fields')"><span class="material-symbols-outlined dd-icon">draw</span><span class="dd-text">Signer Fields ...</span></div>
+                  <div class="dd-item" (click)="showToast('Fillable Fields')"><span class="material-symbols-outlined dd-icon">dynamic_form</span><span class="dd-text">Fillable Fields ...</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="showToast('Formula')"><span class="material-symbols-outlined dd-icon">functions</span><span class="dd-text">Formula</span></div>
+                </div>
+              </div>
+              <div class="menu-item" (click)="toggleMenu('automate', $event)" [class.active]="activeMenu === 'automate'">
+                Automate
+                <div class="dropdown" *ngIf="activeMenu === 'automate'" style="width: 350px;">
+                  <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Convert to</div>
+                  <div class="dd-item" (click)="showToast('Merge Template')" style="align-items: flex-start; padding: 12px; height: auto;">
+                    <span class="material-symbols-outlined dd-icon" style="color:#f57c00; margin-top:2px;">merge_type</span>
+                    <div style="display:flex; flex-direction:column;">
+                      <span class="dd-text" style="white-space: normal;">Merge Template</span>
+                      <span class="dd-text" style="font-size: 11px; color:#5f6368; white-space: normal; line-height: 1.4; margin-top:4px;">Use this to generate personalized documents in bulk that can be emailed, downloaded, or sent for signature.</span>
+                    </div>
+                  </div>
+                  <div class="dd-item" (click)="showToast('Fillable Template')" style="align-items: flex-start; padding: 12px; height: auto;">
+                    <span class="material-symbols-outlined dd-icon" style="color:#7b1fa2; margin-top:2px;">dynamic_form</span>
+                    <div style="display:flex; flex-direction:column;">
+                      <span class="dd-text" style="white-space: normal;">Fillable Template</span>
+                      <span class="dd-text" style="font-size: 11px; color:#5f6368; white-space: normal; line-height: 1.4; margin-top:4px;">Use this to create and publish forms that allow users to fill and you to collect responses.</span>
+                    </div>
+                  </div>
+                  <div class="dd-item" (click)="showToast('Sign Template')" style="align-items: flex-start; padding: 12px; height: auto;">
+                    <span class="material-symbols-outlined dd-icon" style="color:#388e3c; margin-top:2px;">draw</span>
+                    <div style="display:flex; flex-direction:column;">
+                      <span class="dd-text" style="white-space: normal;">Sign Template</span>
+                      <span class="dd-text" style="font-size: 11px; color:#5f6368; white-space: normal; line-height: 1.4; margin-top:4px;">Use this to collect signatures by automating document delivery.</span>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="menu-item" (click)="toggleMenu('help', $event)" [class.active]="activeMenu === 'help'">
                 Help
                 <div class="dropdown" *ngIf="activeMenu === 'help'">
-                  <div class="dd-item" (click)="showToast('Coming soon')"><span class="material-symbols-outlined dd-icon">help</span><span class="dd-text">Writer Help</span></div>
-                  <div class="dd-item" (click)="showToast('Coming soon')"><span class="material-symbols-outlined dd-icon">keyboard</span><span class="dd-text">Keyboard shortcuts</span><span class="dd-hint">Ctrl+/</span></div>
+                  <div class="dd-item" (click)="showToast('Whats New')" style="background: #e8f0fe;"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">redeem</span><span class="dd-text" style="color:#1a73e8;">What's New</span></div>
+                  <div class="dd-item" (click)="showToast('User Guide')"><span class="material-symbols-outlined dd-icon">help_center</span><span class="dd-text">User Guide</span></div>
+                  <div class="dd-item" (click)="showToast('Knowledge Base')"><span class="material-symbols-outlined dd-icon">lightbulb</span><span class="dd-text">Knowledge Base</span></div>
+                  <div class="dd-item" (click)="showToast('Community')"><span class="material-symbols-outlined dd-icon">local_library</span><span class="dd-text">Community</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="showToast('Accessibility options')"><span class="material-symbols-outlined dd-icon">accessibility_new</span><span class="dd-text">Accessibility options ...</span></div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subReadAloud)">
+                    <span class="material-symbols-outlined dd-icon">record_voice_over</span><span class="dd-text">Read aloud to screen reader</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subReadAloud class="sub-dropdown"><div class="dd-item"><span class="dd-text">Play</span></div><div class="dd-item"><span class="dd-text">Pause</span></div></div>
+                  </div>
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subNavigateShortcuts)">
+                    <span class="material-symbols-outlined dd-icon">account_tree</span><span class="dd-text">Navigate with shortcuts</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <div #subNavigateShortcuts class="sub-dropdown"><div class="dd-item"><span class="dd-text">Next Heading</span></div><div class="dd-item"><span class="dd-text">Previous Heading</span></div></div>
+                  </div>
+                  <div class="dd-item" (click)="showToast('Keyboard Shortcuts')"><span class="material-symbols-outlined dd-icon">keyboard</span><span class="dd-text">Keyboard Shortcuts ...</span></div>
                 </div>
             </div>
           </div>
@@ -185,7 +1176,7 @@ import { AuthService } from '../../services/auth.service';
         <span class="sep"></span>
 
         <div class="menu-item style-dropdown" (click)="toggleMenu('style', $event)" [class.active]="activeMenu === 'style'" title="Paragraph style">
-          <span style="max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; vertical-align:middle;">{{ activeBlockStyle }}</span> <span class="material-symbols-outlined arrow-icon" style="vertical-align:middle;">expand_more</span>
+          <span style="max-width:75px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; vertical-align:middle;">{{ activeBlockStyle }}</span> <span class="material-symbols-outlined arrow-icon" style="vertical-align:middle;">expand_more</span>
           <div class="dropdown style-dd" *ngIf="activeMenu === 'style'">
             <div class="dd-item" (click)="changeStyle('p', 'Normal')"><span class="dd-text" style="font-size:14px;">Normal</span></div>
             <div class="dd-item" (click)="changeStyle('h1', 'Title')"><span class="dd-text" style="font-size:22px;font-weight:700;">Title</span></div>
@@ -199,7 +1190,7 @@ import { AuthService } from '../../services/auth.service';
         <span class="sep"></span>
 
         <div class="menu-item font-dropdown" (click)="toggleMenu('font', $event)" [class.active]="activeMenu === 'font'" title="Font family">
-          <span [style.font-family]="activeFontFamily" style="max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; vertical-align:middle;">{{ activeFontFamily }}</span> <span class="material-symbols-outlined arrow-icon" style="vertical-align:middle;">expand_more</span>
+          <span [style.font-family]="activeFontFamily" style="max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; vertical-align:middle;">{{ activeFontFamily }}</span> <span class="material-symbols-outlined arrow-icon" style="vertical-align:middle;">expand_more</span>
           <div class="dropdown font-dd" *ngIf="activeMenu === 'font'">
             <div class="dd-item" *ngFor="let font of fonts" (click)="changeFont(font)">
               <span class="dd-text" [style.font-family]="font">{{ font }}</span>
@@ -213,12 +1204,12 @@ import { AuthService } from '../../services/auth.service';
           <button class="fb size-btn" (click)="decrementFontSize()" title="Decrease font size"><span class="material-symbols-outlined">remove</span></button>
           
           <div class="size-input-wrapper" (click)="showFontSizeMenu = !showFontSizeMenu; $event.stopPropagation()">
-            <input class="size-input" [(ngModel)]="activeFontSize" (change)="onFontSizeInputChange()" (click)="$event.stopPropagation()" />
+            <input class="size-input" [(ngModel)]="activeFontSize" (change)="onFontSizeInputChange()" (click)="showFontSizeMenu = !showFontSizeMenu; $event.stopPropagation()" />
             <span class="material-symbols-outlined">arrow_drop_down</span>
           </div>
 
           <button class="fb size-btn" (click)="incrementFontSize()" title="Increase font size"><span class="material-symbols-outlined">add</span></button>
-          <div class="dropdown" *ngIf="showFontSizeMenu" (click)="$event.stopPropagation()" style="position: absolute; top: 100%; left: 24px; width: 52px; min-width: 52px; z-index: 1000; max-height: 250px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); background: white; border: 1px solid #ccc; padding: 4px 0; display: block;">
+          <div class="dropdown" *ngIf="showFontSizeMenu" (click)="$event.stopPropagation()" style="position: absolute; top: 100%; left: 24px; width: 52px; min-width: 52px; z-index: 1000; max-height: 250px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); background: white; border: 1px solid #ccc; padding: 4px 0; display: block; border-radius: 4px;">
             <div class="dd-item" style="padding: 6px 12px; text-align: center; cursor: pointer; border-bottom: none;" *ngFor="let s of [8,9,10,11,12,14,18,24,30,36,48,60,72]" (click)="changeFontSize(s)">{{ s }}</div>
           </div>
         </div>
@@ -230,43 +1221,137 @@ import { AuthService } from '../../services/auth.service';
         <button class="fb" (click)="exec('underline')" [class.active-fb]="isUnderline" title="Underline (Ctrl+U)"><span class="material-symbols-outlined">format_underlined</span></button>
         <button class="fb" (click)="exec('strikeThrough')" [class.active-fb]="isStrikethrough" title="Strikethrough"><span class="material-symbols-outlined">strikethrough_s</span></button>
         
-        <label class="fb color-btn" title="Text color" style="cursor:pointer; position:relative; overflow:hidden;">
-          <span class="material-symbols-outlined">format_color_text</span>
-          <span class="color-indicator" [style.background]="activeColor"></span>
-          <input type="color" [(ngModel)]="activeColor" (change)="execVal('foreColor', activeColor)" style="position:absolute; opacity:0; width:0; height:0;" />
-        </label>
+        <div class="menu-item" (click)="toggleMenu('textcolor', $event)" [class.active]="activeMenu === 'textcolor'" style="padding: 0 6px; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0px; height: 28px;" title="Text color">
+           <span class="material-symbols-outlined" style="font-size: 20px; margin-bottom: 2px;">format_color_text</span>
+           <span class="color-indicator" [style.background]="activeColor || '#000000'"></span>
+           <div class="dropdown" *ngIf="activeMenu === 'textcolor'" style="min-width: 200px; padding:12px; cursor:default;" (click)="$event.stopPropagation()">
+              <div style="font-size:12px; font-weight:600; color:#5f6368; margin-bottom:8px;">Theme Colors</div>
+              <div class="cp-grid"><div *ngFor="let c of themeColorsTop" class="cp-sw" [style.background]="c" (click)="execVal('foreColor', c); activeColor=c; closeMenus()"></div></div>
+              <div class="cp-grid"><div *ngFor="let c of themeColorsGrid" class="cp-sw" [style.background]="c" (click)="execVal('foreColor', c); activeColor=c; closeMenus()"></div></div>
+              <div style="font-size:12px; font-weight:600; color:#5f6368; margin:12px 0 8px 0;">Standard Colors</div>
+              <div class="cp-grid"><div *ngFor="let c of standardColors" class="cp-sw" [style.background]="c" (click)="execVal('foreColor', c); activeColor=c; closeMenus()"></div></div>
+           </div>
+        </div>
         
-        <label class="fb color-btn" title="Highlight color" style="cursor:pointer; position:relative; overflow:hidden;">
-          <span class="material-symbols-outlined">format_ink_highlighter</span>
-          <span class="color-indicator" [style.background]="activeHighlight"></span>
-          <input type="color" [(ngModel)]="activeHighlight" (change)="execVal('hiliteColor', activeHighlight)" style="position:absolute; opacity:0; width:0; height:0;" />
-        </label>
+        <div class="menu-item" (click)="toggleMenu('bgcolor', $event)" [class.active]="activeMenu === 'bgcolor'" style="padding: 0 6px; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0px; height: 28px;" title="Highlight color">
+           <span class="material-symbols-outlined" style="font-size: 20px; margin-bottom: 2px;">format_ink_highlighter</span>
+           <span class="color-indicator" [style.background]="activeHighlight || 'transparent'"></span>
+           <div class="dropdown" *ngIf="activeMenu === 'bgcolor'" style="min-width: 200px; padding:12px; cursor:default;" (click)="$event.stopPropagation()">
+              <div class="dd-item" (click)="execVal('hiliteColor', 'transparent'); activeHighlight='transparent'; closeMenus()" style="margin:0 -12px 8px -12px; border-bottom:1px solid #eee; padding-bottom:8px;"><span class="material-symbols-outlined dd-icon">format_color_reset</span><span class="dd-text">No Fill</span></div>
+              <div style="font-size:12px; font-weight:600; color:#5f6368; margin-bottom:8px;">Theme Colors</div>
+              <div class="cp-grid"><div *ngFor="let c of themeColorsTop" class="cp-sw" [style.background]="c" (click)="execVal('hiliteColor', c); activeHighlight=c; closeMenus()"></div></div>
+              <div class="cp-grid"><div *ngFor="let c of themeColorsGrid" class="cp-sw" [style.background]="c" (click)="execVal('hiliteColor', c); activeHighlight=c; closeMenus()"></div></div>
+              <div style="font-size:12px; font-weight:600; color:#5f6368; margin:12px 0 8px 0;">Standard Colors</div>
+              <div class="cp-grid"><div *ngFor="let c of standardColors" class="cp-sw" [style.background]="c" (click)="execVal('hiliteColor', c); activeHighlight=c; closeMenus()"></div></div>
+           </div>
+        </div>
 
         <span class="sep"></span>
 
-        <button class="fb" (click)="exec('justifyLeft')" title="Align left"><span class="material-symbols-outlined">format_align_left</span></button>
-        <button class="fb" (click)="exec('justifyCenter')" title="Align center"><span class="material-symbols-outlined">format_align_center</span></button>
-        <button class="fb" (click)="exec('justifyRight')" title="Align right"><span class="material-symbols-outlined">format_align_right</span></button>
-        <button class="fb" (click)="exec('justifyFull')" title="Justify"><span class="material-symbols-outlined">format_align_justify</span></button>
+        <div class="menu-item" (click)="toggleMenu('align', $event)" [class.active]="activeMenu === 'align'" title="Align">
+          <span class="material-symbols-outlined" style="font-size: 20px;">format_align_left</span> <span class="material-symbols-outlined arrow-icon">expand_more</span>
+          <div class="dropdown" *ngIf="activeMenu === 'align'" style="min-width: 170px;">
+            <div class="dd-item" (click)="exec('justifyLeft')"><span class="material-symbols-outlined dd-icon">format_align_left</span><span class="dd-text">Align Left</span><span class="dd-hint">Ctrl+Shift+L</span></div>
+            <div class="dd-item" (click)="exec('justifyCenter')"><span class="material-symbols-outlined dd-icon">format_align_center</span><span class="dd-text">Align Center</span><span class="dd-hint">Ctrl+Shift+E</span></div>
+            <div class="dd-item" (click)="exec('justifyRight')"><span class="material-symbols-outlined dd-icon">format_align_right</span><span class="dd-text">Align Right</span><span class="dd-hint">Ctrl+Shift+R</span></div>
+            <div class="dd-item" (click)="exec('justifyFull')"><span class="material-symbols-outlined dd-icon">format_align_justify</span><span class="dd-text">Justify</span><span class="dd-hint">Ctrl+Shift+J</span></div>
+          </div>
+        </div>
 
         <span class="sep"></span>
 
         <button class="fb" (click)="exec('insertUnorderedList')" title="Bulleted list"><span class="material-symbols-outlined">format_list_bulleted</span></button>
         <button class="fb" (click)="exec('insertOrderedList')" title="Numbered list"><span class="material-symbols-outlined">format_list_numbered</span></button>
-        <button class="fb" (click)="exec('indent')" title="Increase indent"><span class="material-symbols-outlined">format_indent_increase</span></button>
-        <button class="fb" (click)="exec('outdent')" title="Decrease indent"><span class="material-symbols-outlined">format_indent_decrease</span></button>
+        
+        <div class="menu-item" (click)="toggleMenu('indent', $event)" [class.active]="activeMenu === 'indent'" title="Indent">
+          <span class="material-symbols-outlined" style="font-size: 20px;">format_indent_increase</span> <span class="material-symbols-outlined arrow-icon">expand_more</span>
+          <div class="dropdown" *ngIf="activeMenu === 'indent'" style="min-width: 180px;">
+            <div class="dd-item" (click)="exec('indent')"><span class="material-symbols-outlined dd-icon">format_indent_increase</span><span class="dd-text">Increase Indent</span><span class="dd-hint">Ctrl+M</span></div>
+            <div class="dd-item" (click)="exec('outdent')"><span class="material-symbols-outlined dd-icon">format_indent_decrease</span><span class="dd-text">Decrease Indent</span><span class="dd-hint">Ctrl+Shift+M</span></div>
+          </div>
+        </div>
 
         <span class="sep"></span>
 
         <button class="fb" (click)="insertLink()" title="Insert link"><span class="material-symbols-outlined">link</span></button>
-        <button class="fb" (click)="imageInput.click()" title="Insert image"><span class="material-symbols-outlined">image</span></button>
+        <div class="menu-item" (click)="toggleMenu('image', $event)" [class.active]="activeMenu === 'image'" title="Insert image">
+          <span class="material-symbols-outlined" style="font-size: 20px;">image</span> <span class="material-symbols-outlined arrow-icon">expand_more</span>
+          <div class="dropdown" *ngIf="activeMenu === 'image'" style="min-width: 200px;">
+            <div class="dd-item" (click)="imageInput.click()"><span class="material-symbols-outlined dd-icon">upload</span><span class="dd-text">Upload from computer</span></div>
+            <div class="dd-item" (click)="openImageModal('url')"><span class="material-symbols-outlined dd-icon">link</span><span class="dd-text">Insert a URL</span></div>
+            <div class="dd-item" (click)="showToast('Google Photos')"><span class="material-symbols-outlined dd-icon">photo_library</span><span class="dd-text">Google Photos</span></div>
+          </div>
+        </div>
         <button class="fb" (click)="insertTable()" title="Insert table"><span class="material-symbols-outlined">table</span></button>
+        <span class="sep"></span>
+        <button class="fb" (click)="exec('superscript')" title="Superscript"><span style="font-family: serif; font-size: 14px; font-weight: 500;">A<sup>2</sup></span></button>
+        <button class="fb" (click)="exec('subscript')" title="Subscript"><span style="font-family: serif; font-size: 14px; font-weight: 500;">A<sub>2</sub></span></button>
+        <span class="sep"></span>
+        <div class="menu-item" (click)="toggleMenu('case', $event)" [class.active]="activeMenu === 'case'" title="Change Case">
+          <span style="font-family: serif; font-weight: 500; font-size: 15px; padding: 0 4px;">Ag</span> <span class="material-symbols-outlined arrow-icon">expand_more</span>
+          <div class="dropdown" *ngIf="activeMenu === 'case'" style="min-width: 180px;">
+            <div class="dd-item" (click)="changeCase('uppercase')"><span class="dd-text" style="text-transform: uppercase;">AG UPPERCASE</span><span class="dd-hint">Ctrl+Shift+A</span></div>
+            <div class="dd-item" (click)="changeCase('lowercase')"><span class="dd-text" style="text-transform: lowercase;">ag lowercase</span></div>
+            <div class="dd-item" (click)="changeCase('capitalize')"><span class="dd-text" style="text-transform: capitalize;">Ag Capitalize Each Word</span></div>
+            <div class="dd-item" (click)="changeCase('sentence')"><span class="dd-text">Ag Sentence case</span></div>
+            <div class="dd-item" (click)="changeCase('smallcaps')"><span class="dd-text" style="font-variant: small-caps;">Ag Small Caps</span></div>
+          </div>
+        </div>
+
+        <div class="menu-item" (click)="toggleMenu('linespacing', $event)" [class.active]="activeMenu === 'linespacing'" title="Line & Paragraph Spacing">
+          <span class="material-symbols-outlined" style="font-size: 20px;">format_line_spacing</span> <span class="material-symbols-outlined arrow-icon">expand_more</span>
+          <div class="dropdown" *ngIf="activeMenu === 'linespacing'" style="min-width: 230px;">
+            <div class="dd-item" (click)="setLineSpacing('1')"><span class="dd-text" style="padding-left: 28px;">1.0 (Single)</span></div>
+            <div class="dd-item" (click)="setLineSpacing('1.2')"><span class="dd-text" style="padding-left: 28px;">1.2 (Normal)</span></div>
+            <div class="dd-item" (click)="setLineSpacing('1.5')"><span class="dd-text" style="padding-left: 28px;">1.5</span></div>
+            <div class="dd-item" (click)="setLineSpacing('2')"><span class="dd-text" style="padding-left: 28px;">2.0 (Double)</span></div>
+            <div class="dd-sep"></div>
+            <div class="dd-item" style="pointer-events: none; opacity: 0.7;"><span class="material-symbols-outlined dd-icon">format_letter_spacing</span><span class="dd-text">Character Spacing</span></div>
+            <div class="dd-item" (click)="setCharSpacing('-1')"><span class="dd-text" style="padding-left: 28px;">Condensed</span></div>
+            <div class="dd-item" (click)="setCharSpacing('0')"><span class="dd-text" style="padding-left: 28px;">Normal</span></div>
+            <div class="dd-item" (click)="setCharSpacing('1')"><span class="dd-text" style="padding-left: 28px;">Expanded</span></div>
+            <div class="dd-item" (click)="setCharSpacing('2')"><span class="dd-text" style="padding-left: 28px;">Wide</span></div>
+          </div>
+        </div>
+        <span class="sep"></span>
+        <button class="fb" (click)="toggleNonPrinting()" [class.active-fb]="showNonPrinting" title="Show non-printing characters"><span class="material-symbols-outlined">format_paragraph</span></button>
+        <div class="menu-item" (click)="toggleMenu('direction', $event)" [class.active]="activeMenu === 'direction'" title="Text Direction">
+          <span class="material-symbols-outlined" style="font-size: 20px;">format_textdirection_l_to_r</span> <span class="material-symbols-outlined arrow-icon">expand_more</span>
+          <div class="dropdown" *ngIf="activeMenu === 'direction'" style="min-width: 160px; right: 0; left: auto;">
+            <div class="dd-item" (click)="execDir('ltr')"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ activeDir === 'ltr' ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon">format_textdirection_l_to_r</span><span class="dd-text">Left To Right</span></div>
+            <div class="dd-item" (click)="execDir('rtl')"><span class="material-symbols-outlined dd-icon" style="font-size: 16px;">{{ activeDir === 'rtl' ? 'check' : '' }}</span><span class="material-symbols-outlined dd-icon">format_textdirection_r_to_l</span><span class="dd-text">Right To Left</span></div>
+          </div>
+        </div>
+        <span class="sep"></span>
+        <div class="menu-item" (click)="toggleMenu('advanced', $event)" [class.active]="activeMenu === 'advanced'" title="Advanced Layout">
+          <span class="material-symbols-outlined" style="font-size: 20px;">format_shapes</span> <span class="material-symbols-outlined arrow-icon">expand_more</span>
+          <div class="dropdown" *ngIf="activeMenu === 'advanced'" style="width: 320px; padding: 12px; right: 0; left: auto; cursor: default;" (click)="$event.stopPropagation()">
+            <div style="font-size:11px; font-weight:600; color:#5f6368; text-transform:uppercase; margin-bottom:8px;">Drop Cap</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+              <div class="grid-tile" (click)="applyDropCap('none'); closeMenus()" style="border: 1px solid #dadce0; border-radius: 4px; padding: 12px; text-align: center; cursor: pointer; color: #1a73e8; font-size:12px;">NONE</div>
+              <div class="grid-tile" (click)="applyDropCap('style1'); closeMenus()" style="border: 1px solid #dadce0; border-radius: 4px; padding: 12px; text-align: center; cursor: pointer; font-size: 24px; font-weight: bold;">D</div>
+              <div class="grid-tile" (click)="applyDropCap('style2'); closeMenus()" style="border: 1px solid #dadce0; border-radius: 4px; padding: 12px; text-align: center; cursor: pointer; font-size: 24px; font-weight: bold; background: #8ab4f8; color: white;">D</div>
+              <div class="grid-tile" (click)="applyDropCap('style3'); closeMenus()" style="border: 1px solid #dadce0; border-radius: 4px; padding: 12px; text-align: center; cursor: pointer; font-size: 24px; font-weight: bold; background: #81c995; color: white; border-radius: 12px;">D</div>
+              <div class="grid-tile" (click)="applyDropCap('style4'); closeMenus()" style="border: 1px solid #dadce0; border-radius: 4px; padding: 12px; text-align: center; cursor: pointer; font-size: 24px; font-weight: bold; border-bottom: 3px solid #8ab4f8;">D</div>
+              <div class="grid-tile" (click)="applyDropCap('style5'); closeMenus()" style="border: 1px solid #dadce0; border-radius: 4px; padding: 12px; text-align: center; cursor: pointer; font-size: 24px; font-weight: bold; background: #f48fb1; color: white; border-top-right-radius: 24px; border-bottom-right-radius: 24px;">D</div>
+            </div>
+            <div style="font-size:11px; font-weight:600; color:#5f6368; text-transform:uppercase; margin: 16px 0 8px 0;">Block Quote</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+              <div class="grid-tile" (click)="applyBlockQuote('style1'); closeMenus()" style="border: 1px solid #dadce0; border-left: 4px solid #1a73e8; border-radius: 2px; padding: 8px; cursor: pointer; font-size: 9px; color: #5f6368; background: #e8f0fe;">Lorem ipsum dolor...</div>
+              <div class="grid-tile" (click)="applyBlockQuote('style2'); closeMenus()" style="border: 1px solid #dadce0; border-radius: 4px; padding: 8px; cursor: pointer; font-size: 9px; color: #5f6368; background: #fce8e6;">Lorem ipsum dolor...</div>
+              <div class="grid-tile" (click)="applyBlockQuote('style3'); closeMenus()" style="border: 1px solid #dadce0; border-radius: 4px; padding: 8px; cursor: pointer; font-size: 9px; color: #5f6368; background: #fef7e0;">Lorem ipsum dolor...</div>
+              <div class="grid-tile" (click)="applyBlockQuote('style4'); closeMenus()" style="border: 1px solid #dadce0; border-radius: 4px; padding: 8px; cursor: pointer; font-size: 9px; color: #5f6368; background: #f3f3f3;">Lorem ipsum dolor...</div>
+              <div class="grid-tile" (click)="applyBlockQuote('style5'); closeMenus()" style="border: 1px solid #dadce0; border-radius: 4px; padding: 8px; cursor: pointer; font-size: 9px; color: #ffffff; background: #3c4043;">Lorem ipsum dolor...</div>
+              <div class="grid-tile" (click)="applyBlockQuote('style6'); closeMenus()" style="border: 1px solid #dadce0; border-left: 4px solid #00bcd4; border-radius: 4px; padding: 8px; cursor: pointer; font-size: 9px; color: #5f6368; background: #e0f7fa;">Lorem ipsum dolor...</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="equation-bar" *ngIf="showEquationToolbar">
-         <button class="fb" (click)="insertText('α')">α</button> <button class="fb" (click)="insertText('β')">β</button> <button class="fb" (click)="insertText('γ')">γ</button> <span class="sep"></span>
-         <button class="fb" (click)="insertText('∑')">∑</button> <button class="fb" (click)="insertText('∫')">∫</button> <button class="fb" (click)="insertText('√')">√</button> <span class="sep"></span>
-         <button class="fb" (click)="insertText('∞')">∞</button> <button class="fb" (click)="insertText('≠')">≠</button> <button class="fb" (click)="insertText('≈')">≈</button>
+         <button class="fb" (click)="insertText('+ï¿½')">+ï¿½</button> <button class="fb" (click)="insertText('+ï¿½')">+ï¿½</button> <button class="fb" (click)="insertText('+ï¿½')">+ï¿½</button> <span class="sep"></span>
+         <button class="fb" (click)="insertText('Gï¿½ï¿½')">Gï¿½ï¿½</button> <button class="fb" (click)="insertText('Gï¿½')">Gï¿½</button> <button class="fb" (click)="insertText('Gï¿½ï¿½')">Gï¿½ï¿½</button> <span class="sep"></span>
+         <button class="fb" (click)="insertText('Gï¿½P')">Gï¿½P</button> <button class="fb" (click)="insertText('Gï¿½ï¿½')">Gï¿½ï¿½</button> <button class="fb" (click)="insertText('Gï¿½ï¿½')">Gï¿½ï¿½</button>
       </div>
 
       <div class="editor-layout">
@@ -284,17 +1369,88 @@ import { AuthService } from '../../services/auth.service';
           </div>
         </div>
         <div class="page-area" #pageArea [class.no-print]="!showPrintLayout" (scroll)="updateOverlay()" (mousedown)="onPageMouseDown($event)">
-          <div style="margin: 0 auto; width: 816px; display:flex; flex-direction: column; align-items: center; padding-bottom: 48px;">
-            <div class="ruler" *ngIf="showRuler"></div>
-            <div style="position: relative; width: 816px;">
+          <div [style.width]="documentViewType === 'Web View' ? '100%' : '816px'" style="margin: 0 auto; display:flex; flex-direction: column; align-items: center; padding-bottom: 48px;" [style.zoom]="zoomLevel / 100">
+            <div class="ruler" *ngIf="showRuler" [style.width]="documentViewType === 'Web View' ? '100%' : '816px'"></div>
+            <div style="position: relative;" [style.width]="documentViewType === 'Web View' ? '100%' : '816px'">
               <div class="page-bg-layer" *ngIf="showPrintLayout">
                  <div class="page-bg" *ngFor="let p of pageCountArray"></div>
               </div>
               <div class="page" [attr.contenteditable]="viewMode === 'Editing' ? 'true' : 'false'" #editor
                 [class.show-np]="showNonPrinting"
+                [class.hide-images]="hideImages"
+                [class.grid-lines]="showSmartGridLines"
+                [class.object-indicator]="showObjectIndicator"
                 (input)="onInput(editor)" (blur)="save()">
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Right Sidebar for Text Box Options -->
+        <div class="sidebar right-sidebar" *ngIf="showTextBoxOptions" style="width: 300px; border-left: 1px solid #dadce0; background: #f8f9fa; padding: 16px; overflow-y: auto; z-index: 10;">
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #dadce0; padding-bottom: 12px; margin-bottom: 16px;">
+            <div style="font-weight: 600; font-size: 15px; color: #202124;">Text Box Options</div>
+            <span class="material-symbols-outlined" style="cursor: pointer; font-size: 20px; color: #5f6368;" (click)="showTextBoxOptions = false">close</span>
+          </div>
+          
+          <div style="margin-bottom: 20px;">
+            <div style="font-weight: 500; font-size: 13px; color: #1a73e8; margin-bottom: 12px;">Align</div>
+            <select style="width: 100%; padding: 8px; border: 1px solid #dadce0; border-radius: 4px; background: #fff;">
+              <option>Text alignment : Top</option>
+              <option>Text alignment : Middle</option>
+              <option>Text alignment : Bottom</option>
+            </select>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <div style="font-weight: 500; font-size: 13px; color: #1a73e8; margin-bottom: 12px;">Style</div>
+            <div style="border: 1px solid #dadce0; border-radius: 4px; padding: 12px; margin-bottom: 12px; background: #fff;">
+              <div style="font-size: 12px; color: #5f6368; margin-bottom: 8px;">Border</div>
+              <div style="display: flex; gap: 8px;">
+                <button style="flex:1; background: #fff; border: 1px solid #dadce0; padding: 4px; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-outlined" style="font-size:16px;">format_color_reset</span></button>
+                <button style="flex:1; background: #000; border: 1px solid #dadce0; padding: 4px;"></button>
+                <button style="flex:1; background: #fff; border: 1px solid #dadce0; padding: 4px; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-outlined" style="font-size:16px;">border_style</span></button>
+              </div>
+            </div>
+            <div style="border: 1px solid #dadce0; border-radius: 4px; padding: 12px; background: #fff;">
+              <div style="font-size: 12px; color: #5f6368; margin-bottom: 8px;">Background</div>
+              <div style="display: flex; gap: 8px;">
+                <button style="width: 28px; height: 28px; background: #fff; border: 1px solid #dadce0; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-outlined" style="font-size:16px;">format_color_reset</span></button>
+                <button style="width: 28px; height: 28px; background: #fce8e6; border: 1px solid #dadce0;"></button>
+                <button style="width: 28px; height: 28px; background: #e8f0fe; border: 1px solid #dadce0;"></button>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <div style="font-weight: 500; font-size: 13px; color: #1a73e8;">Opacity</div>
+              <div style="font-size: 12px; color: #5f6368; border: 1px solid #dadce0; padding: 2px 6px; border-radius: 2px; background: #fff;">100 %</div>
+            </div>
+            <input type="range" min="0" max="100" value="100" style="width: 100%;">
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <div style="font-weight: 500; font-size: 13px; color: #1a73e8; margin-bottom: 12px;">Dimensions</div>
+            <div style="display: flex; gap: 12px;">
+              <div style="flex: 1;">
+                <div style="font-size: 11px; color: #5f6368; margin-bottom: 4px;">Width:</div>
+                <input type="text" value="173 px" style="width: 100%; padding: 6px; border: 1px solid #dadce0; border-radius: 4px;">
+              </div>
+              <div style="flex: 1;">
+                <div style="font-size: 11px; color: #5f6368; margin-bottom: 4px;">Height:</div>
+                <input type="text" value="98 px" style="width: 100%; padding: 6px; border: 1px solid #dadce0; border-radius: 4px;">
+              </div>
+            </div>
+          </div>
+          
+          <div style="margin-bottom: 20px;">
+             <div style="font-weight: 500; font-size: 13px; color: #1a73e8; margin-bottom: 12px;">Arrange</div>
+             <select style="width: 100%; padding: 8px; border: 1px solid #dadce0; border-radius: 4px; background: #fff;">
+               <option>Wrap type: In front of text</option>
+               <option>Wrap type: Behind text</option>
+               <option>Wrap type: Inline</option>
+             </select>
           </div>
         </div>
       </div>
@@ -350,7 +1506,67 @@ import { AuthService } from '../../services/auth.service';
           </div>
           <div class="modal-actions" style="margin-top: 16px;">
             <button class="btn outline" (click)="chartModalVisible = false">Cancel</button>
-            <button class="btn" (click)="generateAndInsertChart()">Insert Chart</button>
+            <button class="btn primary" (click)="generateAndInsertChart()">Insert Chart</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Image Connect Modal -->
+      <div class="modal-overlay" *ngIf="imageModalVisible">
+        <div class="modal">
+          <h3 *ngIf="imageModalType === 'url' || imageModalType === 'web'">Insert Image from URL</h3>
+          <h3 *ngIf="imageModalType === 'workdrive'">Connect to Zoho WorkDrive</h3>
+          <h3 *ngIf="imageModalType === 'library'">Connect to My Library</h3>
+          <h3 *ngIf="imageModalType === 'gphotos'">Connect to Google Photos</h3>
+          <h3 *ngIf="imageModalType === 'flickr'">Connect to Flickr</h3>
+          
+          <div *ngIf="imageModalType === 'url' || imageModalType === 'web'" style="margin-top: 12px; text-align: left;">
+            <label style="display:block; margin-bottom: 4px; font-weight: 500;">Image URL:</label>
+            <input type="text" [(ngModel)]="imageUrlInput" class="form-control" placeholder="https://...">
+          </div>
+          
+          <div *ngIf="imageModalType !== 'url' && imageModalType !== 'web'" style="margin-top: 12px; text-align: left; color: #5f6368; font-size: 13px;">
+            To access your files from this service, you need to authenticate and authorize this application to view your media.
+          </div>
+
+          <div class="modal-actions" style="margin-top: 16px;">
+            <button class="btn outline" (click)="imageModalVisible = false">Cancel</button>
+            <button class="btn primary" *ngIf="imageModalType === 'url' || imageModalType === 'web'" (click)="confirmImageUrl()">Insert</button>
+            <button class="btn primary" *ngIf="imageModalType !== 'url' && imageModalType !== 'web'" (click)="showToast('Authentication pending...'); imageModalVisible = false;">Connect</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cloud Import Modal -->
+      <div class="modal-overlay" *ngIf="cloudModalOpen" (click)="cloudModalOpen = false">
+        <div class="modal" style="width: 400px; padding: 24px; border-radius: 8px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: var(--bg-color, #fff);" (click)="$event.stopPropagation()">
+          <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 18px; color: var(--text-primary, #202124);">Connect Cloud Drive</h3>
+          <ng-container *ngIf="!isConnectingCloud">
+            <p style="font-size: 14px; color: var(--text-secondary, #5f6368); margin-bottom: 24px;">Select a cloud provider to authenticate and import documents into VMail Office Suite.</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <button class="btn" style="display: flex; align-items: center; justify-content: flex-start; gap: 16px; padding: 12px 16px; background: transparent; border: 1px solid var(--border-color, #dadce0); border-radius: 6px; color: var(--text-primary, #3c4043); font-weight: 500; cursor: pointer;" (click)="connectCloud('Google Drive')" onmouseover="this.style.background='var(--hover-bg, #f1f3f4)'" onmouseout="this.style.background='transparent'">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/d/da/Google_Drive_logo.png" style="width: 24px; height: 24px;"> Google Drive
+              </button>
+              <button class="btn" style="display: flex; align-items: center; justify-content: flex-start; gap: 16px; padding: 12px 16px; background: transparent; border: 1px solid var(--border-color, #dadce0); border-radius: 6px; color: var(--text-primary, #3c4043); font-weight: 500; cursor: pointer;" (click)="connectCloud('Dropbox')" onmouseover="this.style.background='var(--hover-bg, #f1f3f4)'" onmouseout="this.style.background='transparent'">
+                <svg width="24" height="24" viewBox="0 0 43 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.58 0L0 8.02l12.58 8.01 12.59-8.01L12.58 0zm17.84 0l-12.59 8.02 12.59 8.01L43 8.02 30.42 0zM0 24.05l12.58-8.02 12.58 8.02-12.58 8.01L0 24.05zm43 0l-12.58-8.02-12.59 8.02 12.59 8.01L43 24.05zM12.58 34.07l12.59 8.01 12.58-8.01-12.58-8.02-12.59 8.02z" fill="#0061FE"/></svg> Dropbox
+              </button>
+              <button class="btn" style="display: flex; align-items: center; justify-content: flex-start; gap: 16px; padding: 12px 16px; background: transparent; border: 1px solid var(--border-color, #dadce0); border-radius: 6px; color: var(--text-primary, #3c4043); font-weight: 500; cursor: pointer;" (click)="connectCloud('OneDrive')" onmouseover="this.style.background='var(--hover-bg, #f1f3f4)'" onmouseout="this.style.background='transparent'">
+                <svg width="24" height="24" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M35 15C28 15 22 20 20 27 13 27 8 32 8 39 8 46 13 51 20 51L44 51C51 51 56 46 56 39 56 32 51 27 44 27 42 27 41 28 39 28 38 20 37 15 35 15Z" fill="#0078D4"/></svg> OneDrive
+              </button>
+            </div>
+          </ng-container>
+          
+          <ng-container *ngIf="isConnectingCloud">
+            <div style="padding: 40px 0; text-align: center; color: var(--text-secondary, #5f6368);">
+              <div style="width: 24px; height: 24px; border: 3px solid #e8eaed; border-top: 3px solid #1a73e8; border-radius: 50%; margin: 0 auto 16px; animation: spin 1s linear infinite;"></div>
+              <div style="font-weight: 500; color: var(--text-primary, #202124);">Connecting to {{connectingCloudName}}...</div>
+              <div style="font-size: 12px; margin-top: 8px;">Waiting for authentication window</div>
+            </div>
+          </ng-container>
+          
+          <div style="margin-top: 24px; text-align: right;">
+            <button class="btn" style="background: none; border: none; color: var(--text-secondary, #5f6368); padding: 8px 16px; cursor: pointer; font-weight: 600;" (click)="cloudModalOpen = false">Cancel</button>
           </div>
         </div>
       </div>
@@ -362,13 +1578,13 @@ import { AuthService } from '../../services/auth.service';
             <div style="display:flex; align-items:center; gap:10px;">
               <div style="background:#1a73e8; color:#fff; display:flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px;">
                 <span class="material-symbols-outlined" style="font-size:16px;">description</span>
-          </div>
-              <h3>Share "{{ title || 'Untitled document' }}"</h3>
+              </div>
+              <h3 style="margin:0;">Share "{{ title || 'Untitled document' }}"</h3>
             </div>
-          </div>
-            <button class="sm-close-btn" (click)="shareModalOpen = false" style="position: absolute; top: 12px; right: 16px; background: none; border: none;">
+            <button class="sm-close-btn" (click)="shareModalOpen = false" style="background:none; border:none; cursor:pointer;">
               <span class="material-symbols-outlined" style="font-size:20px;">close</span>
             </button>
+          </div>
           <div style="position:relative; margin-bottom:32px;">
             <div style="display:flex; align-items:center; gap:12px; position:relative;">
               <div class="sm-input-box">
@@ -420,6 +1636,136 @@ import { AuthService } from '../../services/auth.service';
         </div>
       </div>
 
+      <!-- Details Modal -->
+      <div class="modal-overlay" *ngIf="detailsModalOpen" (click)="detailsModalOpen = false">
+        <div class="modal" style="width: 380px; padding: 24px; border-radius: 8px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" (click)="$event.stopPropagation()">
+          <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 18px; color: #202124;">Document Details</h3>
+          
+          <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px 16px; font-size: 14px; color: #5f6368;">
+            <strong style="color: #202124;">Title:</strong> <span>{{ title || 'Untitled document' }}</span>
+            <strong style="color: #202124;">Location:</strong> <span>My Drive</span>
+            <strong style="color: #202124;">Active Users:</strong> <span>{{ activeUsers }}</span>
+            <strong style="color: #202124;">Words:</strong> <span>{{ detailsData.words }}</span>
+            <strong style="color: #202124;">Characters:</strong> <span>{{ detailsData.chars }}</span>
+          </div>
+
+          <div style="margin-top: 24px; text-align: right;">
+            <button class="btn" style="background: #1a73e8; color: #fff; border-radius: 4px; padding: 8px 24px;" (click)="detailsModalOpen = false">OK</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trash Modal -->
+      <div class="modal-overlay" *ngIf="trashModalOpen" (click)="trashModalOpen = false">
+        <div class="modal" style="width: 400px; padding: 24px; border-radius: 8px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" (click)="$event.stopPropagation()">
+          <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; color: #202124;">Move to trash</h3>
+          <p style="margin: 0 0 24px 0; font-size: 14px; color: #5f6368;">Are you sure you want to move "{{ title || 'Untitled document' }}" to the trash?</p>
+          <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button class="btn" (click)="trashModalOpen = false" style="background: transparent; border: 1px solid #dadce0; color: #1a73e8; padding: 8px 24px; border-radius: 4px; font-weight: 500; cursor: pointer;">Cancel</button>
+            <button class="btn" (click)="confirmTrashDoc()" style="background: #d93025; border: none; color: #fff; padding: 8px 24px; border-radius: 4px; font-weight: 500; cursor: pointer;">Move to trash</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Version History Modal -->
+      <div class="modal-overlay" *ngIf="versionModalOpen" (click)="versionModalOpen = false">
+        <div class="modal" style="width: 400px; padding: 24px; border-radius: 8px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" (click)="$event.stopPropagation()">
+          <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; color: #202124;">Version History</h3>
+          <p style="margin: 0 0 24px 0; font-size: 14px; color: #5f6368;">Only the current active version is available for this document.<br>Auto-save is active.</p>
+          <div style="display: flex; justify-content: flex-end;">
+            <button class="btn" style="background: #1a73e8; color: #fff; border-radius: 4px; padding: 8px 24px;" (click)="versionModalOpen = false">OK</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mark As Final Modal -->
+      <div class="modal-overlay" *ngIf="markAsFinalModalOpen" (click)="markAsFinalModalOpen = false">
+        <div class="modal" style="width: 400px; padding: 24px; border-radius: 8px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" (click)="$event.stopPropagation()">
+          <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; color: #202124;">Mark as Final</h3>
+          <p style="margin: 0 0 24px 0; font-size: 14px; color: #5f6368;">This document will be marked as final to discourage editing. You can always edit it later.</p>
+          <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button class="btn" (click)="markAsFinalModalOpen = false" style="background: transparent; border: 1px solid #dadce0; color: #1a73e8; padding: 8px 24px; border-radius: 4px;">Cancel</button>
+            <button class="btn" (click)="markAsFinalModalOpen = false; showToast('Document marked as final')" style="background: #1a73e8; color: #fff; border-radius: 4px; padding: 8px 24px;">Mark Final</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Publish Modal -->
+      <div class="modal-overlay" *ngIf="publishModalOpen" (click)="publishModalOpen = false">
+        <div class="modal" style="width: 400px; padding: 24px; border-radius: 8px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" (click)="$event.stopPropagation()">
+          <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; color: #202124;">Publish to Web</h3>
+          <p style="margin: 0 0 24px 0; font-size: 14px; color: #5f6368;">Make your content visible to anyone by publishing it to the web. You can get a link or embed code.</p>
+          <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button class="btn" (click)="publishModalOpen = false" style="background: transparent; border: 1px solid #dadce0; color: #1a73e8; padding: 8px 24px; border-radius: 4px;">Cancel</button>
+            <button class="btn" (click)="publishModalOpen = false; showToast('Document published')" style="background: #1a73e8; color: #fff; border-radius: 4px; padding: 8px 24px;">Publish</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fill As Form Modal -->
+      <div class="modal-overlay" *ngIf="fillFormModalOpen" (click)="fillFormModalOpen = false">
+        <div class="modal" style="width: 400px; padding: 24px; border-radius: 8px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" (click)="$event.stopPropagation()">
+          <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; color: #202124;">Fill As Form</h3>
+          <p style="margin: 0 0 24px 0; font-size: 14px; color: #5f6368;">No fillable fields detected in this document. Add form fields from the Automation menu first.</p>
+          <div style="display: flex; justify-content: flex-end;">
+            <button class="btn" style="background: #1a73e8; color: #fff; border-radius: 4px; padding: 8px 24px;" (click)="fillFormModalOpen = false">OK</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page Setup Modal -->
+      <div class="modal-overlay" *ngIf="pageSetupModalOpen" (click)="pageSetupModalOpen = false">
+        <div class="modal" style="width: 400px; padding: 24px; border-radius: 8px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" (click)="$event.stopPropagation()">
+          <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; color: #202124;">Page Setup</h3>
+          <div style="margin-bottom: 24px;">
+             <label style="display:block; font-size:12px; color:#5f6368; margin-bottom:4px;">Orientation</label>
+             <select style="width:100%; padding:8px; border:1px solid #dadce0; border-radius:4px; margin-bottom:16px;">
+               <option>Portrait</option>
+               <option>Landscape</option>
+             </select>
+             <label style="display:block; font-size:12px; color:#5f6368; margin-bottom:4px;">Paper Size</label>
+             <select style="width:100%; padding:8px; border:1px solid #dadce0; border-radius:4px;">
+               <option>A4 (21 cm × 29.7 cm)</option>
+               <option>Letter (8.5" × 11")</option>
+               <option>Legal (8.5" × 14")</option>
+             </select>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button class="btn" (click)="pageSetupModalOpen = false" style="background: transparent; border: 1px solid #dadce0; color: #1a73e8; padding: 8px 24px; border-radius: 4px;">Cancel</button>
+            <button class="btn" (click)="pageSetupModalOpen = false; showToast('Page settings saved')" style="background: #1a73e8; color: #fff; border-radius: 4px; padding: 8px 24px;">OK</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Save As Modal -->
+      <div class="modal-overlay" *ngIf="saveAsModalOpen" (click)="saveAsModalOpen = false">
+        <div class="modal" style="width: 380px; padding: 24px; border-radius: 8px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: var(--bg-color, #fff);" (click)="$event.stopPropagation()">
+          <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 18px; color: var(--text-primary, #202124);">{{ saveAsType === 'template' ? 'Save As Template' : 'Save As' }}</h3>
+          <div style="margin-bottom: 24px;">
+             <label style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: var(--text-secondary, #3c4043);">Document Name</label>
+             <input type="text" [(ngModel)]="saveAsInput" placeholder="Document name" style="width: 100%; padding: 10px; border: 1px solid var(--border-color, #dadce0); border-radius: 4px; box-sizing: border-box; outline: none; font-size: 14px; background: var(--bg-color, #fff); color: var(--text-primary, #202124);" (keyup.enter)="confirmSaveAs()" autofocus>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button class="btn" (click)="saveAsModalOpen = false" style="background: transparent; border: 1px solid var(--border-color, #dadce0); color: #1a73e8; padding: 8px 24px; border-radius: 4px;">Cancel</button>
+            <button class="btn" (click)="confirmSaveAs()" style="background: #1a73e8; color: #fff; border-radius: 4px; padding: 8px 24px;">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Password Modal -->
+      <div class="modal-overlay" *ngIf="passwordModalOpen" (click)="passwordModalOpen = false">
+        <div class="modal" style="width: 400px; padding: 24px; border-radius: 8px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" (click)="$event.stopPropagation()">
+          <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; color: #202124;">Password Protect Document</h3>
+          <p style="margin: 0 0 16px 0; font-size: 14px; color: #5f6368;">Enter a password to encrypt this file. Anyone who tries to open it will need this password.</p>
+          <div style="margin-bottom: 24px;">
+             <input type="password" [(ngModel)]="passwordInput" placeholder="Enter password" style="width: 100%; padding: 10px; border: 1px solid #dadce0; border-radius: 4px; box-sizing: border-box; outline: none; font-size: 14px;" (keyup.enter)="submitPassword()" autofocus>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button class="btn" (click)="passwordModalOpen = false" style="background: transparent; border: 1px solid #dadce0; color: #1a73e8; padding: 8px 24px; border-radius: 4px;">Cancel</button>
+            <button class="btn" (click)="submitPassword()" style="background: #1a73e8; color: #fff; border-radius: 4px; padding: 8px 24px;">Download</button>
+          </div>
+        </div>
+      </div>
       <!-- Dictionary Modal -->
       <div class="modal-overlay" *ngIf="dictModalOpen">
         <div class="modal" style="width: 400px; max-height: 80vh; overflow-y: auto; text-align: left;">
@@ -484,11 +1830,13 @@ import { AuthService } from '../../services/auth.service';
 
       <app-chat-widget [activeWidget]="activeWidget" (close)="activeWidget=null"></app-chat-widget>
 
-    </div>
+
   `,
   styleUrls: ['./doc-editor.component.css']
 })
 export class DocEditorComponent implements OnInit, OnDestroy {
+  @ViewChild('importInput') importInput!: ElementRef;
+  recentDocs: any[] = [];
   activeWidget: string | null = null;
   toggleWidget(w: string) {
     if (this.activeWidget === w) this.activeWidget = null;
@@ -509,8 +1857,69 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   currentPage = 1;
   zoomLevel = 100;
   isSaving = false;
+
+  tableGridRows = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  tableGridCols = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  hoveredTableRow = 0;
+  hoveredTableCol = 0;
+
+  insertGridTable(rows: number, cols: number) {
+    this.closeMenus();
+    let html = '<table border="1" style="border-collapse: collapse; width: 100%; margin: 10px 0;"><tbody>';
+    for (let r = 0; r < rows; r++) {
+      html += '<tr>';
+      for (let c = 0; c < cols; c++) {
+        html += '<td style="padding: 4px;"><br></td>';
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+
+    const el = document.querySelector('.page') as HTMLElement;
+    if (el) el.focus();
+    document.execCommand('insertHTML', false, html);
+  }
+
+  insertTextBox() {
+    this.closeMenus();
+    const html = `<div style="border:1px solid #000; padding:8px; display:inline-block; min-width: 150px; min-height: 50px; resize:both; overflow:auto;">Text Box</div><br>`;
+    const el = document.querySelector('.page') as HTMLElement;
+    if (el) el.focus();
+    document.execCommand('insertHTML', false, html);
+    this.showTextBoxOptions = true;
+  }
+
+  insertQuickPart() {
+    this.closeMenus();
+    const html = `<div style="margin-top: 20px;"><p>Sincerely,</p><br><p><strong>${this.auth.user?.name || 'User'}</strong></p></div><br>`;
+    const el = document.querySelector('.page') as HTMLElement;
+    if (el) el.focus();
+    document.execCommand('insertHTML', false, html);
+  }
+
+  saveQuickPart() {
+    this.closeMenus();
+    const name = prompt('Enter a name for this Quick Part:');
+    if (name) {
+      this.showToast(`Saved selection as Quick Part: ${name}`);
+    }
+  }
   lastSavedTime: Date | null = null;
   isStarred = false;
+
+  themeColorsTop = [
+    '#000000', '#434343', '#666666', '#999999', '#cccccc', '#efefef', '#f3f3f3', '#ffffff', '#ff0000', '#00ff00'
+  ];
+  themeColorsGrid = [
+    '#f2f2f2', '#7f7f7f', '#d0cece', '#d6dce4', '#d9e1f2', '#fce4d6', '#ededed', '#fff2cc', '#deebf7', '#e2efda',
+    '#d8d8d8', '#595959', '#a2a2a2', '#adb9ca', '#b4c6e7', '#f8cbad', '#dbdbdb', '#ffe699', '#bdd7ee', '#c6e0b4',
+    '#bfbfbf', '#3f3f3f', '#7b7b7b', '#8497b0', '#8ea9db', '#f4b084', '#c9c9c9', '#ffd966', '#9dc3e6', '#a9d08e',
+    '#a5a5a5', '#262626', '#525252', '#333f4f', '#2f5597', '#c55a11', '#7b7b7b', '#bf8f00', '#2e75b6', '#548235',
+    '#7f7f7f', '#0c0c0c', '#252525', '#222a35', '#1f3864', '#833c0c', '#525252', '#7f6000', '#1e4e79', '#375623'
+  ];
+  standardColors = [
+    '#c00000', '#ff0000', '#ffc000', '#ffff00', '#92d050', '#00b050', '#00b0f0', '#0070c0', '#002060', '#7030a0'
+  ];
 
   get savedTimeStr() {
     if (!this.lastSavedTime) return 'Saved';
@@ -528,11 +1937,47 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   
   viewMode: 'Editing' | 'Viewing' = 'Editing';
   showPrintLayout = true;
+  showTextBoxOptions = false;
   showRuler = false;
   showEquationToolbar = false;
   showNonPrinting = false;
 
   shareModalOpen = false;
+  detailsModalOpen = false;
+  trashModalOpen = false;
+  versionModalOpen = false;
+  publishModalOpen = false;
+  markAsFinalModalOpen = false;
+  pageSetupModalOpen = false;
+  fillFormModalOpen = false;
+  passwordModalOpen = false;
+  passwordInput = '';
+  passwordFormat = '';
+  saveAsModalOpen = false;
+  saveAsInput = '';
+  saveAsType = 'document';
+  cloudModalOpen = false;
+  isConnectingCloud = false;
+  connectingCloudName = '';
+  documentViewType = 'Page View';
+  showBookmarks = false;
+  showSmartGridLines = false;
+  showObjectIndicator = true;
+  appearanceMode = 'System Default';
+  hideImages = false;
+  isReaderView = false;
+  showNavigator = false;
+  activeCharSpacing = 'Normal';
+  activeDir = 'ltr';
+
+  get isDarkMode() {
+    if (this.appearanceMode === 'Dark Mode') return true;
+    if (this.appearanceMode === 'System Default') {
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  }
+  detailsData = { words: 0, chars: 0 };
   isPublic = false;
   shareQuery = '';
   shareRoleDropdownOpen = false;
@@ -577,6 +2022,9 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   chartModalVisible = false;
   chartTitle = 'Quarterly Revenue';
   chartValues = '40, 80, 60, 100';
+  imageModalVisible = false;
+  imageModalType = '';
+  imageUrlInput = '';
 
   @ViewChild('pageArea') pageAreaRef!: ElementRef<HTMLElement>;
 
@@ -595,6 +2043,10 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     this.docId = this.route.snapshot.paramMap.get('id') ?? '';
     document.execCommand('defaultParagraphSeparator', false, 'div');
     
+    this.api.listDocuments().subscribe(docs => {
+      this.recentDocs = docs.filter((d: any) => d.doc_type === 'writer' && d.id !== this.docId).slice(0, 5);
+    });
+
     this.api.getDocument(this.docId).subscribe((doc: any) => {
       this.title = doc.title;
       if (doc.updated_at) {
@@ -646,8 +2098,54 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   }
 
 
+  closeAllSubmenus() {
+    document.querySelectorAll('.sub-dropdown').forEach(el => {
+      (el as HTMLElement).style.transition = 'none'; // Force instant hide
+      (el as HTMLElement).style.opacity = '0';
+      (el as HTMLElement).style.visibility = 'hidden';
+    });
+  }
+
+  positionSubmenu(event: MouseEvent, submenu: HTMLElement) {
+    if (!submenu) return;
+    
+    // Clear inline styles (if previously hidden by scroll) for the currently hovered submenu
+    submenu.style.transition = '';
+    submenu.style.opacity = '';
+    submenu.style.visibility = '';
+
+    const parent = (event.currentTarget as HTMLElement);
+    const parentRect = parent.getBoundingClientRect();
+    
+    submenu.style.position = 'fixed';
+    
+    // Overlap by 4px to prevent losing hover when moving mouse diagonally
+    let leftPos = parentRect.right - 4;
+    if (leftPos + 280 > window.innerWidth) {
+      leftPos = parentRect.left - 280 + 4;
+    }
+    
+    submenu.style.left = `${leftPos}px`;
+    submenu.style.top = `${parentRect.top - 6}px`; // Shift up slightly to align text
+  }
+
   onSelectionChange() {
     if (this.viewMode !== 'Editing') return;
+
+    const selection = document.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    let node: Node | null = selection.anchorNode;
+    let isInsideEditor = false;
+    while (node) {
+      if (node.nodeType === Node.ELEMENT_NODE && (node as Element).classList && (node as Element).classList.contains('page')) {
+        isInsideEditor = true;
+        break;
+      }
+      node = node.parentNode;
+    }
+    
+    if (!isInsideEditor) return;
 
     // Update toolbar buttons based on selection
     this.isBold = document.queryCommandState('bold');
@@ -695,6 +2193,166 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadTemplate(type: string) {
+    let title = 'Untitled Document';
+    let htmlContent = '';
+    
+    switch(type) {
+      case 'resume':
+        title = 'Resume';
+        htmlContent = `<div style="padding:40px; font-family:Arial, sans-serif;">
+          <h1 style="text-align:center; font-size: 32px; border-bottom: 2px solid #ccc; padding-bottom: 10px;">[Your Name]</h1>
+          <p style="text-align:center;">[123 Address St, City, ST 12345] | [phone] | [email]</p>
+          <br>
+          <h2 style="color: #2c3e50;">Objective</h2>
+          <p>[A brief objective statement...]</p>
+          <h2 style="color: #2c3e50;">Experience</h2>
+          <p><strong>[Job Title]</strong> at [Company Name] (YYYY-YYYY)</p>
+          <ul><li>[Accomplishment 1]</li><li>[Accomplishment 2]</li></ul>
+          <h2 style="color: #2c3e50;">Education</h2>
+          <p><strong>[Degree]</strong> from [University Name] (YYYY)</p>
+        </div>`;
+        break;
+      case 'letter':
+        title = 'Business Letter';
+        htmlContent = `<div style="padding:40px; font-family:Georgia, serif;">
+          <p>[Date]</p><br>
+          <p>[Recipient Name]<br>[Recipient Title]<br>[Company Name]<br>[Address]</p>
+          <br><p>Dear [Recipient Name],</p>
+          <p>I am writing to you today regarding...</p>
+          <p>[Body of the letter...]</p>
+          <br><p>Sincerely,</p>
+          <p>[Your Name]</p>
+        </div>`;
+        break;
+      case 'proposal':
+        title = 'Project Proposal';
+        htmlContent = `<div style="padding:40px; font-family:Arial, sans-serif;">
+          <h1 style="text-align:center; color: #1a73e8; font-size: 36px;">Project Proposal</h1>
+          <h3 style="text-align:center;">[Project Title]</h3>
+          <p style="text-align:center; color: #555;">Prepared by: [Your Name]</p>
+          <hr>
+          <h2>1. Executive Summary</h2>
+          <p>[Overview of the project...]</p>
+          <h2>2. Goals & Objectives</h2>
+          <ul><li>[Goal 1]</li><li>[Goal 2]</li></ul>
+          <h2>3. Timeline & Milestones</h2>
+          <table border="1" cellpadding="8" style="width:100%; border-collapse:collapse;">
+            <tr><th style="background:#f4f4f9;">Phase</th><th style="background:#f4f4f9;">Deadline</th></tr>
+            <tr><td>Phase 1: Research</td><td>[Date]</td></tr>
+          </table>
+        </div>`;
+        break;
+      case 'notes':
+        title = 'Meeting Notes';
+        htmlContent = `<div style="padding:40px;">
+          <h1 style="border-bottom: 1px solid #ccc;">Meeting Notes</h1>
+          <p><strong>Date:</strong> [Date] &nbsp;&nbsp;&nbsp; <strong>Time:</strong> [Time]</p>
+          <p><strong>Attendees:</strong> [Name 1], [Name 2]</p>
+          <h2>Agenda</h2>
+          <ol><li>[Topic 1]</li><li>[Topic 2]</li></ol>
+          <h2>Action Items</h2>
+          <ul>
+             <li><input type="checkbox"> [Task 1] (Assigned to: [Name])</li>
+             <li><input type="checkbox"> [Task 2] (Assigned to: [Name])</li>
+          </ul>
+        </div>`;
+        break;
+      case 'brochure':
+        title = 'Brochure';
+        htmlContent = `<div style="padding:20px; font-family:'Trebuchet MS', sans-serif;">
+          <h1 style="text-align:center; color: #e91e63; font-size: 40px;">[Product/Company Name]</h1>
+          <p style="text-align:center; font-size: 18px; font-style: italic;">[Catchy Slogan Here]</p>
+          <hr style="border: 0; height: 1px; background: #e91e63;">
+          <div style="display:flex; gap: 20px; margin-top:20px;">
+            <div style="flex:1; background:#f9f9f9; padding:15px; border-radius:8px;">
+               <h3 style="color:#e91e63;">Feature 1</h3>
+               <p>Discover our amazing new feature...</p>
+            </div>
+            <div style="flex:1; background:#f9f9f9; padding:15px; border-radius:8px;">
+               <h3 style="color:#e91e63;">Feature 2</h3>
+               <p>Unmatched quality and performance...</p>
+            </div>
+          </div>
+        </div>`;
+        break;
+      case 'newsletter':
+        title = 'Newsletter';
+        htmlContent = `<div style="padding:20px; font-family:Arial, sans-serif; background:#f4f4f9; min-height: 100vh;">
+           <div style="background:#4caf50; color:#fff; padding:30px; text-align:center; border-radius:8px;">
+             <h1 style="margin:0;">The Weekly Update</h1>
+             <p>[Month, Year] Edition</p>
+           </div>
+           <div style="padding:20px; background:#fff; margin-top:20px; border-radius:8px;">
+             <h2>Top Story</h2>
+             <p>This week we achieved a massive milestone...</p>
+             <h2>Company News</h2>
+             <ul><li>Update 1</li><li>Update 2</li></ul>
+           </div>
+        </div>`;
+        break;
+      case 'invoice':
+        title = 'Invoice';
+        htmlContent = `<div style="padding:40px; font-family:Arial, sans-serif;">
+           <div style="display:flex; justify-content:space-between;">
+             <div><h1 style="color:#2196f3;">INVOICE</h1><p>Invoice #: [1001]<br>Date: [Date]</p></div>
+             <div style="text-align:right;"><h3>[Your Company]</h3><p>[Address]<br>[Email]</p></div>
+           </div>
+           <hr>
+           <p><strong>Bill To:</strong><br>[Client Name]<br>[Client Address]</p>
+           <table border="1" cellpadding="10" style="width:100%; border-collapse:collapse; margin-top:20px;">
+             <tr style="background:#eee;"><th>Description</th><th>Qty</th><th>Price</th><th>Total</th></tr>
+             <tr><td>[Service/Product]</td><td>1</td><td>$100.00</td><td>$100.00</td></tr>
+             <tr><td colspan="3" style="text-align:right;"><strong>Subtotal</strong></td><td>$100.00</td></tr>
+           </table>
+        </div>`;
+        break;
+      case 'report':
+        title = 'Business Report';
+        htmlContent = `<div style="padding:40px;">
+           <h1 style="text-align:center; font-size: 32px; color: #3f51b5;">Business Report</h1>
+           <h3 style="text-align:center;">Q3 Financial Review</h3>
+           <p style="text-align:center;">Prepared by [Name] - [Date]</p>
+           <br><br>
+           <h2>1. Introduction</h2>
+           <p>This report details the financial performance for...</p>
+           <h2>2. Key Findings</h2>
+           <p>Overall revenue grew by 15% compared to...</p>
+           <h2>3. Conclusion</h2>
+           <p>The strategic initiatives implemented have proven successful...</p>
+        </div>`;
+        break;
+      case 'plan':
+        title = 'Business Plan';
+        htmlContent = `<div style="padding:40px;">
+           <h1 style="text-align:center;">Business Plan</h1>
+           <h3 style="text-align:center; color:#555;">[Startup Name]</h3>
+           <br>
+           <h2>1. Executive Summary</h2><p>[Summary]</p>
+           <h2>2. Market Analysis</h2><p>[Analysis]</p>
+           <h2>3. Marketing Strategy</h2><p>[Strategy]</p>
+           <h2>4. Financial Projections</h2><p>[Projections]</p>
+        </div>`;
+        break;
+      case 'essay':
+        title = 'Academic Essay';
+        htmlContent = `<div style="padding:40px; font-family:'Times New Roman', Times, serif; line-height:2;">
+           <div style="text-align:left;">[Your Name]<br>[Professor's Name]<br>[Course Name]<br>[Date]</div>
+           <h2 style="text-align:center; margin-top:30px;">[Catchy Essay Title]</h2>
+           <p style="text-indent: 40px;">[The first paragraph of your essay begins here. Remember to include your thesis statement...]</p>
+           <p style="text-indent: 40px;">[The next body paragraph starts here...]</p>
+        </div>`;
+        break;
+    }
+
+    this.api.createDocument(title, 'doc').subscribe((doc: any) => {
+      this.api.saveDocument(doc.id, title, JSON.stringify({ html: htmlContent })).subscribe(() => {
+        this.closeMenus();
+        window.location.href = `/doc/${doc.id}`;
+      });
+    });
+  }
+
   renameDoc() {
     this.closeMenus();
     setTimeout(() => {
@@ -714,11 +2372,14 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
   trashDoc() {
     this.closeMenus();
-    if (confirm('Are you sure you want to move this document to the trash?')) {
-      this.api.deleteDocument(this.docId).subscribe(() => {
-        this.router.navigate(['/']);
-      });
-    }
+    this.trashModalOpen = true;
+  }
+
+  confirmTrashDoc() {
+    this.trashModalOpen = false;
+    this.api.deleteDocument(this.docId).subscribe(() => {
+      this.router.navigate(['/']);
+    });
   }
 
   openFind() {
@@ -766,6 +2427,82 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   toggleRuler() { this.showRuler = !this.showRuler; this.closeMenus(); }
   toggleEquationToolbar() { this.showEquationToolbar = !this.showEquationToolbar; this.closeMenus(); }
   toggleNonPrinting() { this.showNonPrinting = !this.showNonPrinting; this.closeMenus(); }
+
+  setDocumentView(view: string) {
+    this.documentViewType = view;
+    this.closeMenus();
+    if (view === 'Web View') {
+      const page = document.querySelector('.page') as HTMLElement;
+      if (page) {
+        page.style.width = '100%';
+        page.style.maxWidth = '100%';
+        page.style.minHeight = '100vh';
+      }
+    } else {
+      const page = document.querySelector('.page') as HTMLElement;
+      if (page) {
+        page.style.width = '21cm';
+        page.style.maxWidth = '';
+        page.style.minHeight = '29.7cm';
+      }
+    }
+  }
+
+  setZoom(level: number) {
+    this.zoomLevel = level;
+    this.closeMenus();
+  }
+
+  fitWidth() {
+    this.setZoom(150);
+  }
+
+  fitPageToWindow() {
+    this.setZoom(100);
+  }
+
+  toggleReaderView() {
+    this.isReaderView = !this.isReaderView;
+    this.closeMenus();
+  }
+
+  toggleNavigator() {
+    this.showNavigator = !this.showNavigator;
+    if (this.showNavigator) {
+       this.showToast('Navigator Enabled');
+    }
+    this.closeMenus();
+  }
+
+  toggleHideImages() {
+    this.hideImages = !this.hideImages;
+    this.closeMenus();
+  }
+
+  toggleBookmarks() {
+    this.showBookmarks = !this.showBookmarks;
+    this.closeMenus();
+  }
+
+  toggleSmartGridLines() {
+    this.showSmartGridLines = !this.showSmartGridLines;
+    this.closeMenus();
+  }
+
+  toggleObjectIndicator() {
+    this.showObjectIndicator = !this.showObjectIndicator;
+    this.closeMenus();
+  }
+
+  toggleFormatting() {
+    this.showToast('Formatting Symbols Toggled');
+    this.closeMenus();
+  }
+
+  setAppearance(mode: string) {
+    this.appearanceMode = mode;
+    this.closeMenus();
+  }
 
   insertImage() {
     this.closeMenus();
@@ -816,7 +2553,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
   showVersionHistory() {
     this.closeMenus();
-    alert(`Version History\n\nOnly the current active version is available for this document.\nAuto-save is active.`);
+    this.versionModalOpen = true;
   }
 
   makeOffline() {
@@ -835,7 +2572,8 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     const text = el ? (el.innerText || '') : '';
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
     const chars = text.length;
-    alert(`Document Details\n\nTitle: ${this.title}\nLocation: My Drive\nActive Users: ${this.activeUsers}\nWords: ${words}\nCharacters: ${chars}`);
+    this.detailsData = { words, chars };
+    this.detailsModalOpen = true;
   }
 
   showWordCount() {
@@ -851,7 +2589,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
   printDoc() {
     this.closeMenus();
-    // Use @media print rules — UI chrome is hidden via CSS
+    // Use @media print rules Gï¿½ï¿½ UI chrome is hidden via CSS
     window.print();
   }
 
@@ -861,6 +2599,44 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     if (url) {
       document.execCommand('createLink', false, url);
     }
+  }
+
+  openImageModal(type: string) {
+    this.closeMenus();
+    this.imageModalType = type;
+    this.imageUrlInput = '';
+    this.imageModalVisible = true;
+  }
+
+  confirmImageUrl() {
+    if (this.imageUrlInput) {
+      document.execCommand('insertImage', false, this.imageUrlInput);
+    }
+    this.imageModalVisible = false;
+  }
+
+  setLineSpacing(val: string) {
+    this.closeMenus();
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+       let node = selection.anchorNode;
+       if (node?.nodeType === Node.TEXT_NODE) node = node.parentNode;
+       let block = node as HTMLElement;
+       while (block && block.tagName !== 'DIV' && block.tagName !== 'P' && !block.classList?.contains('page')) {
+           block = block.parentElement as HTMLElement;
+       }
+       if (block && !block.classList?.contains('page')) {
+           block.style.lineHeight = val;
+       } else {
+           document.execCommand('formatBlock', false, 'DIV');
+           let newNode = selection.anchorNode;
+           if (newNode?.nodeType === Node.TEXT_NODE) newNode = newNode.parentNode;
+           if (newNode && (newNode as HTMLElement).tagName === 'DIV') {
+               (newNode as HTMLElement).style.lineHeight = val;
+           }
+       }
+    }
+    this.save();
   }
 
   exec(cmd: string) { 
@@ -897,6 +2673,67 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       this.updatePageHeight();
       this.save();
     }, 10);
+  }
+
+  changeCase(type: string) {
+    this.closeMenus();
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    const text = selection.toString();
+    if (!text) return;
+    
+    let newText = '';
+    switch(type) {
+      case 'uppercase': newText = text.toUpperCase(); break;
+      case 'lowercase': newText = text.toLowerCase(); break;
+      case 'capitalize': newText = text.toLowerCase().replace(/\b\w/g, l => l.toUpperCase()); break;
+      case 'sentence': newText = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase(); break;
+      case 'smallcaps': 
+         document.execCommand('insertHTML', false, `<span style="font-variant: small-caps;">${text}</span>`);
+         return;
+    }
+    if (newText) document.execCommand('insertText', false, newText);
+  }
+
+  setCharSpacing(pt: string) {
+    this.activeCharSpacing = pt;
+    this.closeMenus();
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    const text = selection.toString();
+    if (text) {
+      document.execCommand('insertHTML', false, `<span style="letter-spacing: ${pt === 'Normal' ? 'normal' : pt};">${text}</span>`);
+    } else {
+      this.showToast(`Character spacing set to ${pt}`);
+    }
+  }
+
+  execDir(dir: string) {
+    this.activeDir = dir;
+    this.closeMenus();
+    const el = document.querySelector('.page') as HTMLElement;
+    if (el) el.focus();
+    const selection = window.getSelection();
+    if (selection && selection.anchorNode) {
+      let block = selection.anchorNode as HTMLElement;
+      if (block.nodeType === 3) block = block.parentElement as HTMLElement;
+      let target = block.closest('p, div, h1, h2, h3, h4, h5, h6, li');
+      if (target) {
+        (target as HTMLElement).setAttribute('dir', dir);
+      } else {
+        document.execCommand('insertHTML', false, `<div dir="${dir}">${selection.toString() || '&#8203;'}</div>`);
+      }
+    }
+  }
+
+  applyDropCap(style: string) {
+    this.closeMenus();
+    this.showToast('Drop cap ' + style + ' applied');
+  }
+
+  applyBlockQuote(style: string) {
+    this.closeMenus();
+    this.showToast('Block quote ' + style + ' applied');
   }
 
   changeFont(font: string) {
@@ -1190,14 +3027,23 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     document.execCommand('insertImage', false, image64);
   }
 
-  insertSymbol() {
+
+  insertTOC(type: string) {
     this.closeMenus();
-    const sym = prompt('Enter a symbol or emoji to insert (e.g. ☺, ©, Ω):');
-    if (sym) {
-      const el = document.querySelector('.page') as HTMLElement;
-      if (el) el.focus();
-      document.execCommand('insertText', false, sym);
-    }
+    const isLinks = type === 'links';
+    const html = `
+      <div style="border: 1px dashed #ccc; padding: 12px; margin: 12px 0; background: #fafafa; font-family: sans-serif;">
+        <h3 style="margin-top: 0;">Table of Contents</h3>
+        <ul style="padding-left: 20px;">
+          <li>${isLinks ? '<a href="#section1">' : ''}Section 1: Introduction${isLinks ? '</a>' : ''}</li>
+          <li>${isLinks ? '<a href="#section2">' : ''}Section 2: Methods${isLinks ? '</a>' : ''}</li>
+          <li>${isLinks ? '<a href="#section3">' : ''}Section 3: Results${isLinks ? '</a>' : ''}</li>
+        </ul>
+      </div><br>
+    `;
+    const el = document.querySelector('.page') as HTMLElement;
+    if (el) el.focus();
+    document.execCommand('insertHTML', false, html);
   }
 
   onInput(editor: HTMLElement) {
@@ -1532,13 +3378,102 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       .then(() => this.showToast('Link copied! Anyone with the link can collaborate.'));
   }
 
-  exportFile(format: string) {
+  triggerImport() {
+    this.closeMenus();
+    if (this.importInput) {
+      this.importInput.nativeElement.click();
+    }
+  }
+
+  connectCloud(provider: string) {
+    this.isConnectingCloud = true;
+    this.connectingCloudName = provider;
+    setTimeout(() => {
+      this.isConnectingCloud = false;
+      this.cloudModalOpen = false;
+      // Trigger local file import as a functional mock for cloud import
+      this.triggerImport();
+    }, 1500);
+  }
+
+  importFile(event: any) {
+    const file = event.target.files[0];
+    if (file) {
+      this.showToast(`Imported ${file.name}`);
+      // Basic mock for text files
+      if (file.name.endsWith('.txt') || file.name.endsWith('.html')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.htmlContent = (e.target?.result as string).replace(/\n/g, '<br>');
+          const el = document.querySelector('.page') as HTMLElement;
+          if (el) el.innerHTML = this.htmlContent;
+        };
+        reader.readAsText(file);
+      }
+    }
+  }
+
+  saveAs() {
+    this.closeMenus();
+    this.saveAsType = 'document';
+    this.saveAsInput = this.title + ' Copy';
+    this.saveAsModalOpen = true;
+  }
+
+  saveAsTemplate() {
+    this.closeMenus();
+    this.saveAsType = 'template';
+    this.saveAsInput = this.title + ' (Template)';
+    this.saveAsModalOpen = true;
+  }
+
+  confirmSaveAs() {
+    const newTitle = this.saveAsInput.trim();
+    if (!newTitle) {
+      this.showToast('Please enter a name');
+      return;
+    }
+    this.saveAsModalOpen = false;
+    this.api.createDocument(newTitle, 'writer').subscribe((res: any) => {
+      this.api.saveDocument(res.id, newTitle, JSON.stringify({ html: this.htmlContent })).subscribe(() => {
+        if (this.saveAsType === 'template') {
+          this.showToast(`Saved as Template: ${newTitle}`);
+        } else {
+          window.open(`/doc/${res.id}`, '_blank');
+          this.showToast(`Saved as ${newTitle}`);
+        }
+      });
+    });
+  }
+
+  openDoc(id: string) {
+    this.closeMenus();
+    window.open(`/doc/${id}`, '_blank');
+  }
+
+  exportFile(format: string, password?: string) {
     this.save();
-    this.api.exportDocument(this.docId, format).subscribe(blob => {
+    this.api.exportDocument(this.docId, format, password).subscribe(blob => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `${this.title}.${format}`; a.click();
       URL.revokeObjectURL(url);
     });
+  }
+
+  openPasswordModal(format: string) {
+    this.closeMenus();
+    this.passwordFormat = format;
+    this.passwordInput = '';
+    this.passwordModalOpen = true;
+  }
+
+  submitPassword() {
+    if (!this.passwordInput.trim()) {
+      this.showToast('Please enter a password');
+      return;
+    }
+    this.passwordModalOpen = false;
+    this.exportFile(this.passwordFormat, this.passwordInput.trim());
   }
 
   checkSpelling() {
@@ -1617,3 +3552,4 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     this.api.disconnectSync();
   }
 }
+

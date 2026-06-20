@@ -44,6 +44,7 @@
   border-radius: 4px; position: relative; user-select: none; font-weight: 500;
   transition: background 0.12s;
 }
+.fmt-bar .menu-item { padding: 4px 6px; }
 .menu-item:hover, .menu-item.active { background: rgba(0,0,0,0.06); }
 
 .header-right { display: flex; align-items: center; gap: 8px; }
@@ -75,18 +76,24 @@
   background: #fff; border: 1px solid #e0e3e8; border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 4px 0;
   z-index: 100; display: flex; flex-direction: column;
+  max-height: 80vh; overflow-y: auto; overflow-x: hidden;
 }
 .style-dd { min-width: 180px; }
 .font-dd { min-width: 180px; max-height: 300px; overflow-y: auto; }
-.file-dd { max-height: calc(100vh - 120px); overflow-y: auto; }
+.file-dd { max-height: 65vh !important; overflow-y: auto !important; overflow-x: hidden !important; }
 .dd-item {
   padding: 7px 16px; font-size: 13px; color: #3c4043; cursor: pointer;
   display: flex; align-items: center; gap: 10px; transition: background 0.1s;
 }
 .dd-item:hover { background: rgba(0,0,0,0.06); }
 .dd-icon { font-size: 18px; color: #5f6368; flex-shrink: 0; }
-.dd-text { flex: 1; }
+.dd-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dd-hint { color: #9aa0a6; font-size: 11px; margin-left: 12px; font-family: monospace; }
+.dd-item.has-sub { position: static; padding-right: 8px; }
+.sub-dropdown { position: fixed; top: auto; left: auto; background: #fff; border: 1px solid #dadce0; box-shadow: 0 4px 6px rgba(0,0,0,0.15); border-radius: 4px; min-width: 280px; padding: 6px 0; z-index: 1000; text-align: left; opacity: 0; visibility: hidden; transition: opacity 0.05s linear, visibility 0.05s linear; }
+.sub-dropdown::before { content: ''; position: absolute; top: 0px; bottom: 0px; left: -15px; right: -15px; z-index: -1; }
+.dd-item.has-sub:hover > .sub-dropdown, .sub-dropdown:hover { opacity: 1; visibility: visible; transition-delay: 0s; transition-duration: 0.05s; }
+:host ::ng-deep .theme-dark .sub-dropdown { background: #3c4043 !important; border-color: #5f6368 !important; }
 .dd-premium { background: #1a73e8; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 600; }
 .dd-sep { height: 1px; background: #e8eaed; margin: 4px 0; }
 .has-submenu { position: relative; }
@@ -94,9 +101,10 @@
 
 /* ===== FORMATTING TOOLBAR ===== */
 .fmt-bar {
-  display: flex; align-items: center; gap: 2px; flex-wrap: nowrap;
-  padding: 4px 8px; background: #ffffff; border-radius: 0;
+  display: flex; align-items: center; column-gap: 2px; row-gap: 8px; flex-wrap: wrap;
+  padding: 4px 8px; border-radius: 0;
   margin: 0; border-bottom: 1px solid #dadce0;
+  background-color: #ffffff;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05); position: relative; z-index: 200; overflow: visible;
 }
 .fb {
@@ -108,7 +116,7 @@
 .fb .material-symbols-outlined { font-size: 18px; }
 .fb:hover { background: rgba(0,0,0,0.06); }
 .fb:active, .fb.active-fb { background: rgba(26,115,232,0.12); color: #1a73e8; }
-.sep { width: 1px; height: 20px; background: #dadce0; margin: 0 4px; flex-shrink: 0; }
+.sep { width: 1px; height: 20px; background: #dadce0; margin: 0 2px; flex-shrink: 0; }
 
 .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1; color: #fbbc04; }
 
@@ -334,6 +342,17 @@
 /* Fix right-aligned dropdowns getting cut off */
 .profile-dd, .notif-dd { right: 0; left: auto; }
 
+/* ===== READER MODE ===== */
+:host ::ng-deep .reader-mode .header-bar,
+:host ::ng-deep .reader-mode .menu-bar-row,
+:host ::ng-deep .reader-mode .fmt-bar,
+:host ::ng-deep .reader-mode .equation-bar {
+   display: none !important;
+}
+:host ::ng-deep .reader-mode .editor-layout {
+   height: 100vh !important;
+}
+
 /* Share Modal Styles (Light Theme) */
 .share-modal { background:#ffffff; color:#202124; border-radius:12px; padding:24px; width:520px; box-shadow:0 12px 40px rgba(0,0,0,.2); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; border:none; max-width:90vw; }
 .share-modal h3 { margin:0; font-size:18px; font-weight:500; color:#202124; }
@@ -402,7 +421,7 @@
 :host ::ng-deep .theme-dark .fmt-bar-row,
 :host ::ng-deep .theme-dark .fmt-bar,
 :host ::ng-deep .theme-dark .toolbar,
-:host ::ng-deep .theme-dark .status-bar { background: #35363a !important; color: #e8eaed !important; }
+:host ::ng-deep .theme-dark .status-bar { background-color: #35363a !important; background-image: none !important; color: #e8eaed !important; }
 
 :host ::ng-deep .theme-dark .menu-bar-row,
 :host ::ng-deep .theme-dark .fmt-bar-row,
@@ -434,11 +453,11 @@
 :host ::ng-deep .theme-dark .title-input { color: #e8eaed !important; }
 :host ::ng-deep .theme-dark .doc-info { color: #e8eaed !important; }
 :host ::ng-deep .theme-dark .save-status,
-:host ::ng-deep .theme-dark .brand-label { color: #e8eaed !important; }
+:host ::ng-deep .theme-dark .brand-label { color: #ffffff !important; }
 :host ::ng-deep .theme-dark .header-icon-btn,
 :host ::ng-deep .theme-dark .star-btn,
 :host ::ng-deep .theme-dark .back-btn { color: #e8eaed !important; }
-:host ::ng-deep .theme-dark .brand-btn .material-symbols-outlined { color: #8ab4f8 !important; }
+:host ::ng-deep .theme-dark .brand-btn .material-symbols-outlined { color: #ffffff !important; }
 
 
 /* Format Bar Elements */
@@ -504,3 +523,7 @@
 :host ::ng-deep .theme-dark .sm-done-btn { background: #3c4043 !important; color: #e8eaed !important; border: none !important; }
 :host ::ng-deep .theme-dark .sm-done-btn:hover { background: #4a4d51 !important; }
 :host ::ng-deep .theme-dark .sm-copy-btn:hover { background: rgba(255,255,255,0.08) !important; }
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.symbol-btn { cursor: pointer; padding: 4px; border-radius: 4px; border: 1px solid #dadce0; transition: background 0.2s; }
+.symbol-btn:hover { background: #f1f3f4; }

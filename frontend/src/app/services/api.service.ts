@@ -51,8 +51,10 @@ export class ApiService implements OnDestroy {
     return this.http.post(`${this.base}/documents/${docId}/share`, { email, permission });
   }
 
-  exportDocument(doc_id: string, format: string): Observable<Blob> {
-    return this.http.post(`${this.base}/export`, { doc_id, format }, { responseType: 'blob' });
+  exportDocument(doc_id: string, format: string, password?: string): Observable<Blob> {
+    const payload: any = { doc_id, format };
+    if (password) payload.password = password;
+    return this.http.post(`${this.base}/export`, payload, { responseType: 'blob' });
   }
 
   searchUsers(query: string): Observable<any[]> {

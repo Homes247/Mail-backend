@@ -10,4 +10,6 @@ openpyxl
 python-docx
 python-pptx
 fpdf2
-tzdata
+tzdatapypdf
+msoffcrypto-tool
+aspose-words

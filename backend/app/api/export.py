@@ -12,16 +12,17 @@ router = APIRouter()
 class ExportRequest(BaseModel):
     doc_id: str
     format: str  # csv | docx | pptx
+    password: str = None
 
 @router.post("/export")
 async def export_document_post(body: ExportRequest, db: AsyncSession = Depends(get_db)):
-    return await process_export(body.doc_id, body.format, db)
+    return await process_export(body.doc_id, body.format, db, body.password)
 
 @router.get("/export")
-async def export_document_get(doc_id: str, format: str, db: AsyncSession = Depends(get_db)):
-    return await process_export(doc_id, format, db)
+async def export_document_get(doc_id: str, format: str, password: str = None, db: AsyncSession = Depends(get_db)):
+    return await process_export(doc_id, format, db, password)
 
-async def process_export(doc_id: str, format: str, db: AsyncSession):
+async def process_export(doc_id: str, format: str, db: AsyncSession, password: str = None):
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(404, "Not found")
@@ -35,9 +36,9 @@ async def process_export(doc_id: str, format: str, db: AsyncSession):
     elif format == "html":
         return _export_html_zip(doc.title, content)
     elif format == "pdf":
-        return _export_pdf(doc.title, content)
+        return _export_pdf(doc.title, content, password)
     elif format == "docx":
-        return _export_docx(doc.title, content)
+        return _export_docx(doc.title, content, password)
     elif format == "pptx":
         return _export_pptx(doc.title, content)
     else:
@@ -128,7 +129,7 @@ def _export_html_zip(title: str, content: dict) -> StreamingResponse:
 
 
 
-def _export_docx(title: str, content: dict) -> StreamingResponse:
+def _export_docx(title: str, content: dict, password: str = None) -> StreamingResponse:
     from docx import Document as DocxDocument
     import re
 
@@ -151,6 +152,20 @@ def _export_docx(title: str, content: dict) -> StreamingResponse:
     buf = io.BytesIO()
     doc.save(buf)
     buf.seek(0)
+    
+    if password:
+        try:
+            import aspose.words as aw
+            doc_aw = aw.Document(buf)
+            options = aw.saving.OoxmlSaveOptions()
+            options.password = password
+            enc_buf = io.BytesIO()
+            doc_aw.save(enc_buf, options)
+            buf = enc_buf
+            buf.seek(0)
+        except ImportError:
+            pass
+
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -191,7 +206,7 @@ def _export_pptx(title: str, content: dict) -> StreamingResponse:
         headers={"Content-Disposition": f'attachment; filename="{title}.pptx"'}
     )
 
-def _export_pdf(title: str, content: dict):
+def _export_pdf(title: str, content: dict, password: str = None):
     from fpdf import FPDF
     import io
     
@@ -228,6 +243,20 @@ def _export_pdf(title: str, content: dict):
             pdf.ln(8)
 
     pdf_bytes = bytes(pdf.output())
+    
+    if password:
+        try:
+            from pypdf import PdfReader, PdfWriter
+            writer = PdfWriter()
+            reader = PdfReader(io.BytesIO(pdf_bytes))
+            writer.append_pages_from_reader(reader)
+            writer.encrypt(password)
+            out_buf = io.BytesIO()
+            writer.write(out_buf)
+            pdf_bytes = out_buf.getvalue()
+        except ImportError:
+            pass
+            
     from fastapi.responses import Response
     return Response(
         content=pdf_bytes,
