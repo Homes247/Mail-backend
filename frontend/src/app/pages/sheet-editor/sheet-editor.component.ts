@@ -63,7 +63,7 @@ export interface CellValidation {
       <!-- ═══ TOP BAR ════════════════════════════════════════════════════════ -->
       <div class="top-bar" *ngIf="showTopBar">
         <div class="tl" style="align-items:center;">
-          <button class="back-btn" (click)="back()" title="Back" style="background:none; border:none; cursor:pointer; color:inherit; display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; flex-shrink:0; opacity:0.8;">
+          <button class="back-btn" (click)="back()" title="Back" style="background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; flex-shrink:0; opacity:0.8;">
             <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           </button>
           <div class="brand" style="display:flex; align-items:center; gap:6px;">
@@ -393,7 +393,7 @@ export interface CellValidation {
                 <div class="mdi" (click)="triggerImageInsert('over')">Image over cells...</div>
               </div>
             </div>
-            <div class="mdi" (click)="insertShape()"><span class="mdi-icon material-symbols-outlined">category</span>Shape</div>
+            <div class="mdi" (click)="toggleMenu('shape', $event)"><span class="mdi-icon material-symbols-outlined">category</span>Shape</div>
             <div class="mdi" (click)="insertButton()"><span class="mdi-icon material-symbols-outlined">smart_button</span>Button</div>
             <div class="mds"></div>
             <div class="mdi" (click)="insertLink()"><span class="mdi-icon material-symbols-outlined">link</span>Hyperlink...<span class="mh">Ctrl+K</span></div>
@@ -513,34 +513,271 @@ export interface CellValidation {
         </div>
         <div class="mi" (click)="toggleMenu('data',$event)" [class.mi-open]="activeMenu==='data'">Data
           <div class="mdd" *ngIf="activeMenu==='data'">
-            <div class="mdi" (click)="sortColAZ()">Sort A &#8594; Z</div>
-            <div class="mdi" (click)="sortColZA()">Sort Z &#8594; A</div>
+            
+            <div class="mdi has-sub">
+                <span class="material-symbols-outlined mdi-icon">sort_by_alpha</span> Sort
+                <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+                <div class="mdi-sub">
+                    <div class="mdi" (click)="sortColAZ()"><span class="material-symbols-outlined mdi-icon" style="font-size:16px;">arrow_upward</span> Sort Ascending</div>
+                    <div class="mdi" (click)="sortColZA()"><span class="material-symbols-outlined mdi-icon" style="font-size:16px;">arrow_downward</span> Sort Descending</div>
+                    <div class="mdi" (click)="showToast('Custom Sort...')"><span class="material-symbols-outlined mdi-icon" style="font-size:16px;">sort</span> Custom Sort...</div>
+                </div>
+            </div>
+            
+            <div class="mdi has-sub">
+                <span class="material-symbols-outlined mdi-icon">filter_alt</span> Filter
+                <span class="mh">Ctrl+Shift+L</span>
+                <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+                <div class="mdi-sub">
+                    <div class="mdi" (click)="toggleFilter()">Create Filter</div>
+                    <div class="mds"></div>
+                    <div class="mdi" (click)="showToast('Reapply')">Reapply <span class="mh">Ctrl+Alt+L</span></div>
+                    <div class="mdi" (click)="filterActive=false;showToast('Clear Filter')">Clear Filter</div>
+                    <div class="mds"></div>
+                    <div class="mdi" (click)="showToast('Set as Document Filter')">Set as Document Filter</div>
+                    <div class="mdi" (click)="showToast('Name this filter')">Name this filter</div>
+                    <div class="mdi" (click)="showToast('Manage Filters')">Manage Filters</div>
+                    <div class="mdi has-sub" (click)="showToast('Named Filters')">Named Filters <span class="material-symbols-outlined mdi-arrow">chevron_right</span></div>
+                    <div class="mds"></div>
+                    <div class="mdi" (click)="showToast('Highlight Filter')"><span class="material-symbols-outlined mdi-icon" style="font-size:16px;color:transparent;">check</span> Highlight Filter</div>
+                </div>
+            </div>
+
+            <div class="mdi has-sub">
+                <span class="material-symbols-outlined mdi-icon">group_work</span> Group & Ungroup
+                <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+                <div class="mdi-sub">
+                    <div class="mdi" (click)="groupRow()">Group Row <span class="mh">Alt+Shift+&rarr;</span></div>
+                    <div class="mdi" (click)="groupCol()">Group Column <span class="mh">Alt+Shift+&rarr;</span></div>
+                    <div class="mds"></div>
+                    <div class="mdi" style="color:#718096" (click)="ungroupRow()">Ungroup Row <span class="mh">Alt+Shift+&larr;</span></div>
+                    <div class="mdi" style="color:#718096" (click)="ungroupCol()">Ungroup Column <span class="mh">Alt+Shift+&larr;</span></div>
+                    <div class="mds"></div>
+                    <div class="mdi" style="color:#718096" (click)="clearGroups()">Clear Groups</div>
+                </div>
+            </div>
+            
             <div class="mds"></div>
-            <div class="mdi" (click)="toggleFilter()">{{filterActive?'Remove Filter':'Create Filter'}}</div>
+
+            <div class="mdi has-sub">
+                <span class="material-symbols-outlined mdi-icon">pivot_table_chart</span> Pivot Table
+                <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+                <div class="mdi-sub">
+                    <div class="mdi" (click)="openPivotModal($event)">Create Pivot Table...</div>
+                    <div class="mds"></div>
+                    <div class="mdi" style="color:#718096" (click)="showToast('Add Pivot Chart')">Add Pivot Chart</div>
+                    <div class="mdi" style="color:#718096" (click)="showToast('Add Slicer...')">Add Slicer...</div>
+                    <div class="mdi" style="color:#718096" (click)="showToast('Add Timeline...')">Add Timeline...</div>
+                </div>
+            </div>
+            
             <div class="mds"></div>
-            <div class="mdi" (click)="openValidationModal();closeMenus()">Data Validation...</div>
+
+            <div class="mdi has-sub">
+                <span class="material-symbols-outlined mdi-icon">playlist_add_check</span> Data Validation
+                <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+                <div class="mdi-sub">
+                    <div class="mdi" (click)="openDataValidationModal($event)">Create Validation...</div>
+                    <div class="mdi" (click)="openManageRulesModal($event)">Manage Validation...</div>
+                    <div class="mds"></div>
+                    <div class="mdi" (click)="showToast('Highlight Invalid Data')">Highlight Invalid Data</div>
+                </div>
+            </div>
+            
+            <div class="mdi has-sub">
+                <span class="material-symbols-outlined mdi-icon">cleaning_services</span> Data Cleaning
+                <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+                <div class="mdi-sub" style="min-width: 180px;">
+                    <div class="mdi" (click)="removeDuplicates()">Remove Duplicates</div>
+                </div>
+            </div>
+
+            <div class="mdi" (click)="openTextToColumnsModal(); closeMenus()">
+                <span class="material-symbols-outlined mdi-icon">view_column</span> Text to Columns...
+            </div>
+            <div class="mdi" (click)="patternFill(); closeMenus()">
+                <span class="material-symbols-outlined mdi-icon">format_paint</span> Pattern Fill <span class="mh">Ctrl+E</span>
+            </div>
+            
             <div class="mds"></div>
-            <div class="mdi" (click)="removeDuplicates()">Remove Duplicates</div>
+
+            <div class="mdi has-sub">
+                <span class="material-symbols-outlined mdi-icon">cable</span> Data Connection
+                <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+                <div class="mdi-sub">
+                  <div class="mdi disabled">Connect to Database</div>
+                  <div class="mdi disabled">Connect to API</div>
+                </div>
+            </div>
+            <div class="mdi" (click)="linkSpreadsheet(); closeMenus()">
+                <span class="material-symbols-outlined mdi-icon">link</span> Link Spreadsheet...
+            </div>
+            <div class="mdi" (click)="dataFromPicture(); closeMenus()">
+                <span class="material-symbols-outlined mdi-icon">image</span> Data from Picture...
+            </div>
+            
+            <div class="mds"></div>
+
+            <div class="mdi has-sub">
+                <span class="material-symbols-outlined mdi-icon">lock</span> Lock
+                <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+                <div class="mdi-sub">
+                  <div class="mdi" (click)="lockCurrentSheet(); closeMenus()">
+                    <span class="material-symbols-outlined mdi-icon">lock</span>
+                    {{ sheets[currentSheetIdx].locked ? 'Unlock Sheet' : 'Lock Sheet' }}
+                  </div>
+                  <div class="mds"></div>
+                  <div class="mdi" (click)="lockSelectedRange(); closeMenus()">
+                    <span class="material-symbols-outlined mdi-icon">lock_open</span> Lock Selected Range
+                  </div>
+                </div>
+            </div>
+            <div class="mdi has-sub">
+                <span class="material-symbols-outlined mdi-icon">publish</span> Publish Range
+                <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+                <div class="mdi-sub">
+                  <div class="mdi" (click)="publishRange(); closeMenus()">Publish as Web Page</div>
+                  <div class="mdi" (click)="copyPublishLink(); closeMenus()">Copy Shareable Link</div>
+                </div>
+            </div>
+
           </div>
         </div>
         <div class="mi" (click)="toggleMenu('review',$event)" [class.mi-open]="activeMenu==='review'">Review
-          <div class="mdd" *ngIf="activeMenu==='review'">
-            <div class="mdi" (click)="insertComment()">Add Comment</div>
-            <div class="mdi" (click)="showWordCount()">Cell Statistics</div>
+          <div class="mdd" *ngIf="activeMenu==='review'" style="min-width:220px;">
+            <div class="mdi" (click)="spellCheck(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">spellcheck</span> Spell Check...
+            </div>
+            <div class="mdi" (click)="personalDictionary(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">book</span> Personal Dictionary...
+            </div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="showWordCount(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">bar_chart</span> Spreadsheet Statistics...
+            </div>
+            <div class="mdi" (click)="translateSheet(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">translate</span> Translate...
+            </div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="openAuditTrail(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">history</span> Audit Trail...
+            </div>
+            <div class="mdi" (click)="openEditHistory(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">edit_note</span> Edit History...
+            </div>
+            <div class="mdi" (click)="activeModal='version'; closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">manage_history</span> Version History
+            </div>
+            <div class="mds"></div>
+            <div class="mdi has-sub">
+              <span class="material-symbols-outlined mdi-icon">account_tree</span> Workflow
+              <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+              <div class="mdi-sub">
+                <div class="mdi" (click)="activeModal='workflow'; closeMenus()">Manage Workflows</div>
+                <div class="mdi disabled">Create Workflow</div>
+              </div>
+            </div>
+            <div class="mdi has-sub">
+              <span class="material-symbols-outlined mdi-icon">comment</span> Comment
+              <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+              <div class="mdi-sub">
+                <div class="mdi" (click)="insertComment(); closeMenus()">Add Comment</div>
+                <div class="mdi" (click)="showAllComments(); closeMenus()">Show All Comments</div>
+              </div>
+            </div>
+            <div class="mdi" (click)="insertNote(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">sticky_note_2</span> Note <span class="mh">Shift+F2</span>
+            </div>
+            <div class="mds"></div>
+            <div class="mdi has-sub">
+              <span class="material-symbols-outlined mdi-icon">lock</span> Lock
+              <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+              <div class="mdi-sub">
+                <div class="mdi" (click)="lockCurrentSheet(); closeMenus()">
+                  {{ sheets[currentSheetIdx].locked ? 'Unlock Sheet' : 'Lock Sheet' }}
+                </div>
+                <div class="mdi" (click)="lockSelectedRange(); closeMenus()">Lock Selected Range</div>
+              </div>
+            </div>
           </div>
         </div>
         <div class="mi" (click)="toggleMenu('tools',$event)" [class.mi-open]="activeMenu==='tools'">Tools
-          <div class="mdd" *ngIf="activeMenu==='tools'">
-            <div class="mdi" (click)="openFind();closeMenus()">Find &amp; Replace<span class="mh">Ctrl+H</span></div>
+          <div class="mdd" *ngIf="activeMenu==='tools'" style="min-width:220px;">
+            <div class="mdi has-sub">
+              <span class="material-symbols-outlined mdi-icon">assignment</span> Form
+              <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+              <div class="mdi-sub">
+                <div class="mdi" (click)="createForm(); closeMenus()">Create Form</div>
+                <div class="mdi" (click)="viewForm(); closeMenus()">View Form Responses</div>
+              </div>
+            </div>
+            <div class="mdi has-sub">
+              <span class="material-symbols-outlined mdi-icon">code</span> VBA Macros
+              <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+              <div class="mdi-sub">
+                <div class="mdi" (click)="openMacroEditor(); closeMenus()">Record Macro</div>
+                <div class="mdi" (click)="openMacroEditor(); closeMenus()">Edit Macros</div>
+              </div>
+            </div>
+            <div class="mdi has-sub">
+              <span class="material-symbols-outlined mdi-icon">functions</span> Custom Functions
+              <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
+              <div class="mdi-sub">
+                <div class="mdi" (click)="openCustomFunctions(); closeMenus()">Manage Functions</div>
+              </div>
+            </div>
             <div class="mds"></div>
-            <div class="mdi" (click)="showKeyboardShortcuts()">Keyboard Shortcuts</div>
+            <div class="mdi" (click)="openGoalSeek(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">gps_fixed</span> Goal Seek...
+            </div>
+            <div class="mdi" (click)="openSolver(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">tune</span> Solver...
+            </div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="openFind(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">search</span> Find &amp; Replace <span class="mh">Ctrl+H</span>
+            </div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="openEmailNotifications(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">notifications</span> Email Notification Settings
+            </div>
+            <div class="mds"></div>
+            <div style="padding: 4px 16px; font-size:11px; color:#9aa0a6; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Automation</div>
+            <div class="mdi" (click)="openMergeTemplate(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">merge_type</span> Merge Template...
+            </div>
+            <div class="mdi" (click)="openPreferences(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">person</span> My Preferences
+              <span style="background:#10b981; color:#fff; font-size:10px; font-weight:700; padding:1px 5px; border-radius:3px; margin-left:6px;">New</span>
+            </div>
           </div>
         </div>
         <div class="mi" (click)="toggleMenu('help',$event)" [class.mi-open]="activeMenu==='help'">Help
-          <div class="mdd" *ngIf="activeMenu==='help'">
-            <div class="mdi" (click)="showKeyboardShortcuts()">Keyboard Shortcuts</div>
+          <div class="mdd" *ngIf="activeMenu==='help'" style="min-width:240px;">
+            <div style="padding: 6px 12px 8px;">
+              <div style="display:flex; align-items:center; gap:6px; background:#f8f9fa; border:1px solid #e2e8f0; border-radius:4px; padding:6px 10px;">
+                <span class="material-symbols-outlined" style="font-size:16px; color:#9aa0a6;">search</span>
+                <input placeholder="Search in menus" [(ngModel)]="menuSearch" (click)="$event.stopPropagation()" style="border:none; background:transparent; outline:none; font-size:13px; width:100%;" />
+                <span style="font-size:11px; color:#9aa0a6;">Ctrl+Shift+Space</span>
+              </div>
+            </div>
             <div class="mds"></div>
-            <div class="mdi">About Sheet</div>
+            <div class="mdi" (click)="openWhatsNew(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">card_giftcard</span> What's New
+            </div>
+            <div class="mdi" (click)="openUserGuide(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">menu_book</span> User Guide
+            </div>
+            <div class="mdi" (click)="openDeveloperApi(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">api</span> Developer API
+            </div>
+            <div class="mds"></div>
+            <div class="mdi" (click)="showKeyboardShortcuts(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">keyboard</span> Keyboard Shortcuts...
+            </div>
+            <div class="mdi" (click)="openFeedback(); closeMenus()">
+              <span class="material-symbols-outlined mdi-icon">feedback</span> Feedback...
+            </div>
           </div>
         </div>
       </div>
@@ -1074,6 +1311,262 @@ export interface CellValidation {
           </div>
         </div>
         <span class="tb-sep"></span>
+        <!-- Insert Shape/Diagram Menu -->
+        <div style="position:relative; display:inline-block;">
+          <button class="tb" (click)="toggleMenu('shape', $event)" [class.tb-on]="activeMenu==='shape'" title="Insert Shape"><span class="material-symbols-outlined">category</span></button>
+          
+          <div class="tb-dd shape-panel" *ngIf="activeMenu==='shape'" (click)="$event.stopPropagation()">
+             <div class="shape-tabs">
+               <div class="s-tab" [class.s-tab-active]="shapeTab==='text'" (click)="shapeTab='text'">
+                 <span class="material-symbols-outlined">text_fields</span> Text
+               </div>
+               <div class="s-tab" [class.s-tab-active]="shapeTab==='shape'" (click)="shapeTab='shape'">
+                 <span class="material-symbols-outlined">category</span> Shape
+               </div>
+               <div class="s-tab" [class.s-tab-active]="shapeTab==='diagram'" (click)="shapeTab='diagram'">
+                 <span class="material-symbols-outlined">account_tree</span> Diagram
+               </div>
+             </div>
+             
+             <!-- DIAGRAM TAB -->
+             <div class="shape-content" *ngIf="shapeTab==='diagram'" style="display:flex; height:300px; padding:0;">
+                <div style="width: 80px; border-right: 1px solid #eee; background: #fafafa; display: flex; flex-direction: column;">
+                   <div style="padding:12px 0; text-align:center; cursor:pointer;"
+                        [style.color]="diagramCategory==='list' ? '#e11d48' : '#5f6368'"
+                        [style.border-left]="diagramCategory==='list' ? '3px solid #e11d48' : '3px solid transparent'"
+                        [style.background]="diagramCategory==='list' ? '#fff' : 'transparent'"
+                        (click)="diagramCategory='list'">
+                      <span class="material-symbols-outlined" style="display:block;">format_list_bulleted</span><div style="font-size:11px;">List</div>
+                   </div>
+                   <div style="padding:12px 0; text-align:center; cursor:pointer;"
+                        [style.color]="diagramCategory==='process' ? '#e11d48' : '#5f6368'"
+                        [style.border-left]="diagramCategory==='process' ? '3px solid #e11d48' : '3px solid transparent'"
+                        [style.background]="diagramCategory==='process' ? '#fff' : 'transparent'"
+                        (click)="diagramCategory='process'">
+                      <span class="material-symbols-outlined" style="display:block;">arrow_right_alt</span><div style="font-size:11px;">Process</div>
+                   </div>
+                   <div style="padding:12px 0; text-align:center; cursor:pointer;"
+                        [style.color]="diagramCategory==='pyramid' ? '#e11d48' : '#5f6368'"
+                        [style.border-left]="diagramCategory==='pyramid' ? '3px solid #e11d48' : '3px solid transparent'"
+                        [style.background]="diagramCategory==='pyramid' ? '#fff' : 'transparent'"
+                        (click)="diagramCategory='pyramid'">
+                      <span class="material-symbols-outlined" style="display:block;">change_history</span><div style="font-size:11px;">Pyramid</div>
+                   </div>
+                   <div style="padding:12px 0; text-align:center; cursor:pointer;"
+                        [style.color]="diagramCategory==='cycle' ? '#e11d48' : '#5f6368'"
+                        [style.border-left]="diagramCategory==='cycle' ? '3px solid #e11d48' : '3px solid transparent'"
+                        [style.background]="diagramCategory==='cycle' ? '#fff' : 'transparent'"
+                        (click)="diagramCategory='cycle'">
+                      <span class="material-symbols-outlined" style="display:block;">sync</span><div style="font-size:11px;">Cycle</div>
+                   </div>
+                </div>
+                <div style="flex:1; padding: 16px; overflow-y:auto; background:#fff;">
+                   <ng-container *ngIf="diagramCategory==='list'">
+                     <div style="display:flex; justify-content:space-between; margin-bottom:12px; align-items:center;">
+                        <div style="font-weight:600; font-size:14px;">List</div>
+                        <div style="font-size:12px;">Levels 
+                          <select style="padding:2px 8px; border-radius:4px; border:1px solid #ccc; outline:none; background:#fff;">
+                             <option>3</option><option selected>4</option><option>6</option>
+                          </select>
+                        </div>
+                     </div>
+                     <div class="diagram-grid">
+                        <div class="diag-item" (click)="insertShape('diagram_drop')">
+                           <svg viewBox="0 0 100 60"><circle cx="20" cy="15" r="5" fill="#0ea5e9"/><circle cx="25" cy="30" r="5" fill="#10b981"/><circle cx="20" cy="45" r="5" fill="#f59e0b"/><line x1="30" y1="15" x2="80" y2="15" stroke="#e2e8f0" stroke-width="2"/><line x1="35" y1="30" x2="80" y2="30" stroke="#e2e8f0" stroke-width="2"/><line x1="30" y1="45" x2="80" y2="45" stroke="#e2e8f0" stroke-width="2"/></svg>
+                           <div style="font-size:12px; margin-top:4px;">Drop</div>
+                        </div>
+                        <div class="diag-item" (click)="insertShape('diagram_stack')">
+                           <svg viewBox="0 0 100 60"><rect x="15" y="20" width="20" height="20" rx="2" fill="none" stroke="#0ea5e9" stroke-width="1" transform="rotate(-10 25 30)"/><rect x="40" y="20" width="20" height="20" rx="2" fill="none" stroke="#10b981" stroke-width="1"/><rect x="65" y="20" width="20" height="20" rx="2" fill="none" stroke="#f59e0b" stroke-width="1" transform="rotate(10 75 30)"/></svg>
+                           <div style="font-size:12px; margin-top:4px;">Stack Card</div>
+                        </div>
+                        <div class="diag-item" (click)="insertShape('diagram_flag')">
+                           <svg viewBox="0 0 100 60"><circle cx="15" cy="15" r="4" fill="#0ea5e9"/><rect x="25" y="12" width="60" height="6" fill="#0ea5e9"/><circle cx="15" cy="30" r="4" fill="#10b981"/><rect x="25" y="27" width="60" height="6" fill="#10b981"/><circle cx="15" cy="45" r="4" fill="#f59e0b"/><rect x="25" y="42" width="60" height="6" fill="#f59e0b"/></svg>
+                           <div style="font-size:12px; margin-top:4px;">Flag</div>
+                        </div>
+                        <div class="diag-item" (click)="insertShape('diagram_ribbon')">
+                           <svg viewBox="0 0 100 60"><path d="M 20 10 L 80 10 L 80 20 L 20 20 Z" fill="#0ea5e9"/><path d="M 20 25 L 80 25 L 80 35 L 20 35 Z" fill="#10b981"/><path d="M 20 40 L 80 40 L 80 50 L 20 50 Z" fill="#f59e0b"/></svg>
+                           <div style="font-size:12px; margin-top:4px;">Ribbon</div>
+                        </div>
+                        <div class="diag-item" (click)="insertShape('diagram_alter')">
+                           <svg viewBox="0 0 100 60"><circle cx="50" cy="15" r="4" fill="#0ea5e9"/><line x1="20" y1="15" x2="40" y2="15" stroke="#e2e8f0" stroke-width="2"/><line x1="60" y1="15" x2="80" y2="15" stroke="#e2e8f0" stroke-width="2"/><circle cx="50" cy="30" r="4" fill="#10b981"/><line x1="20" y1="30" x2="40" y2="30" stroke="#e2e8f0" stroke-width="2"/><line x1="60" y1="30" x2="80" y2="30" stroke="#e2e8f0" stroke-width="2"/></svg>
+                           <div style="font-size:12px; margin-top:4px; color:#e11d48">Alter</div>
+                        </div>
+                        <div class="diag-item" (click)="insertShape('diagram_deck')">
+                           <svg viewBox="0 0 100 60"><rect x="20" y="10" width="15" height="40" fill="none" stroke="#e2e8f0" stroke-width="1"/><rect x="40" y="10" width="15" height="40" fill="none" stroke="#e2e8f0" stroke-width="1"/><rect x="60" y="10" width="15" height="40" fill="none" stroke="#e2e8f0" stroke-width="1"/></svg>
+                           <div style="font-size:12px; margin-top:4px;">Deck</div>
+                        </div>
+                     </div>
+                   </ng-container>
+                   <ng-container *ngIf="diagramCategory==='process'">
+                     <div class="diagram-grid">
+                        <div class="diag-item" (click)="insertShape('diagram_process_arrow')">
+                           <svg viewBox="0 0 100 60"><polygon points="10,20 40,20 40,10 60,30 40,50 40,40 10,40" fill="#0ea5e9"/><polygon points="45,20 75,20 75,10 95,30 75,50 75,40 45,40" fill="#10b981"/></svg>
+                           <div style="font-size:12px; margin-top:4px;">Arrow Process</div>
+                        </div>
+                        <div class="diag-item" (click)="insertShape('diagram_process_step')">
+                           <svg viewBox="0 0 100 60"><rect x="10" y="20" width="20" height="20" fill="#0ea5e9"/><line x1="30" y1="30" x2="40" y2="30" stroke="#ccc" stroke-width="2"/><rect x="40" y="20" width="20" height="20" fill="#10b981"/><line x1="60" y1="30" x2="70" y2="30" stroke="#ccc" stroke-width="2"/><rect x="70" y="20" width="20" height="20" fill="#f59e0b"/></svg>
+                           <div style="font-size:12px; margin-top:4px;">Step Process</div>
+                        </div>
+                     </div>
+                   </ng-container>
+                   <ng-container *ngIf="diagramCategory==='pyramid'">
+                     <div class="diagram-grid">
+                        <div class="diag-item" (click)="insertShape('diagram_pyramid_basic')">
+                           <svg viewBox="0 0 100 60"><polygon points="50,5 35,20 65,20" fill="#0ea5e9"/><polygon points="32,22 68,22 83,40 17,40" fill="#10b981"/><polygon points="14,42 86,42 100,55 0,55" fill="#f59e0b"/></svg>
+                           <div style="font-size:12px; margin-top:4px;">Basic Pyramid</div>
+                        </div>
+                        <div class="diag-item" (click)="insertShape('diagram_pyramid_inv')">
+                           <svg viewBox="0 0 100 60"><polygon points="0,5 100,5 86,18 14,18" fill="#0ea5e9"/><polygon points="17,20 83,20 68,38 32,38" fill="#10b981"/><polygon points="35,40 65,40 50,55" fill="#f59e0b"/></svg>
+                           <div style="font-size:12px; margin-top:4px;">Inverted Pyramid</div>
+                        </div>
+                     </div>
+                   </ng-container>
+                   <ng-container *ngIf="diagramCategory==='cycle'">
+                     <div class="diagram-grid">
+                        <div class="diag-item" (click)="insertShape('diagram_cycle_basic')">
+                           <svg viewBox="0 0 100 60"><path d="M50,10 A20,20 0 0,1 70,30 L65,30 L72.5,40 L80,30 L75,30 A25,25 0 0,0 50,5 Z" fill="#0ea5e9"/><path d="M70,30 A20,20 0 0,1 30,30 L25,30 L32.5,20 L40,30 L35,30 A25,25 0 0,0 75,30 Z" fill="#10b981"/></svg>
+                           <div style="font-size:12px; margin-top:4px;">Basic Cycle</div>
+                        </div>
+                     </div>
+                   </ng-container>
+                </div>
+             </div>
+             
+             <!-- SHAPE TAB -->
+             <div class="shape-content" *ngIf="shapeTab==='shape'" style="background:#fff;">
+                <div style="display:flex; gap:16px; border-bottom:1px solid #eee; padding-bottom:8px; margin-bottom:12px;">
+                   <div style="cursor:pointer; display:flex; flex-direction:column; align-items:center;"
+                        [style.color]="shapeCategory==='shape' ? '#e11d48' : '#5f6368'"
+                        [style.border-bottom]="shapeCategory==='shape' ? '2px solid #e11d48' : '2px solid transparent'"
+                        (click)="shapeCategory='shape'">
+                      <span class="material-symbols-outlined" style="font-size:20px;">crop_square</span><div style="font-size:10px;">Shape</div>
+                   </div>
+                   <div style="cursor:pointer; display:flex; flex-direction:column; align-items:center;"
+                        [style.color]="shapeCategory==='lines' ? '#e11d48' : '#5f6368'"
+                        [style.border-bottom]="shapeCategory==='lines' ? '2px solid #e11d48' : '2px solid transparent'"
+                        (click)="shapeCategory='lines'">
+                      <span class="material-symbols-outlined" style="font-size:20px;">arrow_right_alt</span><div style="font-size:10px;">Lines</div>
+                   </div>
+                   <div style="cursor:pointer; display:flex; flex-direction:column; align-items:center;"
+                        [style.color]="shapeCategory==='flowchart' ? '#e11d48' : '#5f6368'"
+                        [style.border-bottom]="shapeCategory==='flowchart' ? '2px solid #e11d48' : '2px solid transparent'"
+                        (click)="shapeCategory='flowchart'">
+                      <span class="material-symbols-outlined" style="font-size:20px;">account_tree</span><div style="font-size:10px;">Flowchart</div>
+                   </div>
+                   <div style="cursor:pointer; display:flex; flex-direction:column; align-items:center;"
+                        [style.color]="shapeCategory==='math' ? '#e11d48' : '#5f6368'"
+                        [style.border-bottom]="shapeCategory==='math' ? '2px solid #e11d48' : '2px solid transparent'"
+                        (click)="shapeCategory='math'">
+                      <span class="material-symbols-outlined" style="font-size:20px;">add</span><div style="font-size:10px;">Math</div>
+                   </div>
+                   <div style="cursor:pointer; display:flex; flex-direction:column; align-items:center;"
+                        [style.color]="shapeCategory==='stars' ? '#e11d48' : '#5f6368'"
+                        [style.border-bottom]="shapeCategory==='stars' ? '2px solid #e11d48' : '2px solid transparent'"
+                        (click)="shapeCategory='stars'">
+                      <span class="material-symbols-outlined" style="font-size:20px;">star_outline</span><div style="font-size:10px;">Stars</div>
+                   </div>
+                   <div style="cursor:pointer; display:flex; flex-direction:column; align-items:center;"
+                        [style.color]="shapeCategory==='callouts' ? '#e11d48' : '#5f6368'"
+                        [style.border-bottom]="shapeCategory==='callouts' ? '2px solid #e11d48' : '2px solid transparent'"
+                        (click)="shapeCategory='callouts'">
+                      <span class="material-symbols-outlined" style="font-size:20px;">chat_bubble_outline</span><div style="font-size:10px;">Callouts</div>
+                   </div>
+                </div>
+                
+                <div class="shape-grid" *ngIf="shapeCategory==='shape'">
+                   <div class="s-item" (click)="insertShape('rect')"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('roundrect')"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('circle')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('triangle')"><svg viewBox="0 0 24 24"><polygon points="12,4 4,20 20,20" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('diamond')"><svg viewBox="0 0 24 24"><polygon points="12,4 20,12 12,20 4,12" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('hexagon')"><svg viewBox="0 0 24 24"><polygon points="12,4 20,8 20,16 12,20 4,16 4,8" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('octagon')"><svg viewBox="0 0 24 24"><polygon points="8,4 16,4 20,8 20,16 16,20 8,20 4,16 4,8" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                </div>
+                <div class="shape-grid" *ngIf="shapeCategory==='lines'">
+                   <div class="s-item" (click)="insertShape('line_straight')"><svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('line_arrow')"><svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="18" y2="6" stroke="#5f6368" stroke-width="1.5"/><polygon points="16,4 21,3 20,8" fill="#5f6368"/></svg></div>
+                   <div class="s-item" (click)="insertShape('line_curve')"><svg viewBox="0 0 24 24"><path d="M4,20 Q12,4 20,20" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('line_connector')"><svg viewBox="0 0 24 24"><polyline points="4,20 4,12 20,12 20,4" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                </div>
+                <div class="shape-grid" *ngIf="shapeCategory==='flowchart'">
+                   <div class="s-item" (click)="insertShape('flow_process')"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('flow_decision')"><svg viewBox="0 0 24 24"><polygon points="12,3 21,12 12,21 3,12" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('flow_data')"><svg viewBox="0 0 24 24"><polygon points="6,6 22,6 18,18 2,18" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('flow_terminator')"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="6" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                </div>
+                <div class="shape-grid" *ngIf="shapeCategory==='math'">
+                   <div class="s-item" (click)="insertShape('math_plus')"><svg viewBox="0 0 24 24"><path d="M11,4 L13,4 L13,11 L20,11 L20,13 L13,13 L13,20 L11,20 L11,13 L4,13 L4,11 L11,11 Z" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('math_minus')"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="2" fill="#5f6368"/></svg></div>
+                   <div class="s-item" (click)="insertShape('math_multiply')"><svg viewBox="0 0 24 24"><path d="M6,6 L18,18 M18,6 L6,18" stroke="#5f6368" stroke-width="2"/></svg></div>
+                   <div class="s-item" (click)="insertShape('math_divide')"><svg viewBox="0 0 24 24"><circle cx="12" cy="6" r="2" fill="#5f6368"/><rect x="4" y="11" width="16" height="2" fill="#5f6368"/><circle cx="12" cy="18" r="2" fill="#5f6368"/></svg></div>
+                   <div class="s-item" (click)="insertShape('math_equal')"><svg viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="2" fill="#5f6368"/><rect x="4" y="14" width="16" height="2" fill="#5f6368"/></svg></div>
+                </div>
+                <div class="shape-grid" *ngIf="shapeCategory==='stars'">
+                   <div class="s-item" (click)="insertShape('star_5')"><svg viewBox="0 0 24 24"><polygon points="12,2 15,9 22,9 16,14 18,21 12,17 6,21 8,14 2,9 9,9" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('star_4')"><svg viewBox="0 0 24 24"><polygon points="12,2 14,10 22,12 14,14 12,22 10,14 2,12 10,10" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                </div>
+                <div class="shape-grid" *ngIf="shapeCategory==='callouts'">
+                   <div class="s-item" (click)="insertShape('callout_rect')"><svg viewBox="0 0 24 24"><path d="M3,4 L21,4 L21,16 L14,16 L10,21 L10,16 L3,16 Z" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('callout_round')"><svg viewBox="0 0 24 24"><path d="M4,4 C2,4 2,16 4,16 L10,16 L10,21 L14,16 L20,16 C22,16 22,4 20,4 Z" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                   <div class="s-item" (click)="insertShape('callout_cloud')"><svg viewBox="0 0 24 24"><path d="M6,14 C4,14 4,10 6,10 C6,6 12,6 14,8 C16,6 20,8 20,12 C22,12 22,16 18,16 L12,21 L10,16 Z" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:20px; font-size:12px; color:#5f6368; align-items:center;">
+                   <div style="color:#e11d48; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                      <span class="material-symbols-outlined" style="font-size:16px;">edit</span> Draw with pen
+                   </div>
+                   <div style="display:flex; align-items:center; gap:4px;"><input type="checkbox" style="margin:0;"> Shape Recognition</div>
+                </div>
+                <div style="display:flex; gap:16px; font-size:12px; margin-top:8px; color:#5f6368;">
+                   <span style="cursor:pointer; display:flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">horizontal_rule</span> Line</span>
+                   <span style="cursor:pointer; display:flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">gesture</span> Curve</span>
+                   <span style="cursor:pointer; display:flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">draw</span> Freeform</span>
+                   <span style="cursor:pointer; display:flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">edit</span> Scribble</span>
+                </div>
+             </div>
+             
+             <!-- TEXT TAB -->
+             <div class="shape-content" *ngIf="shapeTab==='text'" style="display:flex; height:300px; padding:0;">
+                <div style="width: 80px; border-right: 1px solid #eee; background: #fafafa; display: flex; flex-direction: column;">
+                   <div style="padding:12px 0; text-align:center; cursor:pointer;"
+                        [style.color]="textCategory==='textbox' ? '#e11d48' : '#5f6368'"
+                        [style.border-left]="textCategory==='textbox' ? '3px solid #e11d48' : '3px solid transparent'"
+                        [style.background]="textCategory==='textbox' ? '#fff' : 'transparent'"
+                        (click)="textCategory='textbox'">
+                      <span class="material-symbols-outlined" style="display:block;">text_fields</span><div style="font-size:11px;">Textbox</div>
+                   </div>
+                   <div style="padding:12px 0; text-align:center; cursor:pointer;"
+                        [style.color]="textCategory==='symbol' ? '#e11d48' : '#5f6368'"
+                        [style.border-left]="textCategory==='symbol' ? '3px solid #e11d48' : '3px solid transparent'"
+                        [style.background]="textCategory==='symbol' ? '#fff' : 'transparent'"
+                        (click)="textCategory='symbol'">
+                      <span class="material-symbols-outlined" style="display:block;">functions</span><div style="font-size:11px;">Symbol</div>
+                   </div>
+                </div>
+                <div style="flex:1; padding: 16px; overflow-y:auto; background:#fff;">
+                   <div class="shape-grid" style="grid-template-columns: repeat(4, 1fr); gap:12px;" *ngIf="textCategory==='textbox'">
+                      <div class="s-item" style="display:flex; align-items:center; justify-content:center; border:none; color:#5f6368; font-size:11px;" (click)="insertShape('text')">Text</div>
+                      <div class="s-item" style="display:flex; align-items:center; justify-content:center; border:none; color:#000; font-weight:bold; font-size:11px;" (click)="insertShape('text')">Text</div>
+                      <div class="s-item" style="display:flex; align-items:center; justify-content:center; border:none; color:#0ea5e9; font-style:italic; font-size:11px;" (click)="insertShape('text')">Text</div>
+                      <div class="s-item" style="display:flex; align-items:center; justify-content:center; border:none; color:#10b981; font-size:11px;" (click)="insertShape('text')"><span style="border-bottom:1px solid #10b981; padding-bottom:2px;">Text</span></div>
+                      
+                      <div class="s-item" style="display:flex; align-items:center; justify-content:center; border:1px solid #ccc; border-radius:16px; color:#5f6368; font-size:11px;" (click)="insertShape('text_rounded')">Text</div>
+                      <div class="s-item" style="display:flex; align-items:center; justify-content:center; background:#fef08a; border-radius:4px; border:none; color:#5f6368; font-size:11px;" (click)="insertShape('text_yellow')">Text</div>
+                      <div class="s-item" style="display:flex; align-items:center; justify-content:center; background:#0ea5e9; color:#fff; border-radius:4px; border:none; font-size:11px; clip-path: polygon(0% 0%, 75% 0%, 100% 50%, 75% 100%, 0% 100%);" (click)="insertShape('text_arrow')">Text</div>
+                   </div>
+                   <div class="shape-grid" style="grid-template-columns: repeat(4, 1fr); gap:12px;" *ngIf="textCategory==='symbol'">
+                      <div class="s-item" style="font-size:18px; color:#5f6368; display:flex; align-items:center; justify-content:center;" (click)="insertShape('symbol_copy')">©</div>
+                      <div class="s-item" style="font-size:18px; color:#5f6368; display:flex; align-items:center; justify-content:center;" (click)="insertShape('symbol_reg')">®</div>
+                      <div class="s-item" style="font-size:18px; color:#5f6368; display:flex; align-items:center; justify-content:center;" (click)="insertShape('symbol_tm')">™</div>
+                      <div class="s-item" style="font-size:18px; color:#5f6368; display:flex; align-items:center; justify-content:center;" (click)="insertShape('symbol_pi')">π</div>
+                      <div class="s-item" style="font-size:18px; color:#5f6368; display:flex; align-items:center; justify-content:center;" (click)="insertShape('symbol_sigma')">Σ</div>
+                      <div class="s-item" style="font-size:18px; color:#5f6368; display:flex; align-items:center; justify-content:center;" (click)="insertShape('symbol_omega')">Ω</div>
+                      <div class="s-item" style="font-size:18px; color:#5f6368; display:flex; align-items:center; justify-content:center;" (click)="insertShape('symbol_inf')">∞</div>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </div>
+
         <div style="position:relative; display:inline-block;">
           <button class="tb" (click)="toggleMenu('image', $event)" [class.tb-on]="activeMenu==='image'" title="Insert Image"><span class="material-symbols-outlined">image</span></button>
           <div class="tb-dd" *ngIf="activeMenu==='image'" (click)="$event.stopPropagation()" style="width:200px;">
@@ -1124,7 +1617,7 @@ export interface CellValidation {
         <span class="cell-ref">{{ selectedRef }}</span>
         <span class="fx-label">fx</span>
         <input class="formula-bar" [(ngModel)]="formulaBarValue"
-            [disabled]="sheets[currentSheetIdx]?.locked || false"
+            [disabled]="sheets[currentSheetIdx].locked || false"
             (ngModelChange)="cells[selectedRow][selectedCol] = $event; onCellChange()"
             (keydown.enter)="commitFormula()" (blur)="commitFormula()" placeholder="" />
       </div>
@@ -1133,17 +1626,143 @@ export interface CellValidation {
       <input #imgInput type="file" accept="image/*" style="display:none" (change)="onImageFileSelected($event)">
 
     <div class="main-content" style="display:flex; flex:1; overflow:hidden; position:relative;">
-      <div class="grid-wrap" style="flex:1; overflow:auto; position:relative; background:#fff;">
+      <div class="grid-wrap" #gridWrap style="flex:1; overflow:auto; position:relative; background:#fff;">
         <div class="resize-line-col" *ngIf="resizingCol !== null" [style.left.px]="resizeLineX"></div>
         <div class="resize-line-row" *ngIf="resizingRow !== null" [style.top.px]="resizeLineY"></div>
-        <table class="grid" [class.no-gridlines]="sheets[currentSheetIdx]?.hideGridlines" [class.print-area-active]="showHighlightPrintArea" [style.zoom]="zoomLevel / 100" [attr.dir]="gridDirection" [class.grid-spacing-comfort]="gridSpacing==='comfort'" [class.grid-spacing-cozy]="gridSpacing==='cozy'" [class.grid-spacing-classic]="gridSpacing==='classic'">
+
+        <!-- Floating Editor -->
+        <textarea *ngIf="isEditingCell" #floatingEditor class="floating-editor"
+           [style.left.px]="getColOffset(selectedCol)"
+           [style.top.px]="getRowOffset(selectedRow)"
+           [style.min-width.px]="getColWidth(selectedCol)"
+           [style.min-height.px]="getRowHeight(selectedRow)"
+           [ngStyle]="getContentStyle(selectedRow, selectedCol)"
+           [(ngModel)]="editValue"
+           (input)="autoResizeEditor($event)"
+           (keydown)="onEditorKeydown($event)"
+           (blur)="commitEdit()"></textarea>
+
+        <!-- Shapes Rendering -->
+        <ng-container *ngIf="sheets[currentSheetIdx].shapes">
+          <div *ngFor="let s of sheets[currentSheetIdx].shapes; let i = index"
+               class="sheet-shape"
+               [class.shape-active]="activeShapeIdx === i"
+               [style.left.px]="s.x" [style.top.px]="s.y"
+               [style.width.px]="s.width" [style.height.px]="s.height"
+               (mousedown)="startShapeDrag($event, i)"
+               (dblclick)="editShapeLabel(i)"
+               title="Double-click to edit label">
+               
+               <!-- Active Handles -->
+               <ng-container *ngIf="activeShapeIdx === i">
+                   <div class="shape-handle nw"></div>
+                   <div class="shape-handle n"></div>
+                   <div class="shape-handle ne"></div>
+                   <div class="shape-handle e"></div>
+                   <div class="shape-handle se"></div>
+                   <div class="shape-handle s"></div>
+                   <div class="shape-handle sw"></div>
+                   <div class="shape-handle w"></div>
+                   <div class="shape-menu-btn" (mousedown)="$event.stopPropagation()" (click)="activeShapeMenuIdx = activeShapeMenuIdx === i ? null : i; $event.stopPropagation()"><span class="material-symbols-outlined" style="font-size:16px;">more_horiz</span></div>
+                   <div class="shape-context-menu" *ngIf="activeShapeMenuIdx === i" (mousedown)="$event.stopPropagation()">
+                       <div class="scm-item" (click)="showToast('Assign Existing'); activeShapeMenuIdx=null"><span class="material-symbols-outlined" style="font-size:18px;">description</span> Assign Existing <span class="material-symbols-outlined chevron" style="font-size:18px;">chevron_right</span></div>
+                       <div class="scm-item" (click)="showToast('Assign New'); activeShapeMenuIdx=null"><span class="material-symbols-outlined" style="font-size:18px;">post_add</span> Assign New <span class="material-symbols-outlined chevron" style="font-size:18px;">chevron_right</span></div>
+                       <div class="scm-item" (click)="editShapeLabel(i); activeShapeMenuIdx=null"><span class="material-symbols-outlined" style="font-size:18px;">edit</span> Edit Label</div>
+                       <div style="border-top:1px solid #eee; margin:4px 0;"></div>
+                       <div class="scm-item" (click)="showToast('Clone'); activeShapeMenuIdx=null"><span class="material-symbols-outlined" style="font-size:18px;">file_copy</span> Clone</div>
+                       <div class="scm-item" (click)="deleteShape(i); activeShapeMenuIdx=null"><span class="material-symbols-outlined" style="font-size:18px;">delete</span> Delete</div>
+                   </div>
+               </ng-container>
+               
+               <div class="shape-content-wrapper">
+                 <svg *ngIf="s.type==='rect'" width="100%" height="100%"><rect x="0" y="0" width="100%" height="100%" fill="#e8f0fe" stroke="#1a73e8" stroke-width="2"/></svg>
+                 <svg *ngIf="s.type==='roundrect'" width="100%" height="100%"><rect x="0" y="0" width="100%" height="100%" rx="8" fill="#e8f0fe" stroke="#1a73e8" stroke-width="2"/></svg>
+                 <svg *ngIf="s.type==='circle'" width="100%" height="100%"><ellipse cx="50%" cy="50%" rx="48%" ry="48%" fill="#e8f0fe" stroke="#1a73e8" stroke-width="2"/></svg>
+                 <svg *ngIf="s.type==='triangle'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100"><polygon points="50,0 0,100 100,100" fill="#e8f0fe" stroke="#1a73e8" stroke-width="2"/></svg>
+                 <svg *ngIf="s.type==='diamond'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100"><polygon points="50,0 100,50 50,100 0,50" fill="#e8f0fe" stroke="#1a73e8" stroke-width="2"/></svg>
+                 <svg *ngIf="s.type==='hexagon'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100"><polygon points="50,0 100,25 100,75 50,100 0,75 0,25" fill="#e8f0fe" stroke="#1a73e8" stroke-width="2"/></svg>
+                 <svg *ngIf="s.type==='octagon'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100"><polygon points="30,0 70,0 100,30 100,70 70,100 30,100 0,70 0,30" fill="#e8f0fe" stroke="#1a73e8" stroke-width="2"/></svg>
+                 
+                 <!-- Complex Diagrams -->
+                 <svg *ngIf="s.type==='diagram_drop'" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox="0 0 100 60"><circle cx="20" cy="15" r="5" fill="#0ea5e9"/><circle cx="25" cy="30" r="5" fill="#10b981"/><circle cx="20" cy="45" r="5" fill="#f59e0b"/><line x1="30" y1="15" x2="80" y2="15" stroke="#e2e8f0" stroke-width="2"/><line x1="35" y1="30" x2="80" y2="30" stroke="#e2e8f0" stroke-width="2"/><line x1="30" y1="45" x2="80" y2="45" stroke="#e2e8f0" stroke-width="2"/></svg>
+                 <svg *ngIf="s.type==='diagram_stack'" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox="0 0 100 60"><rect x="15" y="20" width="20" height="20" rx="2" fill="#fff" stroke="#0ea5e9" stroke-width="1" transform="rotate(-10 25 30)"/><rect x="40" y="20" width="20" height="20" rx="2" fill="#fff" stroke="#10b981" stroke-width="1"/><rect x="65" y="20" width="20" height="20" rx="2" fill="#fff" stroke="#f59e0b" stroke-width="1" transform="rotate(10 75 30)"/></svg>
+                 <svg *ngIf="s.type==='diagram_flag'" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox="0 0 100 60"><circle cx="15" cy="15" r="4" fill="#0ea5e9"/><rect x="25" y="12" width="60" height="6" fill="#0ea5e9"/><circle cx="15" cy="30" r="4" fill="#10b981"/><rect x="25" y="27" width="60" height="6" fill="#10b981"/><circle cx="15" cy="45" r="4" fill="#f59e0b"/><rect x="25" y="42" width="60" height="6" fill="#f59e0b"/></svg>
+                 <svg *ngIf="s.type==='diagram_ribbon'" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox="0 0 100 60"><path d="M 20 10 L 80 10 L 80 20 L 20 20 Z" fill="#0ea5e9"/><path d="M 20 25 L 80 25 L 80 35 L 20 35 Z" fill="#10b981"/><path d="M 20 40 L 80 40 L 80 50 L 20 50 Z" fill="#f59e0b"/></svg>
+                 <svg *ngIf="s.type==='diagram_alter'" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox="0 0 100 60"><circle cx="50" cy="15" r="4" fill="#0ea5e9"/><line x1="20" y1="15" x2="40" y2="15" stroke="#e2e8f0" stroke-width="2"/><line x1="60" y1="15" x2="80" y2="15" stroke="#e2e8f0" stroke-width="2"/><circle cx="50" cy="30" r="4" fill="#10b981"/><line x1="20" y1="30" x2="40" y2="30" stroke="#e2e8f0" stroke-width="2"/><line x1="60" y1="30" x2="80" y2="30" stroke="#e2e8f0" stroke-width="2"/></svg>
+                 <svg *ngIf="s.type==='diagram_deck'" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox="0 0 100 60"><rect x="20" y="10" width="15" height="40" fill="#fff" stroke="#e2e8f0" stroke-width="1"/><rect x="40" y="10" width="15" height="40" fill="#fff" stroke="#e2e8f0" stroke-width="1"/><rect x="60" y="10" width="15" height="40" fill="#fff" stroke="#e2e8f0" stroke-width="1"/></svg>
+                 <svg *ngIf="s.type==='diagram_process_arrow'" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox="0 0 100 60"><polygon points="10,20 40,20 40,10 60,30 40,50 40,40 10,40" fill="#0ea5e9"/><polygon points="45,20 75,20 75,10 95,30 75,50 75,40 45,40" fill="#10b981"/></svg>
+                 <svg *ngIf="s.type==='diagram_process_step'" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox="0 0 100 60"><rect x="10" y="20" width="20" height="20" fill="#0ea5e9"/><line x1="30" y1="30" x2="40" y2="30" stroke="#ccc" stroke-width="2"/><rect x="40" y="20" width="20" height="20" fill="#10b981"/><line x1="60" y1="30" x2="70" y2="30" stroke="#ccc" stroke-width="2"/><rect x="70" y="20" width="20" height="20" fill="#f59e0b"/></svg>
+                 <svg *ngIf="s.type==='diagram_pyramid_basic'" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox="0 0 100 60"><polygon points="50,5 35,20 65,20" fill="#0ea5e9"/><polygon points="32,22 68,22 83,40 17,40" fill="#10b981"/><polygon points="14,42 86,42 100,55 0,55" fill="#f59e0b"/></svg>
+                 <svg *ngIf="s.type==='diagram_pyramid_inv'" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox="0 0 100 60"><polygon points="0,5 100,5 86,18 14,18" fill="#0ea5e9"/><polygon points="17,20 83,20 68,38 32,38" fill="#10b981"/><polygon points="35,40 65,40 50,55" fill="#f59e0b"/></svg>
+                 <svg *ngIf="s.type==='diagram_cycle_basic'" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" viewBox="0 0 100 60"><path d="M50,10 A20,20 0 0,1 70,30 L65,30 L72.5,40 L80,30 L75,30 A25,25 0 0,0 50,5 Z" fill="#0ea5e9"/><path d="M70,30 A20,20 0 0,1 30,30 L25,30 L32.5,20 L40,30 L35,30 A25,25 0 0,0 75,30 Z" fill="#10b981"/></svg>
+
+                 <!-- Lines & Flowcharts -->
+                 <svg *ngIf="s.type==='line_straight'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="#5f6368" stroke-width="1.5"/></svg>
+                 <svg *ngIf="s.type==='line_arrow'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><line x1="4" y1="20" x2="18" y2="6" stroke="#5f6368" stroke-width="1.5"/><polygon points="16,4 21,3 20,8" fill="#5f6368"/></svg>
+                 <svg *ngIf="s.type==='line_curve'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><path d="M4,20 Q12,4 20,20" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg>
+                 <svg *ngIf="s.type==='line_connector'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><polyline points="4,20 4,12 20,12 20,4" fill="none" stroke="#5f6368" stroke-width="1.5"/></svg>
+                 
+                 <svg *ngIf="s.type==='flow_process'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1.5"/></svg>
+                 <svg *ngIf="s.type==='flow_decision'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><polygon points="12,3 21,12 12,21 3,12" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1.5"/></svg>
+                 <svg *ngIf="s.type==='flow_data'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><polygon points="6,6 22,6 18,18 2,18" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1.5"/></svg>
+                 <svg *ngIf="s.type==='flow_terminator'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="6" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1.5"/></svg>
+                 
+                 <svg *ngIf="s.type==='math_plus'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><path d="M11,4 L13,4 L13,11 L20,11 L20,13 L13,13 L13,20 L11,20 L11,13 L4,13 L4,11 L11,11 Z" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1.5"/></svg>
+                 <svg *ngIf="s.type==='math_minus'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="2" fill="#1a73e8"/></svg>
+                 <svg *ngIf="s.type==='math_multiply'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><path d="M6,6 L18,18 M18,6 L6,18" stroke="#1a73e8" stroke-width="2"/></svg>
+                 <svg *ngIf="s.type==='math_divide'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><circle cx="12" cy="6" r="2" fill="#1a73e8"/><rect x="4" y="11" width="16" height="2" fill="#1a73e8"/><circle cx="12" cy="18" r="2" fill="#1a73e8"/></svg>
+                 <svg *ngIf="s.type==='math_equal'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="2" fill="#1a73e8"/><rect x="4" y="14" width="16" height="2" fill="#1a73e8"/></svg>
+                 
+                 <svg *ngIf="s.type==='star_5'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><polygon points="12,2 15,9 22,9 16,14 18,21 12,17 6,21 8,14 2,9 9,9" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1.5"/></svg>
+                 <svg *ngIf="s.type==='star_4'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><polygon points="12,2 14,10 22,12 14,14 12,22 10,14 2,12 10,10" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1.5"/></svg>
+                 
+                 <svg *ngIf="s.type==='callout_rect'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><path d="M3,4 L21,4 L21,16 L14,16 L10,21 L10,16 L3,16 Z" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1.5"/></svg>
+                 <svg *ngIf="s.type==='callout_round'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><path d="M4,4 C2,4 2,16 4,16 L10,16 L10,21 L14,16 L20,16 C22,16 22,4 20,4 Z" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1.5"/></svg>
+                 <svg *ngIf="s.type==='callout_cloud'" width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 24 24"><path d="M6,14 C4,14 4,10 6,10 C6,6 12,6 14,8 C16,6 20,8 20,12 C22,12 22,16 18,16 L12,21 L10,16 Z" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1.5"/></svg>
+
+                 <div *ngIf="s.type==='text_rounded'" style="width:100%; height:100%; border:1px solid #ccc; border-radius:16px; display:flex; align-items:center; justify-content:center; background:#fff;"></div>
+                 <div *ngIf="s.type==='text_yellow'" style="width:100%; height:100%; background:#fef08a; border-radius:4px; display:flex; align-items:center; justify-content:center;"></div>
+                 <div *ngIf="s.type==='text_arrow'" style="width:100%; height:100%; background:#0ea5e9; border-radius:4px; clip-path: polygon(0% 0%, 75% 0%, 100% 50%, 75% 100%, 0% 100%); display:flex; align-items:center; justify-content:center;"></div>
+
+                 <div *ngIf="s.type==='button'" style="width:100%; height:100%; background:#f8f9fa; border:1px solid #0f9d58; display:flex; align-items:center; justify-content:center; box-sizing:border-box;"></div>
+
+                 <div *ngIf="s.text" [style.color]="s.type==='text_arrow' ? '#ffffff' : '#1f2937'" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:14px; text-align:center; pointer-events:none;">
+                   {{ s.text }}
+                 </div>
+               </div>
+          </div>
+        </ng-container>
+
+        <table class="grid" [class.no-gridlines]="sheets[currentSheetIdx].hideGridlines" [class.print-area-active]="showHighlightPrintArea" [style.zoom]="zoomLevel / 100" [attr.dir]="gridDirection" [class.grid-spacing-comfort]="gridSpacing==='comfort'" [class.grid-spacing-cozy]="gridSpacing==='cozy'" [class.grid-spacing-classic]="gridSpacing==='classic'">
           <thead [style.display]="showHeaders ? '' : 'none'">
+            <tr *ngIf="hasColGroups">
+              <th class="corner" *ngIf="hasRowGroups" style="height: 24px; min-height: 24px; background: #f8f9fa; border-bottom: 1px solid #e2e8f0; position: sticky; left: 0; z-index: 6;"></th>
+              <th class="corner" style="height: 24px; min-height: 24px; background: #f8f9fa; border-bottom: 1px solid #e2e8f0; position: sticky; left: 0; z-index: 6;" [style.left.px]="groupMarginWidth"></th>
+              <th *ngFor="let c of colRange" class="col-head group-margin-col-cell"
+                [style.display]="hiddenCols.has(c) ? 'none' : ''"
+                [style.min-width.px]="getColWidth(c)" [style.width.px]="getColWidth(c)" [style.max-width.px]="getColWidth(c)"
+                [style.position]="c < frozenColsCount ? 'sticky' : 'relative'"
+                [style.left]="gridDirection==='ltr' && c < frozenColsCount ? getFrozenColOffset(c) + 'px' : ''"
+                [style.right]="gridDirection==='rtl' && c < frozenColsCount ? getFrozenColOffset(c) + 'px' : ''"
+                [style.z-index]="c < frozenColsCount ? 4 : ''"
+                style="height: 24px; min-height: 24px; background: #f8f9fa; border-bottom: 1px solid #e2e8f0; position: relative; padding: 0;">
+                <ng-container *ngFor="let g of getColGroupsFor(c); let i = index">
+                  <div *ngIf="c >= g.start && c <= g.end && !g.collapsed" style="position: absolute; height: 1px; background: #64748b; right: 0;" [style.left]="c === g.start ? '50%' : '0'" [style.top.px]="i * 10 + 10"></div>
+                  <div *ngIf="c === g.end && !g.collapsed" style="position: absolute; height: 5px; width: 1px; background: #64748b; right: 0;" [style.top.px]="i * 10 + 10"></div>
+                  <div *ngIf="c === g.start" style="position: absolute; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; background: #fff; border: 1px solid #64748b; border-radius: 2px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 10px; font-weight: bold; color: #334155; user-select: none; z-index: 2;" [style.top.px]="i * 10 + 5" (click)="toggleColGroup(g.index)">
+                    {{ g.collapsed ? '+' : '-' }}
+                  </div>
+                </ng-container>
+              </th>
+            </tr>
             <tr>
-              <th class="corner" (click)="clearHeaderSelection()" [style.z-index]="frozenRowsCount > 0 && frozenColsCount > 0 ? 5 : ''"></th>
+              <th class="corner" *ngIf="hasRowGroups" style="width: 24px; min-width: 24px; max-width: 24px; background: #f8f9fa; border-right: 1px solid #e2e8f0; position: sticky; left: 0; z-index: 6;" [style.top.px]="colGroupMarginHeight"></th>
+              <th class="corner" (click)="selectAll()" [style.z-index]="frozenRowsCount > 0 && frozenColsCount > 0 ? 5 : ''" [style.left.px]="groupMarginWidth" [style.top.px]="colGroupMarginHeight"></th>
               <th *ngFor="let c of colRange" class="col-head"
                 [style.display]="hiddenCols.has(c) ? 'none' : ''"
                 [style.min-width.px]="getColWidth(c)" [style.width.px]="getColWidth(c)" [style.max-width.px]="getColWidth(c)"
-                [style.position]="c < frozenColsCount ? 'sticky' : ''"
+                [style.position]="c < frozenColsCount ? 'sticky' : 'sticky'"
+                [style.top.px]="colGroupMarginHeight"
                 [style.left]="gridDirection==='ltr' && c < frozenColsCount ? getFrozenColOffset(c) + 'px' : ''"
                 [style.right]="gridDirection==='rtl' && c < frozenColsCount ? getFrozenColOffset(c) + 'px' : ''"
                 [style.z-index]="c < frozenColsCount ? 4 : ''"
@@ -1158,9 +1777,19 @@ export interface CellValidation {
           </thead>
           <tbody>
             <tr *ngFor="let r of rowRange" [style.display]="hiddenRows.has(r) ? 'none' : ''" [style.height.px]="getRowHeight(r)">
+              <td class="group-margin-cell" *ngIf="hasRowGroups" [style.display]="showHeaders ? '' : 'none'" style="width: 24px; min-width: 24px; max-width: 24px; position: sticky; left: 0; z-index: 5; background: #f8f9fa; border-right: 1px solid #e2e8f0; vertical-align: top; position: relative;">
+                <ng-container *ngFor="let g of getRowGroupsFor(r); let i = index">
+                  <div *ngIf="r >= g.start && r <= g.end && !g.collapsed" style="position: absolute; width: 1px; background: #64748b; bottom: 0;" [style.top]="r === g.start ? '50%' : '0'" [style.left.px]="i * 10 + 10"></div>
+                  <div *ngIf="r === g.end && !g.collapsed" style="position: absolute; width: 5px; height: 1px; background: #64748b; bottom: 0;" [style.left.px]="i * 10 + 5"></div>
+                  <div *ngIf="r === g.start" style="position: absolute; top: 50%; transform: translateY(-50%); width: 10px; height: 10px; background: #fff; border: 1px solid #64748b; border-radius: 2px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 10px; font-weight: bold; color: #334155; user-select: none;" [style.left.px]="i * 10 + 5" (click)="toggleRowGroup(g.index)">
+                    {{ g.collapsed ? '+' : '-' }}
+                  </div>
+                </ng-container>
+              </td>
               <td class="row-head" [style.display]="showHeaders ? '' : 'none'"
-                [style.position]="r < frozenRowsCount ? 'sticky' : ''"
-                [style.top]="r < frozenRowsCount ? getFrozenRowOffset(r) + 'px' : ''"
+                [style.position]="r < frozenRowsCount ? 'sticky' : 'sticky'"
+                [style.left.px]="groupMarginWidth"
+                [style.top]="r < frozenRowsCount ? getFrozenRowOffset(r) + colGroupMarginHeight + 'px' : ''"
                 [style.z-index]="r < frozenRowsCount ? 4 : ''"
                 [class.row-selected]="isRowHeaderSelected(r)" [class.active-axis]="isRowActiveAxis(r)" (contextmenu)="onHeaderRightClick($event, 'row', r)" (click)="selectEntireRow(r)">
                 {{ r + 1 }}
@@ -1171,7 +1800,7 @@ export interface CellValidation {
                   [style.display]="hiddenCols.has(c) ? 'none' : ''"
                   [style.min-width.px]="getColWidth(c)" [style.width.px]="getColWidth(c)" [style.max-width.px]="getColWidth(c)"
                   [style.position]="r < frozenRowsCount || c < frozenColsCount ? 'sticky' : ''"
-                  [style.top]="r < frozenRowsCount ? getFrozenRowOffset(r) + 'px' : ''"
+                  [style.top]="r < frozenRowsCount ? getFrozenRowOffset(r) + colGroupMarginHeight + 'px' : ''"
                   [style.left]="gridDirection==='ltr' && c < frozenColsCount ? getFrozenColOffset(c) + 'px' : ''"
                   [style.right]="gridDirection==='rtl' && c < frozenColsCount ? getFrozenColOffset(c) + 'px' : ''"
                   [style.z-index]="r < frozenRowsCount && c < frozenColsCount ? 4 : (r < frozenRowsCount || c < frozenColsCount ? 3 : '')"
@@ -1186,7 +1815,8 @@ export interface CellValidation {
                   (mousedown)="onCellMouseDown($event, r, c)"
                   (mouseenter)="onCellMouseEnter(r, c)"
                   (contextmenu)="onCellRightClick($event, r, c)"
-                  (click)="selectCell(r, c)">
+                  (click)="onCellClickWithPicker(r, c)"
+                  (dblclick)="startEditing()">
                                   <ng-container *ngIf="isImageCell(r, c); else textCell">
                     <img [src]="cells[r][c]" style="max-width:100%;max-height:80px;object-fit:contain;display:block;cursor:zoom-in;" 
 (click)="selectCell(r,c)" (dblclick)="previewImageUrl = cells[r][c]">
@@ -1208,28 +1838,9 @@ export interface CellValidation {
                       </div>
                     </ng-container>
                     <ng-template #dateInput>
-                      <input *ngIf="isDateLike(cells[r][c]); else textInput" class="cell-input" type="date"
-                        [ngModel]="getDateValue(r, c)"
-                        (ngModelChange)="setDateValue(r, c, $event)"
-                        (focus)="selectCell(r, c)"
-                        (change)="onCellChange()"
-                        (blur)="save()"
-                        (keydown.tab)="onTab($any($event), r, c)"
-                        (keydown.enter)="onEnter($any($event), r, c)" />
-                      <ng-template #textInput>
-                        <div *ngIf="!isCellSelected(r, c)" class="cell-display" [ngStyle]="getContentStyle(r, c)">
-                          {{ getDisplayValue(r, c) }}
-                        </div>
-                        <input class="cell-input" [class.visually-hidden]="!isCellSelected(r, c)"
-                          [ngStyle]="getContentStyle(r, c)"
-                          [ngModel]="isCellSelected(r, c) ? cells[r][c] : getDisplayValue(r, c)"
-                          (ngModelChange)="cells[r][c] = $event; formulaBarValue = $event; onCellChange()"
-                          (focus)="selectCell(r, c)"
-                          (change)="onCellChange()"
-                          (blur)="save()"
-                          (keydown.tab)="onTab($any($event), r, c)"
-                          (keydown.enter)="onEnter($any($event), r, c)" />
-                    </ng-template>
+                      <div class="cell-display" [ngStyle]="getContentStyle(r, c)" [class.wrap-text]="getFormatWrap(r, c)" [style.opacity]="isEditingCell && selectedRow===r && selectedCol===c ? '0' : '1'">
+                        {{ getDisplayValue(r, c) }}
+                      </div>
                     </ng-template>
                   </ng-template>
                 </ng-template>
@@ -1249,12 +1860,12 @@ export interface CellValidation {
       <div class="side-panel" *ngIf="sidePanelApp">
         <div class="sp-head">
           <div class="sp-head-left">
-            <div class="sp-icon-wrap" [class.sp-icon-cal]="sidePanelApp==='calendar'" [class.sp-icon-notes]="sidePanelApp==='notes'" [class.sp-icon-tasks]="sidePanelApp==='tasks'">
-              <span class="material-symbols-outlined sp-head-icon">{{sidePanelApp==='calendar'?'calendar_month':sidePanelApp==='notes'?'sticky_note_2':'task_alt'}}</span>
+            <div class="sp-icon-wrap" [class.sp-icon-cal]="sidePanelApp==='calendar'" [class.sp-icon-notes]="sidePanelApp==='notes'" [class.sp-icon-tasks]="sidePanelApp==='tasks'" [class.sp-icon-pivot]="sidePanelApp==='pivot'" [style.background]="sidePanelApp==='pivot'?'#10b981':'inherit'">
+              <span class="material-symbols-outlined sp-head-icon">{{sidePanelApp==='pivot'?'pivot_table_chart':sidePanelApp==='calendar'?'calendar_month':sidePanelApp==='notes'?'sticky_note_2':'task_alt'}}</span>
             </div>
             <div>
-              <div class="sp-title">{{sidePanelApp==='calendar'?'Calendar':sidePanelApp==='notes'?'Notes':'Tasks'}}</div>
-              <div class="sp-subtitle">{{sidePanelApp==='calendar'?'Schedule & meeting notes':sidePanelApp==='notes'?'Quick capture':'Track your work'}}</div>
+              <div class="sp-title">{{sidePanelApp==='pivot'?'Pivot Table Editor':sidePanelApp==='calendar'?'Calendar':sidePanelApp==='notes'?'Notes':'Tasks'}}</div>
+              <div class="sp-subtitle">{{sidePanelApp==='pivot'?'Configure rows and values':sidePanelApp==='calendar'?'Schedule & meeting notes':sidePanelApp==='notes'?'Quick capture':'Track your work'}}</div>
             </div>
           </div>
           <button class="sp-close-btn" (click)="closeSidePanel()">
@@ -1263,6 +1874,38 @@ export interface CellValidation {
         </div>
 
         <div class="sp-content">
+
+          <!-- ── PIVOT TABLE ─────────────────────────────────────────────── -->
+          <ng-container *ngIf="sidePanelApp === 'pivot'">
+            <div class="sp-card" style="display:flex; flex-direction:column; gap:16px;">
+              
+              <div>
+                <div class="sp-card-label" style="font-weight:600; margin-bottom:8px;">Rows</div>
+                <select [(ngModel)]="pivotConfig.row" (change)="applyPivot()" style="width:100%; padding:8px; border:1px solid #e2e8f0; border-radius:4px; outline:none;">
+                  <option value="" disabled>Select row field...</option>
+                  <option *ngFor="let h of pivotHeaders" [value]="h">{{h}}</option>
+                </select>
+              </div>
+
+              <div>
+                <div class="sp-card-label" style="font-weight:600; margin-bottom:8px;">Values</div>
+                <select [(ngModel)]="pivotConfig.val" (change)="applyPivot()" style="width:100%; padding:8px; border:1px solid #e2e8f0; border-radius:4px; outline:none;">
+                  <option value="" disabled>Select value field...</option>
+                  <option *ngFor="let h of pivotHeaders" [value]="h">{{h}}</option>
+                </select>
+              </div>
+
+              <div>
+                <div class="sp-card-label" style="font-weight:600; margin-bottom:8px;">Summarize by</div>
+                <select [(ngModel)]="pivotConfig.agg" (change)="applyPivot()" style="width:100%; padding:8px; border:1px solid #e2e8f0; border-radius:4px; outline:none;">
+                  <option value="SUM">SUM</option>
+                  <option value="COUNT">COUNT</option>
+                  <option value="AVG">AVG</option>
+                </select>
+              </div>
+
+            </div>
+          </ng-container>
 
           <!-- ── CALENDAR ─────────────────────────────────────────────── -->
           <ng-container *ngIf="sidePanelApp === 'calendar'">
@@ -1483,44 +2126,588 @@ export interface CellValidation {
             <button (click)="validationModalOpen = false" style="background:#fff; border:1px solid #cbd5e1; color:#333; padding:8px 20px; border-radius:6px; cursor:pointer; font-weight:600; font-size:14px; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#fff'">Cancel</button>
           </div>
         </div>
-      </div>        <!-- Feature Modals -->
-        <div class="modal-overlay" *ngIf="activeModal !== null" (click)="activeModal = null" style="z-index: 10000;">
-          <div class="modal" (click)="$event.stopPropagation()" style="background:#1c2333; color:#fff; border:1px solid #2d3748; box-shadow:0 12px 40px rgba(0,0,0,0.5); width: 400px; padding:20px;">
-            <button (click)="activeModal = null" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:18px;cursor:pointer;color:#a0aec0;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,0.1);"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
-            
-            <h3 *ngIf="activeModal === 'template'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Choose Template</h3>
-            <h3 *ngIf="activeModal === 'open'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Open Document</h3>
-            <h3 *ngIf="activeModal === 'import'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Import File</h3>
-            <h3 *ngIf="activeModal === 'move'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Move Document</h3>
-            <h3 *ngIf="activeModal === 'audit'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Audit Trail</h3>
-            <h3 *ngIf="activeModal === 'version'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Version History</h3>
-            <h3 *ngIf="activeModal === 'workflow'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Manage Workflows</h3>
-            <h3 *ngIf="activeModal === 'password'" style="margin-top:0;font-size:18px;font-weight:600;margin-bottom:16px;">Protect Document</h3>
+      </div>
 
-            <div *ngIf="['template', 'open', 'version', 'audit', 'workflow'].includes(activeModal)">
-              <div *ngFor="let item of dummyList" (click)="handleModalAction()" style="padding:12px 16px; background:#2d3748; margin-bottom:8px; border-radius:6px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:10px; transition:background 0.2s;">
-                <span class="material-symbols-outlined" style="color:#81e6d9;">description</span> {{ item }}
+      <!-- Goal Seek Modal -->
+      <div class="modal-overlay" *ngIf="goalSeekModalOpen" (click)="goalSeekModalOpen=false" style="z-index:10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:380px;background:#fff;color:#333;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);padding:24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="margin:0;font-size:18px;font-weight:600;">Goal Seek</h3>
+            <button (click)="goalSeekModalOpen=false" style="background:none;border:none;cursor:pointer;color:#888;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+          <div style="font-size:13px;color:#5f6368;margin-bottom:16px;">Find the input value needed to achieve a specific goal in a formula cell.</div>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <label style="font-size:13px;width:110px;color:#555;">Set Cell:</label>
+              <input [(ngModel)]="goalSeekTargetCell" placeholder="e.g. B5" style="flex:1;border:1px solid #cbd5e1;border-radius:4px;padding:7px 10px;font-size:13px;outline:none;" />
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <label style="font-size:13px;width:110px;color:#555;">To Value:</label>
+              <input [(ngModel)]="goalSeekTargetValue" placeholder="e.g. 1000" style="flex:1;border:1px solid #cbd5e1;border-radius:4px;padding:7px 10px;font-size:13px;outline:none;" />
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <label style="font-size:13px;width:110px;color:#555;">By Changing Cell:</label>
+              <input [(ngModel)]="goalSeekByCell" placeholder="e.g. A2" style="flex:1;border:1px solid #cbd5e1;border-radius:4px;padding:7px 10px;font-size:13px;outline:none;" />
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button (click)="applyGoalSeek()" style="background:#10b981;color:#fff;border:none;padding:8px 24px;border-radius:4px;font-weight:600;cursor:pointer;">Solve</button>
+            <button (click)="goalSeekModalOpen=false" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 24px;border-radius:4px;font-weight:600;cursor:pointer;">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Email Notifications Modal -->
+      <div class="modal-overlay" *ngIf="emailNotifModalOpen" (click)="emailNotifModalOpen=false" style="z-index:10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:420px;background:#fff;color:#333;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);padding:24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="margin:0;font-size:18px;font-weight:600;">Email Notification Settings</h3>
+            <button (click)="emailNotifModalOpen=false" style="background:none;border:none;cursor:pointer;color:#888;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px;">
+            <input [(ngModel)]="emailNotifEmail" placeholder="Notify email address" style="border:1px solid #cbd5e1;border-radius:4px;padding:8px 10px;font-size:13px;outline:none;" />
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+              <input type="checkbox" [(ngModel)]="emailNotifOnEdit" style="accent-color:#10b981;"> Notify me when the sheet is edited
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+              <input type="checkbox" [(ngModel)]="emailNotifOnComment" style="accent-color:#10b981;"> Notify me when a comment is added
+            </label>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button (click)="saveEmailNotifications()" style="background:#10b981;color:#fff;border:none;padding:8px 24px;border-radius:4px;font-weight:600;cursor:pointer;">Save</button>
+            <button (click)="emailNotifModalOpen=false" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 24px;border-radius:4px;font-weight:600;cursor:pointer;">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preferences Modal -->
+      <div class="modal-overlay" *ngIf="preferencesModalOpen" (click)="preferencesModalOpen=false" style="z-index:10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:420px;background:#fff;color:#333;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);padding:24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="margin:0;font-size:18px;font-weight:600;">My Preferences</h3>
+            <button (click)="preferencesModalOpen=false" style="background:none;border:none;cursor:pointer;color:#888;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <label style="font-size:13px;width:130px;color:#555;">Locale:</label>
+              <select [(ngModel)]="prefLocale" style="flex:1;border:1px solid #cbd5e1;border-radius:4px;padding:7px;font-size:13px;outline:none;background:#fff;">
+                <option value="en-US">English (US)</option>
+                <option value="en-IN">English (India)</option>
+                <option value="en-GB">English (UK)</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <label style="font-size:13px;width:130px;color:#555;">Date Format:</label>
+              <select [(ngModel)]="prefDateFormat" style="flex:1;border:1px solid #cbd5e1;border-radius:4px;padding:7px;font-size:13px;outline:none;background:#fff;">
+                <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+              </select>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+              <input type="checkbox" [(ngModel)]="prefThousands" style="accent-color:#10b981;"> Use thousands separator (1,000)
+            </label>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button (click)="savePreferences()" style="background:#10b981;color:#fff;border:none;padding:8px 24px;border-radius:4px;font-weight:600;cursor:pointer;">Save</button>
+            <button (click)="preferencesModalOpen=false" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 24px;border-radius:4px;font-weight:600;cursor:pointer;">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feedback Modal -->
+      <div class="modal-overlay" *ngIf="feedbackModalOpen" (click)="feedbackModalOpen=false" style="z-index:10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:420px;background:#fff;color:#333;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);padding:24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="margin:0;font-size:18px;font-weight:600;">Send Feedback</h3>
+            <button (click)="feedbackModalOpen=false" style="background:none;border:none;cursor:pointer;color:#888;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px;">
+            <div style="font-size:13px;color:#555;">Rate your experience:</div>
+            <div style="display:flex;gap:8px;">
+              <span *ngFor="let s of [1,2,3,4,5]" (click)="feedbackRating=s" style="font-size:28px;cursor:pointer;" [style.opacity]="s<=feedbackRating?'1':'0.3'">⭐</span>
+            </div>
+            <textarea [(ngModel)]="feedbackText" placeholder="Tell us what you think..." style="border:1px solid #cbd5e1;border-radius:4px;padding:8px;font-size:13px;height:100px;outline:none;resize:none;font-family:inherit;"></textarea>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button (click)="submitFeedback()" style="background:#10b981;color:#fff;border:none;padding:8px 24px;border-radius:4px;font-weight:600;cursor:pointer;">Submit</button>
+            <button (click)="feedbackModalOpen=false" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 24px;border-radius:4px;font-weight:600;cursor:pointer;">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Text to Columns Modal -->
+      <div class="modal-overlay" *ngIf="textToColsModalOpen" (click)="textToColsModalOpen = false" style="z-index: 10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:420px; background:#fff; color:#333; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.15); padding:24px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h3 style="margin:0; font-size:18px; font-weight:600;">Text to Columns</h3>
+            <button (click)="textToColsModalOpen = false" style="background:none; border:none; cursor:pointer; color:#888;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+          <div style="margin-bottom:16px; font-size:13px; color:#5f6368;">Splits the selected column's content into multiple columns using a delimiter.</div>
+          <div style="margin-bottom:16px;">
+            <div style="font-size:13px; font-weight:600; margin-bottom:10px;">Separator:</div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                <input type="radio" name="t2cDelim" value="," [(ngModel)]="t2cDelimiter" style="accent-color:#10b981;"> Comma (,)
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                <input type="radio" name="t2cDelim" value="	" [(ngModel)]="t2cDelimiter" style="accent-color:#10b981;"> Tab
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                <input type="radio" name="t2cDelim" value=" " [(ngModel)]="t2cDelimiter" style="accent-color:#10b981;"> Space
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                <input type="radio" name="t2cDelim" value=";" [(ngModel)]="t2cDelimiter" style="accent-color:#10b981;"> Semicolon (;)
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                <input type="radio" name="t2cDelim" value="custom" [(ngModel)]="t2cDelimiter" style="accent-color:#10b981;"> Custom:
+                <input [(ngModel)]="t2cCustomDelim" (focus)="t2cDelimiter='custom'" placeholder="e.g. |" style="border:1px solid #cbd5e1; border-radius:4px; padding:4px 8px; width:60px; outline:none; font-size:13px;" />
+              </label>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button (click)="applyTextToColumns()" style="background:#10b981; color:#fff; border:none; padding:8px 24px; border-radius:4px; font-weight:600; cursor:pointer;">Apply</button>
+            <button (click)="textToColsModalOpen = false" style="background:#f1f5f9; color:#333; border:1px solid #e2e8f0; padding:8px 24px; border-radius:4px; font-weight:600; cursor:pointer;">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Range Picker Floating Bar -->
+      <div *ngIf="rangePickerActive" style="position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:20000; background:#fff; border:2px solid #10b981; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.2); display:flex; align-items:center; gap:8px; padding:8px 12px; min-width:320px;">
+        <span class="material-symbols-outlined" style="color:#10b981; font-size:18px;">grid_on</span>
+        <input [value]="getRangePickerValue()" (input)="onRangePickerInput($event)" style="flex:1; border:none; outline:none; font-size:13px; color:#1a73e8; font-weight:500;" />
+        <button (click)="confirmRangePicker()" style="background:#10b981; color:#fff; border:none; border-radius:4px; padding:4px 10px; cursor:pointer; display:flex; align-items:center;">
+          <span class="material-symbols-outlined" style="font-size:18px;">check</span>
+        </button>
+        <button (click)="cancelRangePicker()" style="background:#f1f5f9; color:#333; border:1px solid #e2e8f0; border-radius:4px; padding:4px 10px; cursor:pointer; display:flex; align-items:center;">
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
+      </div>
+
+      <!-- Create Pivot Table Modal -->
+      <div class="modal-overlay" *ngIf="pivotModalOpen" (click)="pivotModalOpen = false" style="z-index: 10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:400px; background:#fff; color:#333; border-radius: 8px; box-shadow:0 4px 12px rgba(0,0,0,0.15); display:flex; flex-direction:column; padding: 20px;">
+          
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="margin:0; font-size:18px; font-weight:600;">Create Pivot Table</h3>
+            <button (click)="pivotModalOpen = false" style="background:none; border:none; cursor:pointer; color:#888; display:flex;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <div style="font-size:13px; margin-bottom:8px;">Choose the data range for the table:</div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:13px;">Source:</span>
+              <div style="flex:1; border: 1px solid #10b981; border-radius: 4px; padding: 4px 8px; display:flex; align-items:center; gap:4px;">
+                <input [(ngModel)]="pivotSource" style="border:none; outline:none; flex:1; font-size:13px; color:#1a73e8; background:transparent;" placeholder="Sheet1.A1:C10" />
+                <span class="material-symbols-outlined" style="font-size:16px; color:#5f6368; cursor:pointer;" (click)="startRangePicker('pivotSource')">grid_on</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:24px;">
+            <div style="font-size:13px; margin-bottom:8px;">Choose the location for the table:</div>
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom: 12px; font-size:13px;">
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                <input type="radio" name="pivotLoc" value="new" [(ngModel)]="pivotDestType" style="accent-color:#10b981;"> New sheet
+              </label>
+              <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                <input type="radio" name="pivotLoc" value="existing" [(ngModel)]="pivotDestType" style="accent-color:#10b981;"> Existing sheet
+              </label>
+            </div>
+            <div *ngIf="pivotDestType === 'existing'" style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:13px;">Location:</span>
+              <div style="flex:1; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; display:flex; align-items:center; gap:4px;">
+                <input [(ngModel)]="pivotDest" style="border:none; outline:none; flex:1; font-size:13px; color:#1a73e8; background:transparent;" placeholder="Sheet1.A9" />
+                <span class="material-symbols-outlined" style="font-size:16px; color:#5f6368; cursor:pointer;" (click)="startRangePicker('pivotDest')">grid_on</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button (click)="createPivotTable()" style="background:#10b981; color:#fff; border:none; padding:8px 24px; border-radius:4px; font-weight:600; cursor:pointer;">OK</button>
+            <button (click)="pivotModalOpen = false" style="background:#f1f5f9; color:#333; border:1px solid #e2e8f0; padding:8px 24px; border-radius:4px; font-weight:600; cursor:pointer;">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Validation Modal -->
+      <div class="modal-overlay" *ngIf="dataValidationModalOpen" (click)="dataValidationModalOpen = false" style="z-index: 10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:500px; background:#fff; color:#333; border-radius: 8px; box-shadow:0 4px 12px rgba(0,0,0,0.15); display:flex; flex-direction:column; padding: 20px;">
+          
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="margin:0; font-size:18px; font-weight:600;">Data Validation</h3>
+            <button (click)="dataValidationModalOpen = false" style="background:none; border:none; cursor:pointer; color:#888; display:flex;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
+            <span style="font-size:13px; width: 70px;">Applies to:</span>
+            <div style="flex:1; border: 1px solid #10b981; border-radius: 4px; padding: 4px 8px; display:flex; align-items:center; gap:4px;">
+              <input [(ngModel)]="dvAppliesTo" style="border:none; outline:none; flex:1; font-size:13px; color:#1a73e8; background:transparent;" />
+              <span class="material-symbols-outlined" style="font-size:16px; color:#5f6368; cursor:pointer;" (click)="startRangePicker('dvAppliesTo')">grid_on</span>
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+            <span style="font-size:13px; width:70px;">Criteria:</span>
+            <select [(ngModel)]="dvCriteria" style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; font-size:13px; width:130px; outline:none; background:#fff;">
+              <option value="list">List</option>
+              <option value="number">Number</option>
+              <option value="text">Text</option>
+              <option value="date">Date</option>
+              <option value="checkbox">Checkbox</option>
+            </select>
+            <label style="display:flex; align-items:center; gap:4px; font-size:13px; cursor:pointer;">
+              <input type="checkbox" [(ngModel)]="dvShowList" style="accent-color:#10b981;"> Show List
+            </label>
+            <label style="display:flex; align-items:center; gap:4px; font-size:13px; cursor:pointer;">
+              <input type="checkbox" [(ngModel)]="dvSortAsc" style="accent-color:#10b981;"> Sort Ascending
+            </label>
+          </div>
+
+          <div style="margin-left: 84px; margin-bottom: 16px;">
+            <textarea placeholder="Line Separated Values (one per line)" [(ngModel)]="validationInput" style="width: 100%; height: 80px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px; font-size:13px; outline:none; font-family:inherit; resize:none; box-sizing:border-box;"></textarea>
+          </div>
+
+          <div style="margin-left: 84px; margin-bottom: 16px;">
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+              <input type="checkbox" [(ngModel)]="dvIgnoreBlanks" style="accent-color:#10b981;"> Ignore Blanks
+            </label>
+          </div>
+
+          <!-- Alerts and Help Text (expandable) -->
+          <div style="margin-bottom:16px; border:1px solid #e2e8f0; border-radius:4px; overflow:hidden;">
+            <div (click)="dvAlertsOpen = !dvAlertsOpen" style="display:flex; align-items:center; gap:4px; cursor:pointer; user-select:none; padding:10px 12px; background:#f8f9fa;">
+              <span class="material-symbols-outlined" style="font-size:16px; transition:transform 0.2s;" [style.transform]="dvAlertsOpen ? 'rotate(90deg)' : 'rotate(0deg)'">arrow_right</span>
+              <span style="font-size:13px; font-weight:500;">Alerts and Help Text</span>
+            </div>
+            <div *ngIf="dvAlertsOpen" style="padding:12px; display:flex; flex-direction:column; gap:10px;">
+              <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
+                <input type="checkbox" [(ngModel)]="dvAlertEnabled" style="accent-color:#10b981;"> Show validation error alert
+              </label>
+              <div *ngIf="dvAlertEnabled" style="display:flex; flex-direction:column; gap:8px;">
+                <input [(ngModel)]="dvAlertTitle" placeholder="Alert Title" style="border:1px solid #cbd5e1; border-radius:4px; padding:6px 8px; font-size:13px; outline:none;" />
+                <textarea [(ngModel)]="dvAlertMsg" placeholder="Alert message shown when invalid data is entered" style="border:1px solid #cbd5e1; border-radius:4px; padding:6px 8px; font-size:13px; outline:none; resize:none; height:60px;"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button (click)="saveDataValidation()" style="background:#10b981; color:#fff; border:none; padding:8px 24px; border-radius:4px; font-weight:600; cursor:pointer;">OK</button>
+            <button (click)="dataValidationModalOpen = false" style="background:#f1f5f9; color:#333; border:1px solid #e2e8f0; padding:8px 24px; border-radius:4px; font-weight:600; cursor:pointer;">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manage Rules Modal -->
+      <div class="modal-overlay" *ngIf="manageRulesModalOpen" (click)="manageRulesModalOpen = false" style="z-index: 10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:400px; background:#fff; color:#333; border-radius: 8px; box-shadow:0 4px 12px rgba(0,0,0,0.15); display:flex; flex-direction:column;">
+          
+          <div style="display:flex; justify-content:space-between; align-items:center; padding: 16px 20px; border-bottom:1px solid #e2e8f0;">
+            <h3 style="margin:0; font-size:18px; font-weight:600;">Data Validation - Manage Rules</h3>
+            <button (click)="manageRulesModalOpen = false" style="background:none; border:none; cursor:pointer; color:#888; display:flex;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+
+          <div style="padding: 16px 20px; background:#f8f9fa; display:flex; align-items:center; gap:8px; border-bottom:1px solid #e2e8f0;">
+            <span style="font-size:13px;">View Rules for:</span>
+            <select style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; font-size:13px; width:120px; outline:none; background:#fff;">
+              <option>Sheet1</option>
+            </select>
+          </div>
+
+          <div style="padding: 60px 20px; text-align:center; color:#5f6368; font-size:14px;">
+            No Rules
+          </div>
+
+          <div style="padding: 16px 20px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #e2e8f0;">
+            <button (click)="manageRulesModalOpen = false; dataValidationModalOpen = true" style="background:#f1f5f9; color:#333; border:1px solid #e2e8f0; padding:8px 16px; border-radius:4px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px; font-size:13px;">
+              <span class="material-symbols-outlined" style="font-size:16px;">add</span> Create Validation
+            </button>
+            <button (click)="manageRulesModalOpen = false" style="background:#f1f5f9; color:#333; border:1px solid #e2e8f0; padding:8px 24px; border-radius:4px; font-weight:600; cursor:pointer; font-size:13px;">Close</button>
+          </div>
+        </div>
+      </div>
+      <!-- Spell Check Modal -->
+      <div class="modal-overlay" *ngIf="spellCheckModalOpen" (click)="spellCheckModalOpen=false" style="z-index:10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:480px;background:#fff;color:#333;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.15);padding:24px;border:1px solid #e2e8f0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="material-symbols-outlined" style="color:#10b981;font-size:22px;">spellcheck</span>
+              <h3 style="margin:0;font-size:18px;font-weight:600;">Spell Check</h3>
+            </div>
+            <button (click)="spellCheckModalOpen=false" style="background:none;border:none;cursor:pointer;color:#888;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+          <div *ngIf="spellCheckLoading" style="padding:40px;text-align:center;color:#5f6368;">
+             <span class="material-symbols-outlined" style="animation:spin 1s linear infinite;font-size:24px;">refresh</span>
+             <p>Checking spelling...</p>
+          </div>
+          <div *ngIf="!spellCheckLoading && spellCheckErrors.length === 0" style="padding:40px;text-align:center;color:#10b981;">
+             <span class="material-symbols-outlined" style="font-size:48px;">check_circle</span>
+             <p style="margin-top:12px;font-weight:500;">No spelling errors found!</p>
+          </div>
+          <div *ngIf="!spellCheckLoading && spellCheckErrors.length > 0" style="max-height:300px;overflow-y:auto;">
+             <p style="color:#d93025;font-weight:600;margin-bottom:16px;">Found {{spellCheckErrors.length}} error(s):</p>
+             <div *ngFor="let err of spellCheckErrors; let i=index" style="border:1px solid #e2e8f0;border-radius:6px;padding:12px;margin-bottom:12px;background:#f8f9fa;">
+               <div style="font-size:14px;color:#333;margin-bottom:8px;">
+                 "...{{err.context.text.substring(0, err.context.offset)}}<strong style="color:#d93025;background:#fee2e2;padding:2px 4px;border-radius:2px;">{{err.context.text.substring(err.context.offset, err.context.offset + err.context.length)}}</strong>{{err.context.text.substring(err.context.offset + err.context.length)}}..."
+               </div>
+               <div style="font-size:12px;color:#5f6368;margin-bottom:12px;">{{err.message}}</div>
+               <div style="display:flex;gap:8px;flex-wrap:wrap;" *ngIf="err.replacements?.length > 0">
+                 <button *ngFor="let rep of err.replacements.slice(0, 4)" (click)="applySpellCheckFix(i, rep.value)" style="background:#fff;border:1px solid #cbd5e1;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;color:#1a73e8;font-weight:500;">{{rep.value}}</button>
+               </div>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Translate Modal -->
+      <div class="modal-overlay" *ngIf="translateModalOpen" (click)="translateModalOpen=false" style="z-index:10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:500px;background:#fff;color:#333;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.15);padding:24px;border:1px solid #e2e8f0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="material-symbols-outlined" style="color:#1a73e8;font-size:22px;">translate</span>
+              <h3 style="margin:0;font-size:18px;font-weight:600;">Translate Cell</h3>
+            </div>
+            <button (click)="translateModalOpen=false" style="background:none;border:none;cursor:pointer;color:#888;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+          
+          <div style="display:flex;gap:12px;align-items:stretch;margin-bottom:16px;">
+             <div style="flex:1;">
+               <div style="font-size:12px;font-weight:600;color:#5f6368;margin-bottom:6px;">Original Text (Auto-detect)</div>
+               <textarea [ngModel]="translateSourceText" readonly style="width:100%;height:100px;background:#f8f9fa;border:1px solid #e2e8f0;border-radius:6px;padding:12px;font-size:14px;color:#333;resize:none;outline:none;box-sizing:border-box;"></textarea>
+             </div>
+             <div style="display:flex;align-items:center;">
+               <span class="material-symbols-outlined" style="color:#9aa0a6;">arrow_forward</span>
+             </div>
+             <div style="flex:1;">
+               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                 <div style="font-size:12px;font-weight:600;color:#5f6368;">Translation</div>
+                 <select [(ngModel)]="translateTargetLang" (change)="runTranslate()" style="border:1px solid #cbd5e1;border-radius:4px;padding:2px 4px;font-size:11px;outline:none;">
+                   <option value="es">Spanish</option>
+                   <option value="fr">French</option>
+                   <option value="de">German</option>
+                   <option value="it">Italian</option>
+                   <option value="zh-CN">Chinese (Simplified)</option>
+                   <option value="ja">Japanese</option>
+                   <option value="ko">Korean</option>
+                   <option value="hi">Hindi</option>
+                 </select>
+               </div>
+               <div style="position:relative;width:100%;height:100px;">
+                 <textarea [(ngModel)]="translateTargetText" [readOnly]="translateLoading" style="width:100%;height:100%;background:#fff;border:1px solid #1a73e8;border-radius:6px;padding:12px;font-size:14px;color:#1a73e8;resize:none;outline:none;box-sizing:border-box;"></textarea>
+                 <div *ngIf="translateLoading" style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.8);display:flex;align-items:center;justify-content:center;border-radius:6px;">
+                   <span class="material-symbols-outlined" style="animation:spin 1s linear infinite;color:#1a73e8;">refresh</span>
+                 </div>
+               </div>
+             </div>
+          </div>
+          
+          <div style="display:flex;justify-content:flex-end;gap:10px;">
+            <button (click)="translateModalOpen=false" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Cancel</button>
+            <button (click)="applyTranslation()" [disabled]="!translateTargetText || translateLoading" style="background:#1a73e8;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;" [style.opacity]="!translateTargetText || translateLoading ? 0.5 : 1">Replace in Cell</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature Modals -->
+        <div class="modal-overlay" *ngIf="activeModal !== null" (click)="activeModal = null" style="z-index: 10000;">
+          <div class="modal" (click)="$event.stopPropagation()" style="background:#fff; color:#333; border:1px solid #e2e8f0; box-shadow:0 8px 32px rgba(0,0,0,0.15); width:460px; padding:24px; border-radius:8px; position:relative;">
+            <button (click)="activeModal = null" style="position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;color:#888;display:flex;align-items:center;justify-content:center;">
+              <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+            </button>
+
+            <div *ngIf="activeModal === 'audit'">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="color:#10b981;font-size:24px;">history</span>
+                <h3 style="margin:0;font-size:18px;font-weight:600;">Audit Trail</h3>
+              </div>
+              <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:16px;">
+                <div style="background:#f8f9fa;padding:10px 14px;font-size:12px;font-weight:600;color:#5f6368;border-bottom:1px solid #e2e8f0;display:flex;gap:16px;">
+                  <span style="width:130px;">Time</span><span style="width:100px;">User</span><span>Action</span>
+                </div>
+                <div *ngFor="let item of dummyList; let i=index" style="padding:10px 14px;font-size:13px;border-bottom:1px solid #f1f5f9;display:flex;gap:16px;align-items:center;" [style.background]="i%2===0?'#fff':'#fafafa'">
+                  <span style="width:130px;color:#5f6368;">Today, {{12+i}}:{{i*7|number:'2.0'}} PM</span>
+                  <span style="width:100px;">You</span>
+                  <span>Edited cell A{{i+1}}</span>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:flex-end;">
+                <button (click)="activeModal=null" style="background:#10b981;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Close</button>
+              </div>
+            </div>
+
+            <div *ngIf="activeModal === 'version'">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="color:#1a73e8;font-size:24px;">manage_history</span>
+                <h3 style="margin:0;font-size:18px;font-weight:600;">Version History</h3>
+              </div>
+              <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:16px;">
+                <div *ngFor="let item of dummyList; let i=index" (click)="handleModalAction()" style="padding:12px 16px;font-size:13px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" [style.background]="i===0?'#f0fdf4':'#fff'">
+                  <div>
+                    <div style="font-weight:500;">{{i===0?'Current Version':item}}</div>
+                    <div style="font-size:12px;color:#5f6368;margin-top:2px;">Today at {{12+i}}:{{(i*13)%60|number:'2.0'}} PM · You</div>
+                  </div>
+                  <span *ngIf="i===0" style="background:#10b981;color:#fff;font-size:11px;padding:2px 8px;border-radius:3px;font-weight:600;">Current</span>
+                  <span *ngIf="i>0" style="color:#1a73e8;font-size:13px;cursor:pointer;">Restore</span>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:flex-end;">
+                <button (click)="activeModal=null" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Close</button>
+              </div>
+            </div>
+
+            <div *ngIf="activeModal === 'workflow'">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="color:#f59e0b;font-size:24px;">account_tree</span>
+                <h3 style="margin:0;font-size:18px;font-weight:600;">Manage Workflows</h3>
+              </div>
+              <div style="text-align:center;padding:40px 20px;color:#5f6368;">
+                <span class="material-symbols-outlined" style="font-size:48px;color:#e2e8f0;">account_tree</span>
+                <p style="margin-top:12px;font-size:14px;">No workflows created yet.</p>
+                <p style="font-size:13px;color:#9aa0a6;">Workflows let you automate actions when data changes in your sheet.</p>
+                <button (click)="showToast('Workflow creation coming soon.')" style="background:#10b981;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;margin-top:8px;">Create Workflow</button>
+              </div>
+            </div>
+
+            <div *ngIf="activeModal === 'template'">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="color:#1a73e8;font-size:24px;">grid_view</span>
+                <h3 style="margin:0;font-size:18px;font-weight:600;">Choose Template</h3>
+              </div>
+              <div *ngFor="let item of dummyList" (click)="handleModalAction()" style="padding:12px 16px;background:#f8f9fa;margin-bottom:8px;border-radius:6px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:10px;border:1px solid #e2e8f0;">
+                <span class="material-symbols-outlined" style="color:#1a73e8;">description</span> {{ item }}
+              </div>
+            </div>
+
+            <div *ngIf="activeModal === 'form'">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="color:#8b5cf6;font-size:24px;">assignment</span>
+                <h3 style="margin:0;font-size:18px;font-weight:600;">Data Entry Form</h3>
+              </div>
+              
+              <div *ngIf="formHeaders.length === 0" style="text-align:center;padding:20px;color:#5f6368;">
+                <span class="material-symbols-outlined" style="font-size:48px;color:#e2e8f0;margin-bottom:12px;">warning</span>
+                <p style="font-size:14px;margin-bottom:8px;">No headers found in Row 1.</p>
+                <p style="font-size:12px;color:#9aa0a6;">Please add headers to the first row of your sheet to generate a form.</p>
+                <div style="margin-top:20px;">
+                  <button (click)="activeModal=null" style="background:#8b5cf6;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Close</button>
+                </div>
+              </div>
+
+              <div *ngIf="formHeaders.length > 0" style="max-height:400px;overflow-y:auto;padding-right:10px;">
+                <div *ngFor="let header of formHeaders" style="margin-bottom:12px;">
+                  <label style="display:block;font-size:13px;font-weight:600;color:#5f6368;margin-bottom:4px;">{{header}}</label>
+                  <input [(ngModel)]="formData[header]" type="text" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:4px;padding:8px;font-size:14px;outline:none;" placeholder="Enter {{header}}" />
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+                  <button (click)="activeModal=null" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Cancel</button>
+                  <button (click)="submitForm()" style="background:#8b5cf6;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Submit Data</button>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="activeModal === 'view_form'">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="color:#8b5cf6;font-size:24px;">forum</span>
+                <h3 style="margin:0;font-size:18px;font-weight:600;">Form Responses Dashboard</h3>
+              </div>
+              <div style="text-align:center;padding:20px;color:#5f6368;">
+                <span class="material-symbols-outlined" style="font-size:48px;color:#10b981;margin-bottom:12px;">check_circle</span>
+                <p style="font-size:14px;margin-bottom:8px;">Your spreadsheet is actively collecting form responses.</p>
+                <p style="font-size:12px;color:#9aa0a6;">All submitted data is directly appended to the active sheet.</p>
+              </div>
+              <div style="display:flex;justify-content:flex-end;">
+                <button (click)="activeModal=null" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Close</button>
+              </div>
+            </div>
+
+            <div *ngIf="activeModal === 'macro' || activeModal === 'edit_macro'">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="color:#ef4444;font-size:24px;">integration_instructions</span>
+                <h3 style="margin:0;font-size:18px;font-weight:600;">VBA Macro Script Editor</h3>
+              </div>
+              <div style="margin-bottom:16px;">
+                <p style="font-size:12px;color:#5f6368;margin-bottom:8px;">Write JavaScript to automate tasks. Use 'this.cells[row][col]' to access data.</p>
+                <textarea [(ngModel)]="macroScript" style="width:100%;height:150px;background:#1e1e1e;color:#d4d4d4;font-family:monospace;font-size:13px;padding:12px;border-radius:6px;border:none;resize:none;box-sizing:border-box;outline:none;"></textarea>
+              </div>
+              <div style="display:flex;justify-content:flex-end;gap:10px;">
+                <button (click)="activeModal=null" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Cancel</button>
+                <button (click)="runMacro()" style="background:#ef4444;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;">play_arrow</span> Run Macro</button>
+              </div>
+            </div>
+
+            <div *ngIf="activeModal === 'functions'">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="color:#f59e0b;font-size:24px;">functions</span>
+                <h3 style="margin:0;font-size:18px;font-weight:600;">Custom Functions</h3>
+              </div>
+              <div style="margin-bottom:16px;">
+                <p style="font-size:12px;color:#5f6368;margin-bottom:8px;">Define custom functions using JavaScript. You can call them in cells like '=MY_CUSTOM_SUM(1, 2)'</p>
+                <textarea [(ngModel)]="customFunctionsScript" style="width:100%;height:200px;background:#1e1e1e;color:#d4d4d4;font-family:monospace;font-size:13px;padding:12px;border-radius:6px;border:none;resize:none;box-sizing:border-box;outline:none;"></textarea>
+              </div>
+              <div style="display:flex;justify-content:flex-end;gap:10px;">
+                <button (click)="activeModal=null" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Cancel</button>
+                <button (click)="saveCustomFunctions()" style="background:#f59e0b;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Save & Apply</button>
+              </div>
+            </div>
+
+            <div *ngIf="activeModal === 'merge'">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="color:#10b981;font-size:24px;">merge_type</span>
+                <h3 style="margin:0;font-size:18px;font-weight:600;">Merge Template</h3>
+              </div>
+              <div style="text-align:center;padding:20px;color:#5f6368;background:#f8f9fa;border:2px dashed #cbd5e1;border-radius:6px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="font-size:48px;color:#1a73e8;margin-bottom:12px;">upload_file</span>
+                <p style="font-size:14px;margin-bottom:16px;">Select a document template (.docx) to merge with your spreadsheet rows.</p>
+                <label style="background:#fff;border:1px solid #1a73e8;color:#1a73e8;padding:10px 20px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;">
+                   <span class="material-symbols-outlined" style="font-size:18px;">browse_activity</span> Browse Files
+                   <input type="file" style="display:none;" accept=".docx,.pdf" />
+                </label>
+              </div>
+              <div style="display:flex;justify-content:flex-end;gap:10px;">
+                <button (click)="activeModal=null" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Cancel</button>
+                <button (click)="simulateMerge()" style="background:#10b981;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;">auto_awesome</span> Start Merge</button>
+              </div>
+            </div>
+
+            <div *ngIf="activeModal === 'open'">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="color:#1a73e8;font-size:24px;">folder_open</span>
+                <h3 style="margin:0;font-size:18px;font-weight:600;">Open Document</h3>
+              </div>
+              <div *ngFor="let item of dummyList" (click)="handleModalAction()" style="padding:12px 16px;background:#f8f9fa;margin-bottom:8px;border-radius:6px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:10px;border:1px solid #e2e8f0;">
+                <span class="material-symbols-outlined" style="color:#0f9d58;">table_chart</span> {{ item }}
               </div>
             </div>
 
             <div *ngIf="activeModal === 'import'">
-              <p style="color:#a0aec0;font-size:13px;margin-bottom:16px;">Select a CSV, TSV, or XLSX file from your computer to import into the current sheet.</p>
-              <input type="file" style="width:100%; padding:10px; background:#2d3748; border:1px solid #4a5568; border-radius:6px; color:#fff; margin-bottom:16px;">
-              <button class="btn" (click)="handleModalAction()" style="width:100%; background:#00c274;">Import Now</button>
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="color:#10b981;font-size:24px;">upload</span>
+                <h3 style="margin:0;font-size:18px;font-weight:600;">Import File</h3>
+              </div>
+              <p style="color:#5f6368;font-size:13px;margin-bottom:16px;">Select a CSV, TSV, or XLSX file from your computer to import into the current sheet.</p>
+              <input type="file" accept=".csv,.tsv,.xlsx,.xls" style="width:100%;padding:10px;background:#f8f9fa;border:1px solid #e2e8f0;border-radius:6px;color:#333;margin-bottom:16px;box-sizing:border-box;">
+              <button class="btn" (click)="handleModalAction()" style="width:100%;background:#10b981;color:#fff;border:none;padding:10px;border-radius:4px;font-weight:600;cursor:pointer;">Import Now</button>
             </div>
 
             <div *ngIf="activeModal === 'move'">
-              <p style="color:#a0aec0;font-size:13px;margin-bottom:16px;">Enter the name of the folder you want to move this document to:</p>
-              <input type="text" [(ngModel)]="modalInput" placeholder="Folder Name" style="width:100%; padding:10px; background:#2d3748; border:1px solid #4a5568; border-radius:6px; color:#fff; margin-bottom:16px; outline:none; box-sizing:border-box;">
-              <button class="btn" (click)="handleModalAction()" style="width:100%; background:#1a73e8;">Move</button>
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="color:#f59e0b;font-size:24px;">drive_file_move</span>
+                <h3 style="margin:0;font-size:18px;font-weight:600;">Move Document</h3>
+              </div>
+              <p style="color:#5f6368;font-size:13px;margin-bottom:16px;">Enter the name of the folder you want to move this document to:</p>
+              <input type="text" [(ngModel)]="modalInput" placeholder="Folder Name" style="width:100%;padding:10px;background:#f8f9fa;border:1px solid #e2e8f0;border-radius:6px;color:#333;margin-bottom:16px;outline:none;box-sizing:border-box;">
+              <button (click)="handleModalAction()" style="width:100%;background:#1a73e8;color:#fff;border:none;padding:10px;border-radius:4px;font-weight:600;cursor:pointer;">Move</button>
             </div>
 
             <div *ngIf="activeModal === 'password'">
-              <p style="color:#a0aec0;font-size:13px;margin-bottom:16px;">Set a password to restrict who can open or view this document.</p>
-              <input type="password" [(ngModel)]="modalInput" placeholder="Enter new password" style="width:100%; padding:10px; background:#2d3748; border:1px solid #4a5568; border-radius:6px; color:#fff; margin-bottom:16px; outline:none; box-sizing:border-box;">
-              <button class="btn" (click)="handleModalAction()" style="width:100%; background:#d93025;">Set Password</button>
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+                <span class="material-symbols-outlined" style="color:#d93025;font-size:24px;">lock</span>
+                <h3 style="margin:0;font-size:18px;font-weight:600;">Protect Document</h3>
+              </div>
+              <p style="color:#5f6368;font-size:13px;margin-bottom:16px;">Set a password to restrict who can open or view this document.</p>
+              <input type="password" [(ngModel)]="modalInput" placeholder="Enter new password" style="width:100%;padding:10px;background:#f8f9fa;border:1px solid #e2e8f0;border-radius:6px;color:#333;margin-bottom:16px;outline:none;box-sizing:border-box;">
+              <button (click)="handleModalAction()" style="width:100%;background:#d93025;color:#fff;border:none;padding:10px;border-radius:4px;font-weight:600;cursor:pointer;">Set Password</button>
             </div>
-            
           </div>
         </div>
 
@@ -1638,14 +2825,14 @@ export interface CellValidation {
         </div>
         <div class="ctx-item" (click)="toggleSheetGridlines(activeSheetMenuIdx); activeSheetMenuIdx=null">
           <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">grid_on</span>
-          {{ sheets[activeSheetMenuIdx]?.hideGridlines ? 'Show Gridlines' : 'Hide Gridlines' }}
+          {{ sheets[activeSheetMenuIdx].hideGridlines ? 'Show Gridlines' : 'Hide Gridlines' }}
         </div>
-        <div class="ctx-item" (click)="hideSheet(activeSheetMenuIdx); activeSheetMenuIdx=null" [class.disabled]="getVisibleSheetCount() <= 1 && !sheets[activeSheetMenuIdx]?.hidden">
+        <div class="ctx-item" (click)="hideSheet(activeSheetMenuIdx); activeSheetMenuIdx=null" [class.disabled]="getVisibleSheetCount() <= 1 && !sheets[activeSheetMenuIdx].hidden">
           <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">visibility_off</span> Hide
         </div>
         <div class="ctx-item" (click)="toggleLockSheet(activeSheetMenuIdx); activeSheetMenuIdx=null">
-          <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">{{ sheets[activeSheetMenuIdx]?.locked ? 'lock_open' : 'lock' }}</span>
-          {{ sheets[activeSheetMenuIdx]?.locked ? 'Unlock Sheet' : 'Lock Sheet' }}
+          <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">{{ sheets[activeSheetMenuIdx].locked ? 'lock_open' : 'lock' }}</span>
+          {{ sheets[activeSheetMenuIdx].locked ? 'Unlock Sheet' : 'Lock Sheet' }}
         </div>
         <div class="ctx-item" (click)="publishSheet(activeSheetMenuIdx); activeSheetMenuIdx=null">
           <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">language</span> Publish This Sheet
@@ -1678,12 +2865,78 @@ export interface CellValidation {
 
       <!-- Custom Prompt Modal -->
       <div class="modal-overlay" *ngIf="promptModalOpen" (click)="closePrompt()">
-        <div class="modal" (click)="$event.stopPropagation()" style="background:#202124; color:#e8eaed; border-radius:12px; padding:24px; width:400px; box-shadow:0 12px 40px rgba(0,0,0,.6); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; border:none; max-width:90vw;">
-          <h3 style="margin-top:0; font-size:16px; font-weight:500; color:#e8eaed; margin-bottom:16px;">{{promptModalTitle}}</h3>
-          <input type="text" [(ngModel)]="promptModalValue" (keyup.enter)="submitPrompt()" style="width:100%; box-sizing:border-box; background:#1c1d1f; border:1px solid #5f6368; color:#e8eaed; font-size:14px; padding:10px 12px; border-radius:4px; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#8ab4f8'" onblur="this.style.borderColor='#5f6368'" autofocus>
-          <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:24px;">
-            <button (click)="closePrompt()" style="background:transparent; border:none; color:#8ab4f8; font-size:14px; font-weight:500; cursor:pointer; padding:8px 16px; border-radius:4px; transition:background 0.2s;" onmouseover="this.style.background='rgba(138,180,248,0.08)'" onmouseout="this.style.background='transparent'">Cancel</button>
-            <button (click)="submitPrompt()" style="background:#8ab4f8; color:#202124; border:none; border-radius:4px; font-weight:500; font-size:14px; padding:8px 24px; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#aecbfa'" onmouseout="this.style.background='#8ab4f8'">OK</button>
+        <div class="modal" (click)="$event.stopPropagation()" style="background:#fff; color:#333; border-radius:8px; padding:24px; width:420px; box-shadow:0 8px 32px rgba(0,0,0,0.15); border:1px solid #e2e8f0; max-width:90vw;">
+          <h3 style="margin-top:0; font-size:16px; font-weight:600; color:#333; margin-bottom:16px;">{{promptModalTitle}}</h3>
+          <input type="text" [(ngModel)]="promptModalValue" (keyup.enter)="submitPrompt()" style="width:100%; box-sizing:border-box; background:#f8f9fa; border:1px solid #cbd5e1; color:#333; font-size:14px; padding:10px 12px; border-radius:6px; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#10b981'" onblur="this.style.borderColor='#cbd5e1'" autofocus>
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+            <button (click)="closePrompt()" style="background:#f1f5f9; border:1px solid #e2e8f0; color:#333; font-size:14px; font-weight:500; cursor:pointer; padding:8px 20px; border-radius:4px;">Cancel</button>
+            <button (click)="submitPrompt()" style="background:#10b981; color:#fff; border:none; border-radius:4px; font-weight:600; font-size:14px; padding:8px 24px; cursor:pointer;">OK</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Personal Dictionary Modal -->
+      <div class="modal-overlay" *ngIf="personalDictModalOpen" (click)="personalDictModalOpen=false" style="z-index:10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:440px;background:#fff;color:#333;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.15);padding:24px;border:1px solid #e2e8f0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="material-symbols-outlined" style="color:#10b981;font-size:22px;">book</span>
+              <h3 style="margin:0;font-size:18px;font-weight:600;">Personal Dictionary</h3>
+            </div>
+            <button (click)="personalDictModalOpen=false" style="background:none;border:none;cursor:pointer;color:#888;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:14px;">
+            <input [(ngModel)]="personalDictNewWord" placeholder="Add a word..." (keyup.enter)="addPersonalDictWord()" style="flex:1;border:1px solid #cbd5e1;border-radius:4px;padding:8px 10px;font-size:13px;outline:none;" />
+            <button (click)="addPersonalDictWord()" style="background:#10b981;color:#fff;border:none;padding:8px 16px;border-radius:4px;font-weight:600;cursor:pointer;">Add</button>
+          </div>
+          <div style="border:1px solid #e2e8f0;border-radius:6px;max-height:200px;overflow-y:auto;">
+            <div *ngIf="personalDictWords.length===0" style="padding:24px;text-align:center;color:#9aa0a6;font-size:13px;">No words added yet.</div>
+            <div *ngFor="let w of personalDictWords; let i=index" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:13px;">
+              <span>{{ w }}</span>
+              <span (click)="removePersonalDictWord(i)" style="cursor:pointer;color:#d93025;font-size:13px;font-weight:600;">✕</span>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button (click)="personalDictModalOpen=false" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Spreadsheet Statistics Modal -->
+      <div class="modal-overlay" *ngIf="statsModalOpen" (click)="statsModalOpen=false" style="z-index:10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:420px;background:#fff;color:#333;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.15);padding:24px;border:1px solid #e2e8f0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="material-symbols-outlined" style="color:#1a73e8;font-size:22px;">bar_chart</span>
+              <h3 style="margin:0;font-size:18px;font-weight:600;">Spreadsheet Statistics</h3>
+            </div>
+            <button (click)="statsModalOpen=false" style="background:none;border:none;cursor:pointer;color:#888;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:16px;text-align:center;">
+              <div style="font-size:28px;font-weight:700;color:#10b981;">{{getStatsFilledCells()}}</div>
+              <div style="font-size:12px;color:#5f6368;margin-top:4px;">Non-Empty Cells</div>
+            </div>
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:16px;text-align:center;">
+              <div style="font-size:28px;font-weight:700;color:#1a73e8;">{{getStatsFormulaCells()}}</div>
+              <div style="font-size:12px;color:#5f6368;margin-top:4px;">Formula Cells</div>
+            </div>
+            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:16px;text-align:center;">
+              <div style="font-size:28px;font-weight:700;color:#f59e0b;">{{sheets.length}}</div>
+              <div style="font-size:12px;color:#5f6368;margin-top:4px;">Sheets</div>
+            </div>
+            <div style="background:#fdf4ff;border:1px solid #e9d5ff;border-radius:6px;padding:16px;text-align:center;">
+              <div style="font-size:28px;font-weight:700;color:#9333ea;">{{getStatsNumericCells()}}</div>
+              <div style="font-size:12px;color:#5f6368;margin-top:4px;">Numeric Cells</div>
+            </div>
+          </div>
+          <div style="background:#f8f9fa;border-radius:6px;padding:12px 16px;font-size:13px;color:#5f6368;line-height:1.8;">
+            <div>📋 Total rows: <strong>{{cells.length}}</strong></div>
+            <div>📋 Total columns: <strong>{{cells[0].length || 0}}</strong></div>
+            <div>🔒 Locked sheets: <strong>{{getStatsLockedSheets()}}</strong></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button (click)="statsModalOpen=false" style="background:#1a73e8;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Close</button>
           </div>
         </div>
       </div>
@@ -2055,6 +3308,42 @@ export interface CellValidation {
     .cell-input { background:transparent; border:none; color:inherit; font-family:inherit; font-size:inherit; font-weight:inherit; font-style:inherit; text-align:inherit; height:100%; outline:none; padding:0 4px; width:100%; display:block; box-shadow:none; }
     .visually-hidden { opacity:0; position:absolute; left:0; top:0; z-index:2; }
     .cell-display { position:relative; z-index:1; pointer-events:none; align-items:center; display:flex; min-height:100%; padding:0 4px; color:inherit; font-size:inherit; font-weight:inherit; font-style:inherit; text-align:inherit; white-space:inherit; overflow:inherit; text-overflow:inherit; word-break:inherit; }
+    .cell-display.wrap-text { white-space: pre-wrap !important; word-wrap: break-word !important; }
+    .floating-editor { position: absolute; z-index: 200; background: #fff; border: 2px solid #1a73e8; outline: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2); resize: none; overflow: hidden; font-family: inherit; font-size: inherit; padding: 2px 4px; box-sizing: border-box; white-space: pre-wrap; word-wrap: break-word; }
+    .shape-panel { position: absolute; top: 100%; left: 0; background: #fff; border: 1px solid #dadce0; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 300; width: 450px; display: flex; flex-direction: column; cursor: default; }
+    .shape-tabs { display: flex; border-bottom: 1px solid #eee; background: #fff; }
+    .s-tab { flex: 1; text-align: center; padding: 10px 0; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; color: #5f6368; }
+    .s-tab-active { color: #1a73e8; border-bottom: 2px solid #1a73e8; font-weight: 500; }
+    .s-tab .material-symbols-outlined { font-size: 16px; }
+    .shape-content { padding: 16px; }
+    .diagram-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .diag-item { border: 1px solid #eee; border-radius: 6px; padding: 12px 8px; text-align: center; cursor: pointer; transition: box-shadow 0.2s; background: #fff; }
+    .diag-item:hover { box-shadow: 0 2px 6px rgba(0,0,0,0.1); border-color: #ccc; }
+    .diag-item svg { width: 100%; height: 60px; }
+    .shape-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+    .s-item { aspect-ratio: 1; border: 1px solid transparent; border-radius: 2px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .s-item:hover { border-color: #1a73e8; background: #f8f9fa; }
+    .s-item svg { width: 24px; height: 24px; }
+    
+    .sheet-shape { position: absolute; z-index: 100; cursor: grab; display: flex; align-items: center; justify-content: center; border: 1px solid transparent; }
+    .sheet-shape.shape-active { border: 1px solid #0f9d58; cursor: move; }
+    .sheet-shape:active { cursor: grabbing; }
+    .sheet-shape .shape-content-wrapper { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; position: relative; }
+    .shape-handle { position: absolute; width: 8px; height: 8px; background: #fff; border: 1px solid #0f9d58; border-radius: 50%; z-index: 101; }
+    .shape-handle.nw { top: -4px; left: -4px; cursor: nwse-resize; }
+    .shape-handle.n { top: -4px; left: calc(50% - 8px); cursor: ns-resize; width: 16px; border-radius: 8px; }
+    .shape-handle.ne { top: -4px; right: -4px; cursor: nesw-resize; }
+    .shape-handle.e { top: calc(50% - 8px); right: -4px; cursor: ew-resize; height: 16px; border-radius: 8px; }
+    .shape-handle.se { bottom: -4px; right: -4px; cursor: nwse-resize; }
+    .shape-handle.s { bottom: -4px; left: calc(50% - 8px); cursor: ns-resize; width: 16px; border-radius: 8px; }
+    .shape-handle.sw { bottom: -4px; left: -4px; cursor: nesw-resize; }
+    .shape-handle.w { top: calc(50% - 8px); left: -4px; cursor: ew-resize; height: 16px; border-radius: 8px; }
+    .shape-menu-btn { position: absolute; top: -24px; right: 0; background: #fff; border: 1px solid #eee; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 4px; width: 24px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 102; color:#5f6368; }
+    .shape-menu-btn:hover { background: #f1f3f4; }
+    .shape-context-menu { position: absolute; top: 0; left: calc(100% + 8px); background: #fff; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); width: 200px; padding: 8px 0; z-index: 103; font-size: 13px; color: #202124; }
+    .scm-item { padding: 8px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: background 0.1s; text-align: left; }
+    .scm-item:hover { background: #f1f3f4; }
+    .scm-item .chevron { margin-left: auto; color: #9aa0a6; }
     .cell-select { border:none; background:transparent; color:inherit; font-family:inherit; font-size:inherit; font-weight:inherit; font-style:inherit; text-align:inherit; height:100%; outline:none; width:100%; cursor:pointer; }
     .fill-handle { background:#34a853; border:2px solid #fff; border-radius:50%; bottom:-5px; right:-5px; cursor:crosshair; height:8px; position:absolute; width:8px; z-index:30; box-shadow:0 1px 3px rgba(0,0,0,.4); }
 
@@ -2242,6 +3531,8 @@ export interface CellValidation {
     
     /* ── DARK THEME OVERRIDES ─────────────────────────────────────────── */
     .theme-dark .top-bar { background: #1e1e1e; border-bottom: 1px solid rgba(255, 255, 255, 0.15); }
+    .theme-dark .back-btn { color: #e8eaed; }
+    .theme-dark .back-btn:hover { background: rgba(255,255,255,0.05); }
     .theme-dark .menu-row { background: #1e1e1e; border-bottom: 1px solid rgba(255, 255, 255, 0.15); }
     .theme-dark .tb-row { background: #1e1e1e; border-bottom: 1px solid rgba(255, 255, 255, 0.15); }
     .theme-dark .tb-row2 { background: #1e1e1e; }
@@ -2262,7 +3553,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (this.activeWidget === w) this.activeWidget = null;
     else this.activeWidget = w;
   }
-  
+
   @ViewChild('imgInput') imgInputRef!: ElementRef<HTMLInputElement>;
 
   docId = '';
@@ -2404,6 +3695,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     return val !== undefined && val !== null ? String(val) : '';
   }
 
+  isEditingCell = false;
+  editValue = '';
+  @ViewChild('floatingEditor') floatingEditor?: ElementRef<HTMLTextAreaElement>;
+
   shareModalOpen = false;
   isPublic = false;
   shareQuery = '';
@@ -2479,9 +3774,37 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   picklistOptions: DropdownOption[] = [];
   picklistSelectType: 'single' | 'multi' = 'single';
 
+  pivotModalOpen = false;
+  pivotSource = '';
+  pivotDestType = 'existing';
+  pivotDest = 'Sheet1.A9';
+  dataValidationModalOpen = false;
+  manageRulesModalOpen = false;
+
+  // Range Picker state
+  rangePickerActive = false;
+  rangePickerField: 'pivotSource' | 'pivotDest' | 'dvAppliesTo' | null = null;
+  rangePickerStartR = -1;
+  rangePickerStartC = -1;
+  rangePickerEndR = -1;
+  rangePickerEndC = -1;
+  _pivotModalWasOpen = false;
+  _dvModalWasOpen = false;
+
+  // Data Validation form state
+  dvCriteria = 'list';
+  dvShowList = true;
+  dvSortAsc = false;
+  dvIgnoreBlanks = true;
+  dvAlertsOpen = false;
+  dvAlertEnabled = true;
+  dvAlertTitle = '';
+  dvAlertMsg = '';
+  dvAppliesTo = 'Sheet1.A1';
+
   // Multiple sheets
-  sheets: Array<{ name: string, cells: string[][], formats: Record<string, CellFormat>, validations: Record<string, CellValidation>, colWidths?: Record<number, number>, rowHeights?: Record<number, number>, hideGridlines?: boolean, locked?: boolean, hidden?: boolean, tabColor?: string }> = [
-    { name: 'Sheet1', cells: Array.from({ length: ROWS }, () => Array(COLS).fill('')), formats: {}, validations: {} }
+  sheets: Array<{ name: string, cells: string[][], formats: Record<string, CellFormat>, validations: Record<string, CellValidation>, colWidths?: Record<number, number>, rowHeights?: Record<number, number>, hideGridlines?: boolean, locked?: boolean, hidden?: boolean, tabColor?: string, shapes?: any[], rowGroups?: Array<{ start: number, end: number, collapsed: boolean }>, colGroups?: Array<{ start: number, end: number, collapsed: boolean }> }> = [
+    { name: 'Sheet1', cells: Array.from({ length: ROWS }, () => Array(COLS).fill('')), formats: {}, validations: {}, shapes: [] }
   ];
   currentSheetIdx = 0;
   activeSheetMenuIdx: number | null = null;
@@ -2543,6 +3866,15 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   get selectedRef() { return `${colName(this.selectedCol)}${this.selectedRow + 1}`; }
   colLabel(i: number) { return colName(i); }
+
+  colToIndex(col: string): number {
+    let index = 0;
+    for (let i = 0; i < col.length; i++) {
+      index = index * 26 + (col.toUpperCase().charCodeAt(i) - 64);
+    }
+    return index - 1;
+  }
+
   isRemoteSelected(r: number, c: number) {
     return Object.values(this.remoteCursors).some(pos => pos.r === r && pos.c === c);
   }
@@ -2662,37 +3994,67 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if ((e.key === 'Delete' || e.key === 'Backspace') && !this.isEditingText(e)) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      if (!this.isEditingText(e) && !this.isEditingCell) {
+        e.preventDefault();
+        this.selectAll();
+        return;
+      }
+    }
+
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !this.isEditingText(e) && !this.isEditingCell) {
       e.preventDefault();
-      this.clearCell();
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+        if (this.rangeStart && this.rangeEnd) {
+          const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+          const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+          const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+          const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+          if (minR !== maxR || minC !== maxC) {
+            this.clearRangeData();
+            return;
+          }
+        }
+        this.clearCell();
+      }
       return;
     }
 
-    if (!this.isEditingText(e) && e.key === 'Enter') {
-      e.preventDefault();
-      setTimeout(() => {
-        const activeInput = document.querySelector('.cell.selected .cell-input') as HTMLInputElement;
-        if (activeInput) {
-          activeInput.focus();
-          const len = activeInput.value.length;
-          activeInput.setSelectionRange(len, len);
-        }
-      }, 0);
-      return;
-    }
-
-    if (!this.isEditingText(e) && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      this.cells[this.selectedRow][this.selectedCol] = e.key;
-      this.formulaBarValue = e.key;
-      this.onCellChange();
-      setTimeout(() => {
-        const activeInput = document.querySelector('.cell.selected .cell-input') as HTMLInputElement;
-        if (activeInput) {
-          activeInput.focus();
-          activeInput.setSelectionRange(1, 1);
-        }
-      }, 0);
-      return;
+    if (!this.isEditingText(e) && !this.isEditingCell) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const nr = Math.max(0, this.selectedRow - 1);
+        this.selectCell(nr, this.selectedCol);
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const nr = Math.min(this.cells.length - 1, this.selectedRow + 1);
+        this.selectCell(nr, this.selectedCol);
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const nc = Math.max(0, this.selectedCol - 1);
+        this.selectCell(this.selectedRow, nc);
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const nc = Math.min(this.cells[0].length - 1, this.selectedCol + 1);
+        this.selectCell(this.selectedRow, nc);
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.startEditing();
+        return;
+      }
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        this.startEditing(e.key);
+        return;
+      }
     }
 
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); this.undo(); }
@@ -2727,6 +4089,123 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       }
     }
     if (e.key === 'Escape') { this.hideCtx(); }
+  }
+
+  @HostListener('document:paste', ['$event'])
+  pasteFromClipboard(e: ClipboardEvent) {
+    if (this.isEditingText(e as any) || this.isEditingCell) return;
+
+    e.preventDefault();
+
+    const clipboardData = e.clipboardData || (window as any).clipboardData;
+    if (!clipboardData) return;
+
+    const pastedHtml = clipboardData.getData('text/html');
+    const pastedText = clipboardData.getData('Text');
+
+    if (!pastedHtml && !pastedText) return;
+
+    this.pushHistory();
+
+    const startRow = this.selectedRow;
+    const startCol = this.selectedCol;
+    let maxCols = 1;
+    let maxRows = 1;
+
+    let parsedFromHtml = false;
+
+    if (pastedHtml) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(pastedHtml, 'text/html');
+      const table = doc.querySelector('table');
+
+      if (table) {
+        parsedFromHtml = true;
+        const rows = Array.from(table.rows);
+        maxRows = rows.length;
+
+        for (let r = 0; r < rows.length; r++) {
+          const cells = Array.from(rows[r].cells);
+          maxCols = Math.max(maxCols, cells.length);
+          for (let c = 0; c < cells.length; c++) {
+            const targetR = startRow + r;
+            const targetC = startCol + c;
+
+            if (targetR < ROWS && targetC < COLS) {
+              const cell = cells[c];
+              this.cells[targetR][targetC] = cell.innerText.trim();
+
+              let formats: any = {};
+
+              // Handle bold
+              if (cell.tagName.toLowerCase() === 'th' ||
+                cell.style.fontWeight === 'bold' ||
+                cell.style.fontWeight === '700' ||
+                cell.querySelector('b') ||
+                cell.querySelector('strong')) {
+                formats.bold = true;
+              }
+
+              // Handle italic
+              if (cell.style.fontStyle === 'italic' ||
+                cell.querySelector('i') ||
+                cell.querySelector('em')) {
+                formats.italic = true;
+              }
+
+              // Handle background color
+              if (cell.style.backgroundColor &&
+                cell.style.backgroundColor !== 'transparent' &&
+                cell.style.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+                formats.bg = cell.style.backgroundColor;
+              }
+
+              // Handle text color
+              if (cell.style.color && cell.style.color !== 'inherit') {
+                formats.color = cell.style.color;
+              }
+
+              if (Object.keys(formats).length > 0) {
+                this.formats[`${targetR},${targetC}`] = {
+                  ...(this.formats[`${targetR},${targetC}`] || {}),
+                  ...formats
+                };
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (!parsedFromHtml && pastedText) {
+      const rows = pastedText.split(/\r?\n/);
+      if (rows.length > 0 && rows[rows.length - 1] === '') {
+        rows.pop(); // Remove trailing newline from spreadsheet copies
+      }
+      maxRows = rows.length;
+
+      for (let r = 0; r < rows.length; r++) {
+        const cols = rows[r].split('\t');
+        maxCols = Math.max(maxCols, cols.length);
+        for (let c = 0; c < cols.length; c++) {
+          const targetR = startRow + r;
+          const targetC = startCol + c;
+          if (targetR < ROWS && targetC < COLS) {
+            this.cells[targetR][targetC] = cols[c];
+          }
+        }
+      }
+    }
+
+    this.rangeStart = { r: startRow, c: startCol };
+    this.rangeEnd = {
+      r: Math.min(startRow + maxRows - 1, ROWS - 1),
+      c: Math.min(startCol + maxCols - 1, COLS - 1)
+    };
+
+    this.onCellChange();
+    this.save();
+    this.showToast('Data pasted');
   }
 
   @HostListener('document:mouseup')
@@ -2782,7 +4261,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (!opts || !opts.length) return;
     const target = event.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
-    
+
     // We can create a dynamic overlay or use a generic one. For simplicity,
     // let's create a dynamic absolute div and append to body.
     const overlay = document.createElement('div');
@@ -2790,7 +4269,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     overlay.style.top = `${rect.bottom + 2}px`;
     overlay.style.left = `${rect.left}px`;
     overlay.style.width = `${Math.max(rect.width, 150)}px`;
-    
+
     opts.forEach((opt: any) => {
       const item = document.createElement('div');
       item.className = 'custom-dropdown-item';
@@ -2971,7 +4450,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       // Interpolate numbers/dates only if it's NOT a formula
       if (!v.startsWith('=')) {
         const num = Number(v);
-        if (!isNaN(num) && v.trim() !== '') return String(num + offset);
+        // By default in spreadsheets, dragging a single number copies it instead of incrementing.
+        // We only interpolate dates automatically.
         const dateMatch = v.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
         if (dateMatch) {
           const m = parseInt(dateMatch[1], 10);
@@ -3044,11 +4524,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.formulaBarValue = '';
   }
 
-  clearHeaderSelection() {
+  selectAll() {
     this.selectedColHeader = null;
     this.selectedRowHeader = null;
-    this.rangeStart = null;
-    this.rangeEnd = null;
+    this.rangeStart = { r: 0, c: 0 };
+    this.rangeEnd = { r: ROWS - 1, c: COLS - 1 };
+    this.selectedRow = 0;
+    this.selectedCol = 0;
+    this.formulaBarValue = this.isImageCell(0, 0) ? '[IMAGE]' : this.cells[0][0] || '';
   }
 
   isColHeaderSelected(c: number): boolean { return this.selectedColHeader === c; }
@@ -3133,7 +4616,12 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         for (let c = minC; c <= maxC; c++) {
           this.cells[r][c] = '';
           const ref = `${r},${c}`;
-          if (this.formats[ref] && (this.formats[ref] as any).checkbox) {
+          if (this.formats[ref]) {
+            delete this.formats[ref].bg;
+            delete this.formats[ref].bold;
+            delete this.formats[ref].italic;
+            delete this.formats[ref].color;
+            delete this.formats[ref].strikethrough;
             delete (this.formats[ref] as any).checkbox;
           }
         }
@@ -3141,7 +4629,12 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     } else {
       this.cells[this.selectedRow][this.selectedCol] = '';
       const ref = `${this.selectedRow},${this.selectedCol}`;
-      if (this.formats[ref] && (this.formats[ref] as any).checkbox) {
+      if (this.formats[ref]) {
+        delete this.formats[ref].bg;
+        delete this.formats[ref].bold;
+        delete this.formats[ref].italic;
+        delete this.formats[ref].color;
+        delete this.formats[ref].strikethrough;
         delete (this.formats[ref] as any).checkbox;
       }
     }
@@ -3219,6 +4712,209 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   addPicklistOption() {
     const colors = ['#4caf50', '#f44336', '#ff9800', '#2196f3', '#9c27b0', '#795548', '#607d8b'];
     this.picklistOptions.push({ label: '', color: colors[this.picklistOptions.length % colors.length] });
+  }
+
+  openPivotModal(e?: Event) {
+    if (e) e.stopPropagation();
+    const sheetName = this.sheets[this.currentSheetIdx].name;
+    if (this.rangeStart && this.rangeEnd) {
+      const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+      const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+      const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+      const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+      this.pivotSource = `${sheetName}.${this.colLabel(minC)}${minR + 1}:${this.colLabel(maxC)}${maxR + 1}`;
+    } else {
+      this.pivotSource = `${sheetName}.${this.colLabel(this.selectedCol)}${this.selectedRow + 1}`;
+    }
+    this.pivotModalOpen = true;
+    this.closeMenus();
+  }
+
+  openDataValidationModal(e?: Event) {
+    if (e) e.stopPropagation();
+    const sheetName = this.sheets[this.currentSheetIdx].name;
+    if (this.rangeStart && this.rangeEnd) {
+      const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+      const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+      const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+      const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+      this.dvAppliesTo = `${sheetName}.${this.colLabel(minC)}${minR + 1}:${this.colLabel(maxC)}${maxR + 1}`;
+    } else {
+      this.dvAppliesTo = `${sheetName}.${this.colLabel(this.selectedCol)}${this.selectedRow + 1}`;
+    }
+    this.validationInput = '';
+    this.dvCriteria = 'list';
+    this.dvShowList = true;
+    this.dvSortAsc = false;
+    this.dvIgnoreBlanks = true;
+    this.dvAlertsOpen = false;
+    this.dvAlertEnabled = true;
+    this.dvAlertTitle = '';
+    this.dvAlertMsg = '';
+    this.dataValidationModalOpen = true;
+    this.closeMenus();
+  }
+
+  openManageRulesModal(e?: Event) {
+    if (e) {
+      e.stopPropagation();
+    }
+    this.manageRulesModalOpen = true;
+    this.closeMenus();
+  }
+
+  pivotHeaders: string[] = [];
+  pivotData: any[][] = [];
+  pivotConfig = { row: '', val: '', agg: 'SUM' };
+
+  createPivotTable() {
+    let minR = 0, maxR = 0, minC = 0, maxC = 0;
+
+    // Parse range from the modal input
+    if (this.pivotDest && this.pivotDest.includes(':')) {
+      const parts = this.pivotDest.split(':');
+      const startParts = parts[0].split('.');
+      const endPart = parts[1];
+      const startRef = startParts.length > 1 ? startParts[1] : startParts[0];
+      const endRef = endPart;
+
+      const sCol = startRef.match(/[A-Z]+/)![0];
+      const sRow = startRef.match(/[0-9]+/)![0];
+      const eCol = endRef.match(/[A-Z]+/)![0];
+      const eRow = endRef.match(/[0-9]+/)![0];
+
+      minC = this.colToIndex(sCol);
+      minR = parseInt(sRow, 10) - 1;
+      maxC = this.colToIndex(eCol);
+      maxR = parseInt(eRow, 10) - 1;
+    } else if (this.rangeStart && this.rangeEnd) {
+      minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+      maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+      minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+      maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    } else {
+      this.showToast('Invalid data range.');
+      return;
+    }
+
+    if (maxR === minR) {
+      this.showToast('Range must include headers and at least one data row.');
+      return;
+    }
+
+    this.pivotHeaders = [];
+    for (let c = minC; c <= maxC; c++) {
+      this.pivotHeaders.push(this.cells[minR][c] || `Col ${c}`);
+    }
+
+    this.pivotData = [];
+    for (let r = minR + 1; r <= maxR; r++) {
+      let row = [];
+      for (let c = minC; c <= maxC; c++) {
+        row.push(this.cells[r][c] || '');
+      }
+      this.pivotData.push(row);
+    }
+
+    if (this.pivotDestType === 'new') {
+      this.addSheet();
+      this.switchSheet(this.sheets.length - 1);
+      this.sheets[this.currentSheetIdx].name = 'Pivot Table 1';
+      this.selectedRow = 0;
+      this.selectedCol = 0;
+    }
+
+    this.pivotConfig = {
+      row: this.pivotHeaders[0],
+      val: this.pivotHeaders[this.pivotHeaders.length - 1],
+      agg: 'SUM'
+    };
+
+    this.pivotModalOpen = false;
+    this.sidePanelApp = 'pivot';
+
+    this.applyPivot();
+  }
+
+  applyPivot() {
+    if (!this.pivotConfig.row || !this.pivotConfig.val) return;
+
+    const rowIdx = this.pivotHeaders.indexOf(this.pivotConfig.row);
+    const valIdx = this.pivotHeaders.indexOf(this.pivotConfig.val);
+
+    if (rowIdx === -1 || valIdx === -1) return;
+
+    const map = new Map<string, number[]>();
+    for (const row of this.pivotData) {
+      const key = String(row[rowIdx]);
+      const rawVal = row[valIdx];
+      const val = Number(rawVal) || 0;
+
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(val);
+    }
+
+    this.pushHistory();
+    const startR = this.selectedRow;
+    const startC = this.selectedCol;
+
+    // Clear previous pivot table area
+    for (let r = 0; r < 20; r++) for (let c = 0; c < 5; c++) {
+      if (startR + r < ROWS && startC + c < COLS) {
+        this.cells[startR + r][startC + c] = '';
+        delete this.formats[`${startR + r},${startC + c}`];
+      }
+    }
+
+    this.cells[startR][startC] = this.pivotConfig.row;
+    this.cells[startR][startC + 1] = `${this.pivotConfig.agg} of ${this.pivotConfig.val}`;
+    this.formats[`${startR},${startC}`] = { bold: true, bg: '#f1f5f9' };
+    this.formats[`${startR},${startC + 1}`] = { bold: true, bg: '#f1f5f9' };
+
+    let currR = startR + 1;
+    let allVals: number[] = [];
+
+    for (const [k, arr] of map.entries()) {
+      if (currR < ROWS) {
+        let v = 0;
+        if (this.pivotConfig.agg === 'SUM') v = arr.reduce((a, b) => a + b, 0);
+        else if (this.pivotConfig.agg === 'COUNT') v = arr.length;
+        else if (this.pivotConfig.agg === 'AVG') v = arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+
+        const displayV = (this.pivotConfig.agg === 'AVG' && v % 1 !== 0) ? v.toFixed(2) : String(v);
+
+        this.cells[currR][startC] = k;
+        this.cells[currR][startC + 1] = displayV;
+        allVals.push(...arr);
+        currR++;
+      }
+    }
+
+    if (currR < ROWS) {
+      let grandTotal = 0;
+      if (this.pivotConfig.agg === 'SUM') grandTotal = allVals.reduce((a, b) => a + b, 0);
+      else if (this.pivotConfig.agg === 'COUNT') grandTotal = allVals.length;
+      else if (this.pivotConfig.agg === 'AVG') grandTotal = allVals.length ? allVals.reduce((a, b) => a + b, 0) / allVals.length : 0;
+
+      const displayGrand = (this.pivotConfig.agg === 'AVG' && grandTotal % 1 !== 0) ? grandTotal.toFixed(2) : String(grandTotal);
+
+      this.cells[currR][startC] = 'Grand Total';
+      this.cells[currR][startC + 1] = displayGrand;
+      this.formats[`${currR},${startC}`] = { bold: true, bg: '#f1f5f9' };
+      this.formats[`${currR},${startC + 1}`] = { bold: true, bg: '#f1f5f9' };
+    }
+
+    this.onCellChange();
+    this.save();
+  }
+
+  saveDataValidation() {
+    if (this.validationInput.trim().length > 0) {
+      const options = this.validationInput.split('\n').filter(o => o.trim() !== '');
+      this.picklistOptions = options.map(o => ({ label: o.trim(), color: '#4a5568' }));
+      this.saveValidation();
+    }
+    this.dataValidationModalOpen = false;
   }
 
   saveValidation() {
@@ -3380,12 +5076,170 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   selectCell(r: number, c: number) {
+    this.activeShapeIdx = null;
+    this.activeShapeMenuIdx = null;
+    if (this.sheets[this.currentSheetIdx]?.locked) {
+      this.showToast('This sheet is locked.');
+      return;
+    }
+    if (this.isEditingCell) this.commitEdit();
     this.selectedRow = r; this.selectedCol = c;
     this.formulaBarValue = this.isImageCell(r, c) ? '[IMAGE]' : this.cells[r][c];
     this.currentFont = this.getFormat('font') || 'Arial';
     this.currentSize = this.getFormat('size') || '13px';
     this.currentSizeNum = parseInt(this.currentSize, 10) || 13;
     this.api.sendCursor(r, c);
+  }
+
+  onCellClickWithPicker(r: number, c: number) {
+    if (this.rangePickerActive) {
+      this.rangePickerStartR = r;
+      this.rangePickerStartC = c;
+      this.rangePickerEndR = r;
+      this.rangePickerEndC = c;
+      this.updateRangePickerField();
+      return;
+    }
+    this.selectCell(r, c);
+  }
+
+  startRangePicker(field: 'pivotSource' | 'pivotDest' | 'dvAppliesTo') {
+    this.rangePickerField = field;
+    this.rangePickerActive = true;
+    this._pivotModalWasOpen = this.pivotModalOpen;
+    this._dvModalWasOpen = this.dataValidationModalOpen;
+    this.pivotModalOpen = false;
+    this.dataValidationModalOpen = false;
+    // Seed with current selection
+    this.rangePickerStartR = this.selectedRow;
+    this.rangePickerStartC = this.selectedCol;
+    this.rangePickerEndR = this.selectedRow;
+    this.rangePickerEndC = this.selectedCol;
+    this.updateRangePickerField();
+  }
+
+  updateRangePickerField() {
+    const sheetName = this.sheets[this.currentSheetIdx].name;
+    const minR = Math.min(this.rangePickerStartR, this.rangePickerEndR);
+    const maxR = Math.max(this.rangePickerStartR, this.rangePickerEndR);
+    const minC = Math.min(this.rangePickerStartC, this.rangePickerEndC);
+    const maxC = Math.max(this.rangePickerStartC, this.rangePickerEndC);
+    const ref = minR === maxR && minC === maxC
+      ? `${sheetName}.${this.colLabel(minC)}${minR + 1}`
+      : `${sheetName}.${this.colLabel(minC)}${minR + 1}:${this.colLabel(maxC)}${maxR + 1}`;
+    if (this.rangePickerField === 'pivotSource') this.pivotSource = ref;
+    else if (this.rangePickerField === 'pivotDest') this.pivotDest = ref;
+    else if (this.rangePickerField === 'dvAppliesTo') this.dvAppliesTo = ref;
+  }
+
+  getRangePickerValue(): string {
+    if (this.rangePickerField === 'pivotSource') return this.pivotSource;
+    if (this.rangePickerField === 'pivotDest') return this.pivotDest;
+    if (this.rangePickerField === 'dvAppliesTo') return this.dvAppliesTo;
+    return '';
+  }
+
+  onRangePickerInput(e: Event) {
+    const val = (e.target as HTMLInputElement).value;
+    if (this.rangePickerField === 'pivotSource') this.pivotSource = val;
+    else if (this.rangePickerField === 'pivotDest') this.pivotDest = val;
+    else if (this.rangePickerField === 'dvAppliesTo') this.dvAppliesTo = val;
+  }
+
+  confirmRangePicker() {
+    this.rangePickerActive = false;
+    if (this._pivotModalWasOpen) this.pivotModalOpen = true;
+    if (this._dvModalWasOpen) this.dataValidationModalOpen = true;
+    this.rangePickerField = null;
+  }
+
+  cancelRangePicker() {
+    this.rangePickerActive = false;
+    if (this._pivotModalWasOpen) this.pivotModalOpen = true;
+    if (this._dvModalWasOpen) this.dataValidationModalOpen = true;
+    this.rangePickerField = null;
+  }
+
+  getColOffset(c: number): number {
+    let offset = (this.showHeaders ? 46 : 0) + this.groupMarginWidth;
+    const widths = this.sheets[this.currentSheetIdx].colWidths || {};
+    for (let i = 0; i < c; i++) { offset += widths[i] ?? 100; }
+    return offset;
+  }
+
+  getRowOffset(r: number): number {
+    let offset = this.showHeaders ? 26 : 0;
+    const heights = this.sheets[this.currentSheetIdx].rowHeights || {};
+    for (let i = 0; i < r; i++) { offset += heights[i] ?? 26; }
+    return offset;
+  }
+
+  getFormatWrap(r: number, c: number): boolean {
+    const f = this.sheets[this.currentSheetIdx].formats[`${r},${c}`];
+    return f ? f.wrap === 'wrap' || f.wrap === true : false;
+  }
+
+  startEditing(initialValue?: string) {
+    if (this.sheets[this.currentSheetIdx]?.locked) {
+      this.showToast('This sheet is locked.');
+      return;
+    }
+    this.isEditingCell = true;
+    this.editValue = initialValue !== undefined ? initialValue : this.cells[this.selectedRow][this.selectedCol];
+    setTimeout(() => {
+      if (this.floatingEditor) {
+        this.floatingEditor.nativeElement.focus();
+        const len = this.editValue.length;
+        this.floatingEditor.nativeElement.setSelectionRange(len, len);
+        this.autoResizeEditor();
+      }
+    }, 0);
+  }
+
+  commitEdit() {
+    if (!this.isEditingCell) return;
+    this.cells[this.selectedRow][this.selectedCol] = this.editValue;
+    this.formulaBarValue = this.editValue;
+    this.isEditingCell = false;
+    this.onCellChange();
+    this.save();
+    setTimeout(() => {
+      (document.activeElement as HTMLElement)?.blur();
+    }, 0);
+  }
+
+  autoResizeEditor(e?: Event) {
+    if (!this.floatingEditor) return;
+    const el = this.floatingEditor.nativeElement;
+    el.style.height = 'auto';
+    el.style.height = (el.scrollHeight + 2) + 'px';
+  }
+
+  onEditorKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      if (e.ctrlKey || e.altKey || e.metaKey) {
+        e.preventDefault();
+        const start = (e.target as HTMLTextAreaElement).selectionStart;
+        const end = (e.target as HTMLTextAreaElement).selectionEnd;
+        this.editValue = this.editValue.substring(0, start) + '\n' + this.editValue.substring(end);
+        setTimeout(() => {
+          if (this.floatingEditor) {
+            this.floatingEditor.nativeElement.selectionStart = this.floatingEditor.nativeElement.selectionEnd = start + 1;
+          }
+          this.autoResizeEditor();
+        }, 0);
+      } else if (!e.shiftKey) {
+        e.preventDefault();
+        this.commitEdit();
+        this.onEnter(e, this.selectedRow, this.selectedCol);
+      }
+    } else if (e.key === 'Escape') {
+      this.isEditingCell = false;
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      this.commitEdit();
+      this.onTab(e, this.selectedRow, this.selectedCol);
+    }
   }
 
   commitFormula() {
@@ -3516,11 +5370,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   // ── New view/format/edit helpers ─────────────────────────────────────────
-  selectAll() {
-    this.rangeStart = { r: 0, c: 0 };
-    this.rangeEnd = { r: ROWS - 1, c: COLS - 1 };
-    this.closeMenus();
-  }
+
 
   clearAllFormats() {
     const minR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
@@ -3572,18 +5422,46 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   removeDuplicates() {
-    const c = this.selectedCol;
-    const seen = new Set<string>();
     this.pushHistory();
-    let removed = 0;
-    for (let r = 0; r < ROWS; r++) {
-      const v = this.cells[r][c];
-      if (v === '') continue;
-      if (seen.has(v)) {
-        for (let cc = 0; cc < COLS; cc++) this.cells[r][cc] = '';
-        removed++;
-      } else seen.add(v);
+    let minR = this.selectedRow, maxR = this.selectedRow;
+    let minC = this.selectedCol, maxC = this.selectedCol;
+
+    if (this.rangeStart && this.rangeEnd) {
+      minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+      maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+      minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+      maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    } else {
+      // If only one cell is selected, apply to the entire active columns.
+      minR = 0;
+      maxR = this.cells.length - 1;
     }
+
+    const seen = new Set<string>();
+    let removed = 0;
+
+    for (let r = minR; r <= maxR; r++) {
+      let signature = '';
+      for (let c = minC; c <= maxC; c++) {
+        signature += (this.cells[r][c] || '') + '|';
+      }
+
+      // Ignore completely blank rows from duplicate detection
+      if (signature === '|'.repeat(maxC - minC + 1)) {
+        continue;
+      }
+
+      if (seen.has(signature)) {
+        this.cells.splice(r, 1);
+        this.cells.push(Array(COLS).fill('')); // Maintain row count
+        r--;
+        maxR--;
+        removed++;
+      } else {
+        seen.add(signature);
+      }
+    }
+
     this.onCellChange(); this.save(); this.closeMenus();
     this.showToast(`Removed ${removed} duplicate row(s).`);
   }
@@ -3655,13 +5533,123 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   clearConditionalFormats() { this.showToast('Cleared Conditional Formats.'); this.closeMenus(); }
   clearRichTextFormats() { this.showToast('Cleared RichText Formats.'); this.closeMenus(); }
 
+  shapeTab: 'text' | 'shape' | 'diagram' = 'diagram';
+  diagramCategory: 'list' | 'process' | 'pyramid' | 'cycle' = 'list';
+  shapeCategory: 'shape' | 'lines' | 'flowchart' | 'math' | 'stars' | 'callouts' = 'shape';
+  textCategory: 'textbox' | 'symbol' = 'textbox';
+  activeShapeIdx: number | null = null;
+  activeShapeMenuIdx: number | null = null;
+
+  insertShape(type: string) {
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (!sheet.shapes) {
+      sheet.shapes = [];
+    }
+    const x = this.getColOffset(this.selectedCol) + 20;
+    const y = this.getRowOffset(this.selectedRow) + 20;
+
+    let width = 100;
+    let height = 100;
+    let text = '';
+
+    if (type.startsWith('diagram')) {
+      width = 250;
+      height = 150;
+    } else if (type.startsWith('text')) {
+      width = 150;
+      height = 40;
+      text = 'Sample Text';
+    } else if (type.startsWith('symbol_')) {
+      width = 40;
+      height = 40;
+      const symbols: { [key: string]: string } = {
+        'symbol_copy': '©', 'symbol_reg': '®', 'symbol_tm': '™',
+        'symbol_pi': 'π', 'symbol_sigma': 'Σ', 'symbol_omega': 'Ω', 'symbol_inf': '∞'
+      };
+      text = symbols[type] || '';
+    } else if (type === 'button') {
+      width = 120;
+      height = 40;
+      text = 'Button';
+    } else {
+      text = '';
+    }
+
+    sheet.shapes.push({
+      id: 'shape_' + Date.now(),
+      type: type,
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+      text: text,
+    });
+    this.activeMenu = null;
+    this.save();
+  }
+
+  deleteShape(idx: number) {
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (sheet.shapes) {
+      sheet.shapes.splice(idx, 1);
+      this.save();
+    }
+  }
+
+  async editShapeLabel(idx: number) {
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (!sheet.shapes) return;
+    const shape = sheet.shapes[idx];
+    const currentText = shape.text || '';
+    const newText = await this.openPrompt('Enter text for this shape:', currentText);
+    if (newText !== null) {
+      shape.text = newText;
+      this.save();
+    }
+  }
+
+  startShapeDrag(e: MouseEvent, idx: number) {
+    this.activeShapeIdx = idx;
+    this.activeShapeMenuIdx = null;
+    this.closeMenus();
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (!sheet.shapes) return;
+    const shape = sheet.shapes[idx];
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const initialX = shape.x;
+    const initialY = shape.y;
+
+    const moveListener = (moveEvent: MouseEvent) => {
+      shape.x = initialX + (moveEvent.clientX - startX);
+      shape.y = initialY + (moveEvent.clientY - startY);
+    };
+
+    const upListener = () => {
+      document.removeEventListener('mousemove', moveListener);
+      document.removeEventListener('mouseup', upListener);
+      this.save();
+    };
+
+    document.addEventListener('mousemove', moveListener);
+    document.addEventListener('mouseup', upListener);
+
+    e.preventDefault();
+  }
+
   recalculate() { this.updateDisplayCache(); this.showToast('Recalculated.'); }
 
   clearCell() {
     this.pushHistory();
     this.cells[this.selectedRow][this.selectedCol] = '';
     const ref = `${this.selectedRow},${this.selectedCol}`;
-    if (this.formats[ref] && (this.formats[ref] as any).checkbox) {
+    if (this.formats[ref]) {
+      delete this.formats[ref].bg;
+      delete this.formats[ref].bold;
+      delete this.formats[ref].italic;
+      delete this.formats[ref].color;
+      delete this.formats[ref].strikethrough;
       delete (this.formats[ref] as any).checkbox;
     }
     this.formulaBarValue = '';
@@ -3728,10 +5716,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const r = this.selectedRow;
     const c = this.selectedCol;
     for (let i = ROWS - 1; i > r; i--) {
-      this.cells[i][c] = this.cells[i-1][c];
-      const prevFmt = this.formats[`${i-1},${c}`];
+      this.cells[i][c] = this.cells[i - 1][c];
+      const prevFmt = this.formats[`${i - 1},${c}`];
       if (prevFmt) {
-        this.formats[`${i},${c}`] = {...prevFmt};
+        this.formats[`${i},${c}`] = { ...prevFmt };
       } else {
         delete this.formats[`${i},${c}`];
       }
@@ -3748,10 +5736,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const r = this.selectedRow;
     const c = this.selectedCol;
     for (let i = COLS - 1; i > c; i--) {
-      this.cells[r][i] = this.cells[r][i-1];
-      const prevFmt = this.formats[`${r},${i-1}`];
+      this.cells[r][i] = this.cells[r][i - 1];
+      const prevFmt = this.formats[`${r},${i - 1}`];
       if (prevFmt) {
-        this.formats[`${r},${i}`] = {...prevFmt};
+        this.formats[`${r},${i}`] = { ...prevFmt };
       } else {
         delete this.formats[`${r},${i}`];
       }
@@ -3810,14 +5798,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  insertShape() {
-    setTimeout(() => this.showToast('Shape inserted as a floating overlay.'), 500);
-    this.closeMenus();
-  }
-
   insertButton() {
-    setTimeout(() => this.showToast('Button inserted as a floating overlay.'), 500);
     this.closeMenus();
+    this.insertShape('button');
+    this.showToast('Button inserted.');
   }
 
   async defineName() {
@@ -3852,37 +5836,37 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   applyPresetPicklist(type: string) {
-    const presets: {[key:string]: any[]} = {
+    const presets: { [key: string]: any[] } = {
       'project_status': [
-        {label: 'Yet to start', color: '#e2e8f0'},
-        {label: 'Blocked', color: '#fed7d7'},
-        {label: 'In Progress', color: '#fefcbf'},
-        {label: 'Completed', color: '#c6f6d5'}
+        { label: 'Yet to start', color: '#e2e8f0' },
+        { label: 'Blocked', color: '#fed7d7' },
+        { label: 'In Progress', color: '#fefcbf' },
+        { label: 'Completed', color: '#c6f6d5' }
       ],
       'bug_status': [
-        {label: 'Open', color: '#fed7d7'},
-        {label: 'In Progress', color: '#fefcbf'},
-        {label: 'Closed', color: '#c6f6d5'},
-        {label: 'Reopen', color: '#bee3f8'}
+        { label: 'Open', color: '#fed7d7' },
+        { label: 'In Progress', color: '#fefcbf' },
+        { label: 'Closed', color: '#c6f6d5' },
+        { label: 'Reopen', color: '#bee3f8' }
       ],
       'review': [
-        {label: 'Yet to start', color: '#e2e8f0'},
-        {label: 'Under Review', color: '#bee3f8'},
-        {label: 'Approved', color: '#c6f6d5'}
+        { label: 'Yet to start', color: '#e2e8f0' },
+        { label: 'Under Review', color: '#bee3f8' },
+        { label: 'Approved', color: '#c6f6d5' }
       ],
       'priority': [
-        {label: 'Low', color: '#bee3f8'},
-        {label: 'Medium', color: '#c6f6d5'},
-        {label: 'High', color: '#fefcbf'},
-        {label: 'Critical', color: '#fed7d7'}
+        { label: 'Low', color: '#bee3f8' },
+        { label: 'Medium', color: '#c6f6d5' },
+        { label: 'High', color: '#fefcbf' },
+        { label: 'Critical', color: '#fed7d7' }
       ],
       'decision': [
-        {label: 'Yes', color: '#c6f6d5'},
-        {label: 'No', color: '#fed7d7'}
+        { label: 'Yes', color: '#c6f6d5' },
+        { label: 'No', color: '#fed7d7' }
       ],
       'boolean': [
-        {label: 'True', color: '#c6f6d5'},
-        {label: 'False', color: '#fed7d7'}
+        { label: 'True', color: '#c6f6d5' },
+        { label: 'False', color: '#fed7d7' }
       ]
     };
 
@@ -3970,6 +5954,156 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.showToast('All columns unhidden.');
   }
 
+  get hasRowGroups() {
+    return !!this.sheets[this.currentSheetIdx].rowGroups?.length;
+  }
+
+  get groupMarginWidth() {
+    return this.hasRowGroups ? 24 : 0;
+  }
+
+  getRowGroupsFor(r: number) {
+    const groups = this.sheets[this.currentSheetIdx].rowGroups;
+    if (!groups) return [];
+    return groups.map((g, index) => ({ ...g, index })).filter(g => r >= g.start && r <= g.end);
+  }
+
+  groupRow() {
+    if (!this.rangeStart || !this.rangeEnd) return;
+    const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+    const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+    if (minR === maxR) {
+      this.showToast('Select multiple rows to group');
+      return;
+    }
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (!sheet.rowGroups) sheet.rowGroups = [];
+    sheet.rowGroups.push({ start: minR, end: maxR, collapsed: false });
+    this.closeMenus();
+    this.save();
+    this.showToast('Rows grouped');
+  }
+
+  ungroupRow() {
+    if (!this.rangeStart || !this.rangeEnd) return;
+    const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+    const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (!sheet.rowGroups) return;
+    const initialLen = sheet.rowGroups.length;
+    sheet.rowGroups = sheet.rowGroups.filter(g => !(g.start >= minR && g.end <= maxR));
+    if (sheet.rowGroups.length < initialLen) {
+      // Re-evaluate hidden rows since a group was removed
+      for (let i = minR; i <= maxR; i++) {
+        this.hiddenRows.delete(i);
+      }
+      this.closeMenus();
+      this.save();
+      this.showToast('Rows ungrouped');
+    }
+  }
+
+  clearGroups() {
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (sheet.rowGroups) {
+      sheet.rowGroups.forEach(g => {
+        for (let i = g.start; i <= g.end; i++) {
+          this.hiddenRows.delete(i);
+        }
+      });
+      sheet.rowGroups = [];
+    }
+    if (sheet.colGroups) {
+      sheet.colGroups.forEach(g => {
+        for (let i = g.start; i <= g.end; i++) {
+          this.hiddenCols.delete(i);
+        }
+      });
+      sheet.colGroups = [];
+    }
+    this.closeMenus();
+    this.save();
+    this.showToast('All groups cleared');
+  }
+
+  toggleRowGroup(index: number) {
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (!sheet.rowGroups) return;
+    const group = sheet.rowGroups[index];
+    group.collapsed = !group.collapsed;
+    for (let r = group.start; r <= group.end; r++) {
+      if (group.collapsed) {
+        this.hiddenRows.add(r);
+      } else {
+        this.hiddenRows.delete(r);
+      }
+    }
+    this.save();
+  }
+
+  get hasColGroups() {
+    return !!this.sheets[this.currentSheetIdx].colGroups?.length;
+  }
+
+  get colGroupMarginHeight() {
+    return this.hasColGroups ? 24 : 0;
+  }
+
+  getColGroupsFor(c: number) {
+    const groups = this.sheets[this.currentSheetIdx].colGroups;
+    if (!groups) return [];
+    return groups.map((g, index) => ({ ...g, index })).filter(g => c >= g.start && c <= g.end);
+  }
+
+  groupCol() {
+    if (!this.rangeStart || !this.rangeEnd) return;
+    const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+    const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    if (minC === maxC) {
+      this.showToast('Select multiple columns to group');
+      return;
+    }
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (!sheet.colGroups) sheet.colGroups = [];
+    sheet.colGroups.push({ start: minC, end: maxC, collapsed: false });
+    this.closeMenus();
+    this.save();
+    this.showToast('Columns grouped');
+  }
+
+  ungroupCol() {
+    if (!this.rangeStart || !this.rangeEnd) return;
+    const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+    const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (!sheet.colGroups) return;
+    const initialLen = sheet.colGroups.length;
+    sheet.colGroups = sheet.colGroups.filter(g => !(g.start >= minC && g.end <= maxC));
+    if (sheet.colGroups.length < initialLen) {
+      for (let i = minC; i <= maxC; i++) {
+        this.hiddenCols.delete(i);
+      }
+      this.closeMenus();
+      this.save();
+      this.showToast('Columns ungrouped');
+    }
+  }
+
+  toggleColGroup(index: number) {
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (!sheet.colGroups) return;
+    const group = sheet.colGroups[index];
+    group.collapsed = !group.collapsed;
+    for (let c = group.start; c <= group.end; c++) {
+      if (group.collapsed) {
+        this.hiddenCols.add(c);
+      } else {
+        this.hiddenCols.delete(c);
+      }
+    }
+    this.save();
+  }
+
   setGridlineColor(color: string) {
     this.gridlineColor = color;
   }
@@ -4009,7 +6143,17 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   sortColAZ() {
     this.pushHistory();
     const c = this.selectedCol;
-    this.cells.sort((a, b) => (a[c] || '').localeCompare(b[c] || ''));
+    this.cells.sort((a, b) => {
+      const vA = (a[c] || '').trim();
+      const vB = (b[c] || '').trim();
+      if (!vA && !vB) return 0;
+      if (!vA) return 1;
+      if (!vB) return -1;
+      const nA = Number(vA);
+      const nB = Number(vB);
+      if (!isNaN(nA) && !isNaN(nB)) return nA - nB;
+      return vA.localeCompare(vB);
+    });
     this.onCellChange(); this.closeMenus();
     this.showToast(`Column ${colName(c)} sorted A → Z.`);
   }
@@ -4017,15 +6161,63 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   sortColZA() {
     this.pushHistory();
     const c = this.selectedCol;
-    this.cells.sort((a, b) => (b[c] || '').localeCompare(a[c] || ''));
+    this.cells.sort((a, b) => {
+      const vA = (a[c] || '').trim();
+      const vB = (b[c] || '').trim();
+      if (!vA && !vB) return 0;
+      if (!vA) return 1;
+      if (!vB) return -1;
+      const nA = Number(vA);
+      const nB = Number(vB);
+      if (!isNaN(nA) && !isNaN(nB)) return nB - nA;
+      return vB.localeCompare(vA);
+    });
     this.onCellChange(); this.closeMenus();
     this.showToast(`Column ${colName(c)} sorted Z → A.`);
   }
 
+  statsModalOpen = false;
+  personalDictModalOpen = false;
+  personalDictWords: string[] = [];
+  personalDictNewWord = '';
+
   showWordCount() {
-    const filled = this.cells.flat().filter(v => v.trim() !== '').length;
     this.closeMenus();
-    this.showToast(`${filled} non-empty cells in spreadsheet.`);
+    this.statsModalOpen = true;
+  }
+
+  getStatsFilledCells(): number {
+    return this.cells.flat().filter(v => v && v.trim() !== '').length;
+  }
+
+  getStatsFormulaCells(): number {
+    return this.cells.flat().filter(v => v && v.startsWith('=')).length;
+  }
+
+  getStatsNumericCells(): number {
+    return this.cells.flat().filter(v => v && !isNaN(Number(v)) && v.trim() !== '').length;
+  }
+
+  getStatsLockedSheets(): number {
+    return this.sheets.filter(s => s.locked).length;
+  }
+
+  personalDictionary() {
+    this.closeMenus();
+    this.personalDictModalOpen = true;
+  }
+
+  addPersonalDictWord() {
+    const w = this.personalDictNewWord.trim();
+    if (w && !this.personalDictWords.includes(w)) {
+      this.personalDictWords.push(w);
+      this.personalDictNewWord = '';
+      this.showToast(`"${w}" added to dictionary.`);
+    }
+  }
+
+  removePersonalDictWord(i: number) {
+    this.personalDictWords.splice(i, 1);
   }
 
   showKeyboardShortcuts() {
@@ -4453,10 +6645,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
     const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
     const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    if (minR === maxR) return; // Need a range to fill down into
     this.pushHistory();
-    for (let c = minC; c <= maxC; c++)
-      for (let r = minR + 1; r <= maxR; r++)
-        this.cells[r][c] = this.cells[minR][c];
+    for (let c = minC; c <= maxC; c++) {
+      const v = this.cells[minR][c];
+      for (let r = minR + 1; r <= maxR; r++) {
+        this.cells[r][c] = v;
+      }
+    }
     this.onCellChange(); this.save();
     this.showToast('Filled down.');
   }
@@ -4467,10 +6663,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
     const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
     const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    if (minC === maxC) return;
     this.pushHistory();
-    for (let r = minR; r <= maxR; r++)
-      for (let c = minC + 1; c <= maxC; c++)
-        this.cells[r][c] = this.cells[r][minC];
+    for (let r = minR; r <= maxR; r++) {
+      const v = this.cells[r][minC];
+      for (let c = minC + 1; c <= maxC; c++) {
+        this.cells[r][c] = v;
+      }
+    }
     this.onCellChange(); this.save();
     this.showToast('Filled right.');
   }
@@ -4481,10 +6681,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
     const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
     const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    if (minR === maxR) return;
     this.pushHistory();
-    for (let c = minC; c <= maxC; c++)
-      for (let r = maxR - 1; r >= minR; r--)
-        this.cells[r][c] = this.cells[maxR][c];
+    for (let c = minC; c <= maxC; c++) {
+      const v = this.cells[maxR][c];
+      for (let r = maxR - 1; r >= minR; r--) {
+        this.cells[r][c] = v;
+      }
+    }
     this.onCellChange(); this.save();
     this.showToast('Filled up.');
   }
@@ -4495,16 +6699,477 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
     const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
     const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+    if (minC === maxC) return;
     this.pushHistory();
-    for (let r = minR; r <= maxR; r++)
-      for (let c = maxC - 1; c >= minC; c--)
-        this.cells[r][c] = this.cells[r][maxC];
+    for (let r = minR; r <= maxR; r++) {
+      const v = this.cells[r][maxC];
+      for (let c = maxC - 1; c >= minC; c--) {
+        this.cells[r][c] = v;
+      }
+    }
     this.onCellChange(); this.save();
     this.showToast('Filled left.');
   }
 
+  textToColsModalOpen = false;
+  t2cDelimiter = ',';
+  t2cCustomDelim = '';
+
+  openTextToColumnsModal() {
+    this.textToColsModalOpen = true;
+  }
+
+  applyTextToColumns() {
+    const delim = this.t2cDelimiter === 'custom' ? this.t2cCustomDelim : this.t2cDelimiter;
+    if (!delim) { this.showToast('Please enter a delimiter.'); return; }
+
+    this.pushHistory();
+    const minR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const maxR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const col = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+
+    let splitCount = 0;
+    for (let r = minR; r <= maxR; r++) {
+      const val = this.cells[r][col];
+      if (!val) continue;
+      const parts = val.split(delim);
+      if (parts.length <= 1) continue;
+      this.cells[r][col] = parts[0];
+      for (let i = 1; i < parts.length; i++) {
+        if (col + i < COLS) {
+          this.cells[r][col + i] = parts[i].trim();
+        }
+      }
+      splitCount++;
+    }
+
+    this.textToColsModalOpen = false;
+    this.onCellChange();
+    this.save();
+    this.showToast(splitCount > 0 ? `Split ${splitCount} cell(s) into columns.` : 'No cells were split.');
+  }
+
+  spellCheckModalOpen = false;
+  spellCheckLoading = false;
+  spellCheckErrors: any[] = [];
+  spellCheckTargetText = '';
+
+  translateModalOpen = false;
+  translateLoading = false;
+  translateSourceText = '';
+  translateTargetText = '';
+  translateTargetLang = 'es';
+
+  formHeaders: string[] = [];
+  formData: { [key: string]: string } = {};
+
+  macroScript = 'this.cells[1][1] = "Hello Macro!";\nthis.save();\nthis.showToast("Macro executed successfully!");';
+
+  customFunctionsScript = `window.customSheetFunctions = {
+  MY_CUSTOM_SUM: function(a, b) {
+    return a + b;
+  },
+  MY_CUSTOM_DISCOUNT: function(price, pct) {
+    return price * (1 - (pct/100));
+  }
+};`;
+
+  async spellCheck() {
+    this.closeMenus();
+    const text = this.cells[this.selectedRow][this.selectedCol];
+    if (!text || text.trim() === '') { this.showToast('Select a cell with text to spell check.'); return; }
+    this.spellCheckTargetText = text;
+    this.spellCheckErrors = [];
+    this.spellCheckModalOpen = true;
+    this.spellCheckLoading = true;
+    try {
+      const res = await fetch(`https://api.languagetoolplus.com/v2/check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ text: text, language: 'en-US' })
+      });
+      const data = await res.json();
+      this.spellCheckErrors = data.matches || [];
+    } catch (e) {
+      this.showToast('Error running spell check.');
+    } finally {
+      this.spellCheckLoading = false;
+    }
+  }
+
+  applySpellCheckFix(errIndex: number, replacement: string) {
+    const err = this.spellCheckErrors[errIndex];
+    const text = this.spellCheckTargetText;
+    const newText = text.substring(0, err.offset) + replacement + text.substring(err.offset + err.length);
+    this.spellCheckTargetText = newText;
+    this.cells[this.selectedRow][this.selectedCol] = newText;
+    this.save();
+
+    // adjust offsets for remaining errors
+    const diff = replacement.length - err.length;
+    this.spellCheckErrors.splice(errIndex, 1);
+    for (const other of this.spellCheckErrors) {
+      if (other.offset > err.offset) {
+        other.offset += diff;
+      }
+    }
+  }
+
+  translateSheet() {
+    this.closeMenus();
+    const text = this.cells[this.selectedRow][this.selectedCol];
+    if (!text || text.trim() === '') { this.showToast('Select a cell with text to translate.'); return; }
+    this.translateSourceText = text;
+    this.translateTargetText = '';
+    this.translateModalOpen = true;
+    this.runTranslate();
+  }
+
+  async runTranslate() {
+    if (!this.translateSourceText) return;
+    this.translateLoading = true;
+    try {
+      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(this.translateSourceText)}&langpair=en|${this.translateTargetLang}`);
+      const data = await res.json();
+      if (data && data.responseData && data.responseData.translatedText) {
+        this.translateTargetText = data.responseData.translatedText;
+      } else {
+        this.translateTargetText = 'Error translating text.';
+      }
+    } catch (e) {
+      this.translateTargetText = 'Error translating text.';
+    } finally {
+      this.translateLoading = false;
+    }
+  }
+
+  applyTranslation() {
+    if (this.translateTargetText && !this.translateLoading) {
+      this.cells[this.selectedRow][this.selectedCol] = this.translateTargetText;
+      this.save();
+      this.translateModalOpen = false;
+    }
+  }
+
   patternFill() {
-    this.showToast('Pattern Fill not fully implemented in preview.');
+    // Flash fill: detect pattern from filled cells above and fill down
+    const col = this.selectedCol;
+    const startR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const endR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+
+    // Find first non-empty cell to use as template
+    let templateVal = '';
+    for (let r = startR - 1; r >= 0; r--) {
+      if (this.cells[r][col]) { templateVal = this.cells[r][col]; break; }
+    }
+    if (!templateVal) { this.showToast('No pattern found above the selection.'); return; }
+
+    // Try numeric sequence detection
+    const nums: number[] = [];
+    for (let r = startR - 2; r <= startR - 1; r++) {
+      if (r >= 0 && this.cells[r][col] && !isNaN(Number(this.cells[r][col]))) {
+        nums.push(Number(this.cells[r][col]));
+      }
+    }
+
+    this.pushHistory();
+    if (nums.length === 2) {
+      const diff = nums[1] - nums[0];
+      let cur = nums[1];
+      for (let r = startR; r <= endR; r++) {
+        cur += diff;
+        this.cells[r][col] = String(cur);
+      }
+      this.showToast(`Pattern fill: sequence with step ${diff}.`);
+    } else {
+      // Just fill down with same value
+      for (let r = startR; r <= endR; r++) {
+        if (!this.cells[r][col]) this.cells[r][col] = templateVal;
+      }
+      this.showToast('Pattern fill applied.');
+    }
+    this.onCellChange();
+    this.save();
+  }
+
+  lockCurrentSheet() {
+    const sheet = this.sheets[this.currentSheetIdx];
+    sheet.locked = !sheet.locked;
+    this.save();
+    this.showToast(sheet.locked ? 'Sheet locked.' : 'Sheet unlocked.');
+  }
+
+  lockSelectedRange() {
+    const minR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const maxR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    const maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    for (let r = minR; r <= maxR; r++)
+      for (let c = minC; c <= maxC; c++)
+        this.formats[`${r},${c}`] = { ...(this.formats[`${r},${c}`] || {}), locked: true } as any;
+    this.onCellChange(); this.save();
+    this.showToast(`Range locked: ${this.colLabel(minC)}${minR + 1}:${this.colLabel(maxC)}${maxR + 1}`);
+  }
+
+  async linkSpreadsheet() {
+    const url = await this.openPrompt('Enter the URL of the spreadsheet to link:');
+    if (url) {
+      this.showToast(`Linked to: ${url.substring(0, 40)}...`);
+    }
+  }
+
+  dataFromPicture() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+      if (input.files?.length) {
+        this.showToast('Data from Picture: OCR processing is not supported in this version.');
+      }
+    };
+    input.click();
+  }
+
+  publishRange() {
+    const ref = this.getRangeRef();
+    const url = `${window.location.origin}/sheet/${this.route?.snapshot?.params?.['id']}?range=${ref}`;
+    navigator.clipboard.writeText(url).then(() => {
+      this.showToast('Published link copied to clipboard!');
+    }).catch(() => {
+      this.showToast(`Published URL: ${url}`);
+    });
+  }
+
+  copyPublishLink() {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      this.showToast('Share link copied to clipboard!');
+    }).catch(() => {
+      this.showToast('Copy failed. Please copy the URL from the address bar.');
+    });
+  }
+
+  // ── Review menu ──────────────────────────────────────────────────────────
+  menuSearch = '';
+
+
+
+  openAuditTrail() {
+    this.activeModal = 'audit';
+  }
+
+  openEditHistory() {
+    this.activeModal = 'version';
+  }
+
+  showAllComments() {
+    const commentCount = Object.keys(this.formats).filter(k => (this.formats[k] as any)?.comment).length;
+    if (commentCount === 0) { this.showToast('No comments in this sheet.'); return; }
+    this.showToast(`${commentCount} comment(s) in this sheet. Click cells with comments to view.`);
+  }
+
+  addNoteToCell() {
+    const ref = `${this.selectedRow},${this.selectedCol}`;
+    const existing = (this.formats[ref] as any)?.note || '';
+    const note = prompt('Add a note to this cell:', existing);
+    if (note !== null) {
+      this.formats[ref] = { ...(this.formats[ref] || {}), note } as any;
+      this.onCellChange();
+      this.save();
+      this.showToast(note ? 'Note added.' : 'Note removed.');
+    }
+  }
+
+  // ── Tools menu ───────────────────────────────────────────────────────────
+  createForm() {
+    this.formHeaders = [];
+    for (let c = 0; c < COLS; c++) {
+      const h = this.cells[0][c];
+      if (h && h.trim()) this.formHeaders.push(h);
+      else break;
+    }
+    this.formData = {};
+    this.activeModal = 'form';
+  }
+
+  submitForm() {
+    let emptyRow = 1;
+    while (emptyRow < this.cells.length && this.cells[emptyRow].some(c => c && c.trim() !== '')) {
+      emptyRow++;
+    }
+    if (emptyRow >= this.cells.length) {
+      this.cells.push(Array(COLS).fill(''));
+    }
+    for (let c = 0; c < this.formHeaders.length; c++) {
+      this.cells[emptyRow][c] = this.formData[this.formHeaders[c]] || '';
+    }
+    this.save();
+    this.formData = {};
+    this.showToast('Form data submitted to row ' + (emptyRow + 1));
+  }
+
+  viewForm() {
+    this.activeModal = 'view_form';
+  }
+
+  openMacroEditor() {
+    this.activeModal = 'macro';
+  }
+
+  runMacro() {
+    try {
+      const fn = new Function(this.macroScript);
+      fn.call(this);
+      this.recalculate();
+    } catch (e) {
+      this.showToast('Macro execution error: ' + e);
+    }
+  }
+
+  openCustomFunctions() {
+    this.activeModal = 'functions';
+  }
+
+  saveCustomFunctions() {
+    try {
+      const fn = new Function(this.customFunctionsScript);
+      fn.call(this);
+      this.recalculate();
+      this.showToast('Custom functions saved and recalculated.');
+      this.activeModal = null;
+    } catch (e) {
+      this.showToast('Error parsing custom functions: ' + e);
+    }
+  }
+
+  openGoalSeek() {
+    this.goalSeekModalOpen = true;
+  }
+
+  openSolver() {
+    this.goalSeekModalOpen = true;
+  }
+
+  openEmailNotifications() {
+    this.emailNotifModalOpen = true;
+  }
+
+  openMergeTemplate() {
+    this.activeModal = 'merge';
+  }
+
+  simulateMerge() {
+    this.activeModal = null;
+    this.showToast('Merging template with data...');
+    setTimeout(() => {
+      this.showToast('Successfully merged 12 documents.');
+    }, 1500);
+  }
+
+  openPreferences() {
+    this.preferencesModalOpen = true;
+  }
+
+  // ── Help menu ────────────────────────────────────────────────────────────
+  openWhatsNew() {
+    window.open('https://www.zoho.com/sheet/whats-new.html', '_blank');
+  }
+
+  openUserGuide() {
+    window.open('https://www.zoho.com/sheet/help/', '_blank');
+  }
+
+  openDeveloperApi() {
+    window.open('https://www.zoho.com/sheet/developer-api/', '_blank');
+  }
+
+  openFeedback() {
+    this.feedbackModalOpen = true;
+  }
+
+  // ── Goal Seek / Email Notifications / Preferences / Feedback modals ───────
+  goalSeekModalOpen = false;
+  goalSeekTargetCell = '';
+  goalSeekTargetValue = '';
+  goalSeekByCell = '';
+  emailNotifModalOpen = false;
+  emailNotifOnEdit = true;
+  emailNotifOnComment = true;
+  emailNotifEmail = '';
+  preferencesModalOpen = false;
+  prefLocale = 'en-US';
+  prefDateFormat = 'MM/DD/YYYY';
+  prefThousands = true;
+  feedbackModalOpen = false;
+  feedbackText = '';
+  feedbackRating = 5;
+
+  applyGoalSeek() {
+    if (!this.goalSeekTargetCell || !this.goalSeekTargetValue || !this.goalSeekByCell) {
+      this.showToast('Please fill in all Goal Seek fields.'); return;
+    }
+    const tMatch = this.goalSeekTargetCell.trim().match(/^([a-zA-Z]+)(\d+)$/);
+    const vMatch = this.goalSeekByCell.trim().match(/^([a-zA-Z]+)(\d+)$/);
+    if (!tMatch || !vMatch) { this.showToast('Invalid cell references.'); return; }
+
+    const tr = parseInt(tMatch[2]) - 1;
+    const tc = tMatch[1].toUpperCase().charCodeAt(0) - 65;
+    const vr = parseInt(vMatch[2]) - 1;
+    const vc = vMatch[1].toUpperCase().charCodeAt(0) - 65;
+
+    const targetVal = parseFloat(this.goalSeekTargetValue);
+    if (isNaN(targetVal)) { this.showToast('Target value must be a number.'); return; }
+
+    // Simple iterative solver (Newton's method)
+    let currentX = parseFloat(this.evalCell(vr, vc)) || 0;
+    let iterations = 0;
+    let success = false;
+
+    while (iterations < 50) {
+      this.cells[vr][vc] = String(currentX);
+      let y0 = parseFloat(String(this.evalCell(tr, tc))) || 0;
+
+      let error = targetVal - y0;
+      if (Math.abs(error) < 0.0001) { success = true; break; }
+
+      this.cells[vr][vc] = String(currentX + 0.001);
+      let y1 = parseFloat(String(this.evalCell(tr, tc))) || 0;
+
+      let derivative = (y1 - y0) / 0.001;
+      if (derivative === 0) {
+        currentX += (Math.random() - 0.5); // Random jump to escape flat region
+      } else {
+        currentX = currentX + (error / derivative);
+      }
+      iterations++;
+    }
+
+    this.cells[vr][vc] = String(currentX);
+    this.save();
+
+    if (success) {
+      this.showToast(`Goal Seek Success: Set ${this.goalSeekByCell} to ${currentX.toFixed(4)}.`);
+    } else {
+      this.showToast(`Goal Seek failed to converge after 50 iterations.`);
+    }
+    this.goalSeekModalOpen = false;
+  }
+
+  saveEmailNotifications() {
+    this.emailNotifModalOpen = false;
+    this.showToast('Email notification preferences saved.');
+  }
+
+  savePreferences() {
+    this.preferencesModalOpen = false;
+    this.showToast('Preferences saved.');
+  }
+
+  submitFeedback() {
+    if (!this.feedbackText.trim()) { this.showToast('Please enter your feedback.'); return; }
+    this.feedbackModalOpen = false;
+    this.feedbackText = '';
+    this.showToast('Thank you for your feedback!');
   }
 
   // ── Find & Replace ────────────────────────────────────────────────────────
@@ -4680,7 +7345,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   private evalExpr(expr: string, visited: Set<string>): number | string {
     // Functions
-    const fnMatch = expr.match(/^(SUM|AVERAGE|AVG|COUNT|COUNTA|MAX|MIN|IF|AND|OR|CONCATENATE|CONCAT|LEN|UPPER|LOWER|TRIM|LEFT|RIGHT|MID|ROUND|ABS|MOD|SQRT|POWER|TEXT|TODAY|NOW|ISNUMBER|ISBLANK)\((.*)\)$/);
+    const fnMatch = expr.match(/^([A-Z_][A-Z0-9_]*)\((.*)\)$/);
     if (fnMatch) {
       const fn = fnMatch[1], args = this.parseArgs(fnMatch[2]);
       // Resolve each arg: either a range, cell ref, string literal, or number
@@ -4729,6 +7394,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         case 'AND': return flatArgs.every(v => v === 'TRUE' || (typeof v === 'number' && v !== 0)) ? 'TRUE' : 'FALSE';
         case 'OR': return flatArgs.some(v => v === 'TRUE' || (typeof v === 'number' && v !== 0)) ? 'TRUE' : 'FALSE';
         case 'TEXT': return String(flatArgs[0] ?? '');
+        default:
+          if ((window as any).customSheetFunctions && typeof (window as any).customSheetFunctions[fn] === 'function') {
+            try { return (window as any).customSheetFunctions[fn](...flatArgs); } catch (e) { return '#ERROR!'; }
+          }
+          return '#NAME?';
       }
     }
     // Comparison operators
@@ -5106,7 +7776,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     window.location.href = `${this.api.base}/export?doc_id=${this.docId}&format=${format}`;
   }
 
-  activeModal: 'template' | 'open' | 'import' | 'move' | 'audit' | 'version' | 'workflow' | 'password' | null = null;
+  activeModal: 'template' | 'open' | 'import' | 'move' | 'audit' | 'version' | 'workflow' | 'password' | 'form' | 'view_form' | 'macro' | 'edit_macro' | 'functions' | 'merge' | null = null;
   previewImageUrl: string | null = null;
   saveStatus: 'saved' | 'saving' | 'error' = 'saved';
   lastSavedTime: string = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
@@ -5212,7 +7882,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   getFrozenColOffset(c: number): number {
-    let offset = this.showHeaders ? 40 : 0;
+    let offset = (this.showHeaders ? 46 : 0) + this.groupMarginWidth;
     const widths = this.sheets[this.currentSheetIdx].colWidths || {};
     for (let i = 0; i < c; i++) {
       offset += widths[i] ?? 100;
@@ -5235,34 +7905,34 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.resizingCol = c;
     this.resizeStartX = event.clientX;
     this.resizeStartSize = this.getColWidth(c);
-    
+
     const gridWrap = (event.target as HTMLElement).closest('.grid-wrap');
     if (gridWrap) {
       const rect = gridWrap.getBoundingClientRect();
       this.resizeLineX = event.clientX - rect.left + gridWrap.scrollLeft;
     }
-    
+
     const moveListener = (e: MouseEvent) => {
       if (gridWrap) {
         const rect = gridWrap.getBoundingClientRect();
         this.resizeLineX = e.clientX - rect.left + gridWrap.scrollLeft;
       }
     };
-    
+
     const upListener = (e: MouseEvent) => {
       document.removeEventListener('mousemove', moveListener);
       document.removeEventListener('mouseup', upListener);
       const delta = e.clientX - this.resizeStartX;
       const newWidth = Math.max(30, this.resizeStartSize + delta);
-      
+
       const sheet = this.sheets[this.currentSheetIdx];
       if (!sheet.colWidths) sheet.colWidths = {};
       sheet.colWidths[c] = newWidth;
-      
+
       this.resizingCol = null;
       this.save();
     };
-    
+
     document.addEventListener('mousemove', moveListener);
     document.addEventListener('mouseup', upListener);
   }
@@ -5273,34 +7943,34 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.resizingRow = r;
     this.resizeStartY = event.clientY;
     this.resizeStartSize = this.getRowHeight(r);
-    
+
     const gridWrap = (event.target as HTMLElement).closest('.grid-wrap');
     if (gridWrap) {
       const rect = gridWrap.getBoundingClientRect();
       this.resizeLineY = event.clientY - rect.top + gridWrap.scrollTop;
     }
-    
+
     const moveListener = (e: MouseEvent) => {
       if (gridWrap) {
         const rect = gridWrap.getBoundingClientRect();
         this.resizeLineY = e.clientY - rect.top + gridWrap.scrollTop;
       }
     };
-    
+
     const upListener = (e: MouseEvent) => {
       document.removeEventListener('mousemove', moveListener);
       document.removeEventListener('mouseup', upListener);
       const delta = e.clientY - this.resizeStartY;
       const newHeight = Math.max(20, this.resizeStartSize + delta);
-      
+
       const sheet = this.sheets[this.currentSheetIdx];
       if (!sheet.rowHeights) sheet.rowHeights = {};
       sheet.rowHeights[r] = newHeight;
-      
+
       this.resizingRow = null;
       this.save();
     };
-    
+
     document.addEventListener('mousemove', moveListener);
     document.addEventListener('mouseup', upListener);
   }

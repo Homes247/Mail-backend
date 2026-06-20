@@ -106,15 +106,20 @@ async def search_users(q: str = "", authorization: str = Header(None), db: Async
         return []
         
     from sqlalchemy import or_
+    conditions = [
+        User.is_active == 1,
+        or_(
+            User.name.ilike(f"%{q}%"),
+            User.email.ilike(f"%{q}%")
+        )
+    ]
+    if current_user.organization_id is not None:
+        conditions.append(User.organization_id == current_user.organization_id)
+    else:
+        conditions.append(User.organization_id.is_(None))
+        
     result = await db.execute(
-        select(User).where(
-            User.is_active == 1,
-            User.organization_id == current_user.organization_id,
-            or_(
-                User.name.ilike(f"%{q}%"),
-                User.email.ilike(f"%{q}%")
-            )
-        ).limit(10)
+        select(User).where(*conditions).limit(10)
     )
     users = result.scalars().all()
     
@@ -148,7 +153,12 @@ async def get_current_user(
     except jwt.PyJWTError:
         raise HTTPException(401, "Invalid token")
 
-    user = await db.get(User, int(user_id))
+    try:
+        uid = int(user_id)
+    except ValueError:
+        raise HTTPException(401, "Invalid token format")
+
+    user = await db.get(User, uid)
     if not user:
         raise HTTPException(401, "User not found")
     if not user.is_active:
@@ -167,8 +177,12 @@ async def get_optional_current_user(
         payload = jwt.decode(token, SECRET, algorithms=[ALGO])
         user_id = payload.get("sub")
         if user_id:
-            user = await db.get(User, int(user_id))
-            return user if (user and user.is_active) else None
+            try:
+                uid = int(user_id)
+                user = await db.get(User, uid)
+                return user if (user and user.is_active) else None
+            except ValueError:
+                return None
     except Exception:
         pass
     return None

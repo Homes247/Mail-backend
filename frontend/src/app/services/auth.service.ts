@@ -1,23 +1,72 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable, tap, BehaviorSubject } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 
-export interface AuthUser { id: string; name: string; email: string; }
+export interface AuthUser { id: string; name: string; email: string; avatar_url?: string; avatar_color?: string; }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private base = `${environment.apiUrl}/auth`;
   private _user: AuthUser | null = null;
+  private _ready$ = new BehaviorSubject<boolean>(false);
+  ready$ = this._ready$.asObservable();
 
   constructor(private http: HttpClient, private router: Router) {
-    const stored = localStorage.getItem('auth_user');
-    if (stored) try { this._user = JSON.parse(stored); } catch { }
+    this.syncFromStorage();
   }
 
-  get token(): string | null { return localStorage.getItem('auth_token'); }
+  private syncFromStorage() {
+    const cookieToken = this.getCookie('auth_token');
+    const cookieUser = this.getCookie('auth_user');
+
+    if (cookieToken) localStorage.setItem('auth_token', cookieToken);
+    if (cookieUser) localStorage.setItem('auth_user', cookieUser);
+
+    const storedToken = localStorage.getItem('auth_token');
+    const storedUser = localStorage.getItem('auth_user');
+
+    if (storedToken) {
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(decodeURIComponent(storedUser));
+          if (parsed && parsed.id != null) {
+            parsed.id = String(parsed.id);
+            this._user = parsed;
+            this._ready$.next(true);
+          }
+        } catch { }
+      }
+      // Always fetch fresh user data to ensure consistency
+      this.fetchMe();
+    } else {
+      this._ready$.next(true);
+    }
+  }
+
+  private fetchMe() {
+    this.http.get<AuthUser>(`${this.base}/me`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
+    }).subscribe({
+      next: (user) => {
+        user.id = String(user.id);
+        this._user = user;
+        const userStr = JSON.stringify(user);
+        localStorage.setItem('auth_user', userStr);
+        this.setCookie('auth_user', encodeURIComponent(userStr));
+        this._ready$.next(true);
+      },
+      error: () => this.logout()
+    });
+  }
+
+  get token(): string | null { 
+    return this.getCookie('auth_token') || localStorage.getItem('auth_token'); 
+  }
+  
   get user(): AuthUser | null { return this._user; }
+  
   get isLoggedIn(): boolean { return !!this.token; }
 
   register(name: string, email: string, password: string): Observable<any> {
@@ -35,13 +84,48 @@ export class AuthService {
   logout() {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
+    this.deleteCookie('auth_token');
+    this.deleteCookie('auth_user');
     this._user = null;
     this.router.navigate(['/login']);
   }
 
   private store(res: any) {
+    if (res.user && res.user.id != null) {
+      res.user.id = String(res.user.id);
+    }
+    const userStr = JSON.stringify(res.user);
     localStorage.setItem('auth_token', res.token);
-    localStorage.setItem('auth_user', JSON.stringify(res.user));
+    localStorage.setItem('auth_user', userStr);
+    
+    this.setCookie('auth_token', res.token);
+    this.setCookie('auth_user', encodeURIComponent(userStr));
     this._user = res.user;
+    this._ready$.next(true);
+  }
+
+  private getCookie(name: string): string | null {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+    return null;
+  }
+
+  private setCookie(name: string, value: string) {
+    const hostname = window.location.hostname;
+    let domainStr = '';
+    if (hostname.includes('vsnaptechnology.com')) {
+      domainStr = '; domain=.vsnaptechnology.com';
+    }
+    document.cookie = `${name}=${value}; path=/${domainStr}; max-age=2592000`; // 30 days
+  }
+
+  private deleteCookie(name: string) {
+    const hostname = window.location.hostname;
+    let domainStr = '';
+    if (hostname.includes('vsnaptechnology.com')) {
+      domainStr = '; domain=.vsnaptechnology.com';
+    }
+    document.cookie = `${name}=; path=/${domainStr}; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
   }
 }

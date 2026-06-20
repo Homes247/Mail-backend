@@ -549,7 +549,7 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
   history: string[] = [];
   historyIdx = -1;
   slideshowActive = false;
-  
+
   // Extra features state
   showRuler = false;
   paintFormatActive = false;
@@ -558,7 +558,7 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
   dictLoading = false;
   dictError = '';
   dictResults: any[] = [];
-  
+
   private syncSub?: Subscription;
   private applyingRemote = false;
 
@@ -610,7 +610,7 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
   }
 
   closeMenus() { this.activeMenu = null; this.zoomDropdownOpen = false; }
-  
+
   get activePage() { return this.activeId ? this.data.pages[this.activeId] : null; }
 
   get initials() {
@@ -622,7 +622,7 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     private router: Router,
     private api: ApiService,
     public auth: AuthService
-  ) {}
+  ) { }
 
   get currentSlideIndex() { return this.data.pageOrder.indexOf(this.activeId); }
 
@@ -747,22 +747,22 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     if (target.tagName === 'IMG' || target.classList.contains('canvas-shape') || target.classList.contains('canvas-textbox')) {
       this.activeImg = target;
       if (this.activeImg.style.position !== 'absolute') {
-         const imgRect = this.activeImg.getBoundingClientRect();
-         const bodyRect = this.slideBodyRef!.nativeElement.getBoundingClientRect();
-         const zoom = this.zoomLevel / 100;
-         
-         const left = (imgRect.left - bodyRect.left) / zoom;
-         const top = (imgRect.top - bodyRect.top) / zoom;
-         
-         this.activeImg.style.position = 'absolute';
-         this.activeImg.style.left = left + 'px';
-         this.activeImg.style.top = top + 'px';
-         this.activeImg.style.width = (imgRect.width / zoom) + 'px';
-         this.activeImg.style.height = (imgRect.height / zoom) + 'px';
-         this.activeImg.style.maxWidth = 'none';
+        const imgRect = this.activeImg.getBoundingClientRect();
+        const bodyRect = this.slideBodyRef!.nativeElement.getBoundingClientRect();
+        const zoom = this.zoomLevel / 100;
+
+        const left = (imgRect.left - bodyRect.left) / zoom;
+        const top = (imgRect.top - bodyRect.top) / zoom;
+
+        this.activeImg.style.position = 'absolute';
+        this.activeImg.style.left = left + 'px';
+        this.activeImg.style.top = top + 'px';
+        this.activeImg.style.width = (imgRect.width / zoom) + 'px';
+        this.activeImg.style.height = (imgRect.height / zoom) + 'px';
+        this.activeImg.style.maxWidth = 'none';
       }
-    } else if (!target.classList.contains('drag-handle') && 
-               !target.classList.contains('resize-handle')) {
+    } else if (!target.classList.contains('drag-handle') &&
+      !target.classList.contains('resize-handle')) {
       this.activeImg = null;
     }
   }
@@ -838,14 +838,23 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     }
   }
 
+  @HostListener('document:keydown', ['$event'])
+  onGlobalKeyDown(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      this.save();
+      return;
+    }
+  }
+
   @HostListener('document:mouseup', ['$event'])
   onGlobalMouseUp(e: MouseEvent) {
     if (this.isDragging || this.isResizing) {
       this.isDragging = false;
       this.isResizing = false;
       if (this.activePage && this.slideBodyRef) {
-         this.activePage.body = this.slideBodyRef.nativeElement.innerHTML;
-         this.onChanged(); 
+        this.activePage.body = this.slideBodyRef.nativeElement.innerHTML;
+        this.onChanged();
       }
     }
   }
@@ -865,7 +874,7 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     this.closeMenus();
     this.slideshowActive = true;
     if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(() => {});
+      document.documentElement.requestFullscreen().catch(() => { });
     }
   }
 
@@ -913,7 +922,7 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
                 window.open('/slide/' + res.id, '_blank');
               });
             });
-          } catch(err) {
+          } catch (err) {
             this.showToast('Invalid presentation file');
           }
         };
@@ -1010,8 +1019,8 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     this.save();
   }
 
-  selectSlide(id: string) { 
-    this.activeId = id; 
+  selectSlide(id: string) {
+    this.activeId = id;
     setTimeout(() => {
       if (this.slideBodyRef && this.activePage) {
         this.slideBodyRef.nativeElement.innerHTML = this.activePage.body;
@@ -1113,9 +1122,9 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     this.slideBodyRef.nativeElement.focus();
     let html = '';
     if (type === 'circle') {
-       html = `<div class="canvas-shape circle" style="background:#4285f4; border-radius:50%; width:100px; height:100px; display:inline-block;"></div>&nbsp;`;
+      html = `<div class="canvas-shape circle" style="background:#4285f4; border-radius:50%; width:100px; height:100px; display:inline-block;"></div>&nbsp;`;
     } else {
-       html = `<div class="canvas-shape rect" style="background:#ea4335; width:100px; height:100px; display:inline-block;"></div>&nbsp;`;
+      html = `<div class="canvas-shape rect" style="background:#ea4335; width:100px; height:100px; display:inline-block;"></div>&nbsp;`;
     }
     document.execCommand('insertHTML', false, html);
     this.activePage.body = this.slideBodyRef.nativeElement.innerHTML;
@@ -1148,24 +1157,24 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     this.closeMenus();
     this.addSlide();
     if (this.activePage) {
-       if (layout === 'title') {
-         this.activePage.body = `
+      if (layout === 'title') {
+        this.activePage.body = `
            <div style="position:absolute; top: 180px; left: 80px; width: 800px; text-align: center; font-size: 48px; font-weight: bold; border: 1px solid transparent;" contenteditable="true" data-type="textbox">Click to add title</div>
            <div style="position:absolute; top: 300px; left: 80px; width: 800px; text-align: center; font-size: 24px; color: #5f6368; border: 1px solid transparent;" contenteditable="true" data-type="textbox">Click to add subtitle</div>
          `;
-       } else if (layout === 'two-column') {
-         this.activePage.body = `
+      } else if (layout === 'two-column') {
+        this.activePage.body = `
            <div style="position:absolute; top: 40px; left: 80px; width: 800px; font-size: 36px; font-weight: bold; border: 1px solid transparent;" contenteditable="true" data-type="textbox">Click to add title</div>
            <div style="position:absolute; top: 120px; left: 80px; width: 380px; min-height: 300px; font-size: 18px; border: 1px solid transparent;" contenteditable="true" data-type="textbox">Click to add text</div>
            <div style="position:absolute; top: 120px; left: 500px; width: 380px; min-height: 300px; font-size: 18px; border: 1px solid transparent;" contenteditable="true" data-type="textbox">Click to add text</div>
          `;
-       } else if (layout === 'blank') {
-         this.activePage.body = '';
-       }
-       if (this.slideBodyRef) {
-         this.slideBodyRef.nativeElement.innerHTML = this.activePage.body;
-       }
-       this.onChanged();
+      } else if (layout === 'blank') {
+        this.activePage.body = '';
+      }
+      if (this.slideBodyRef) {
+        this.slideBodyRef.nativeElement.innerHTML = this.activePage.body;
+      }
+      this.onChanged();
     }
   }
 
@@ -1173,29 +1182,29 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     this.closeMenus();
     const l = prompt('Enter layout (title, blank, two-column):', 'blank');
     if (l && this.activePage) {
-       const layout = l.toLowerCase();
-       if (layout === 'title') {
-         this.activePage.body = `
+      const layout = l.toLowerCase();
+      if (layout === 'title') {
+        this.activePage.body = `
            <div style="position:absolute; top: 180px; left: 80px; width: 800px; text-align: center; font-size: 48px; font-weight: bold; border: 1px solid transparent;" contenteditable="true" data-type="textbox">Click to add title</div>
            <div style="position:absolute; top: 300px; left: 80px; width: 800px; text-align: center; font-size: 24px; color: #5f6368; border: 1px solid transparent;" contenteditable="true" data-type="textbox">Click to add subtitle</div>
          `;
-       } else if (layout === 'two-column') {
-         this.activePage.body = `
+      } else if (layout === 'two-column') {
+        this.activePage.body = `
            <div style="position:absolute; top: 40px; left: 80px; width: 800px; font-size: 36px; font-weight: bold; border: 1px solid transparent;" contenteditable="true" data-type="textbox">Click to add title</div>
            <div style="position:absolute; top: 120px; left: 80px; width: 380px; min-height: 300px; font-size: 18px; border: 1px solid transparent;" contenteditable="true" data-type="textbox">Click to add text</div>
            <div style="position:absolute; top: 120px; left: 500px; width: 380px; min-height: 300px; font-size: 18px; border: 1px solid transparent;" contenteditable="true" data-type="textbox">Click to add text</div>
          `;
-       } else if (layout === 'blank') {
-         this.activePage.body = '';
-       } else {
-         this.showToast('Unknown layout.');
-         return;
-       }
-       if (this.slideBodyRef) {
-         this.slideBodyRef.nativeElement.innerHTML = this.activePage.body;
-       }
-       this.onChanged();
-       this.showToast('Layout applied: ' + l);
+      } else if (layout === 'blank') {
+        this.activePage.body = '';
+      } else {
+        this.showToast('Unknown layout.');
+        return;
+      }
+      if (this.slideBodyRef) {
+        this.slideBodyRef.nativeElement.innerHTML = this.activePage.body;
+      }
+      this.onChanged();
+      this.showToast('Layout applied: ' + l);
     }
   }
 
@@ -1203,18 +1212,18 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     this.closeMenus();
     if (!this.activeImg) { this.showToast('Select an element first'); return; }
     const z = prompt('Enter z-index:', '10');
-    if (z) { this.activeImg.style.zIndex = z; this.onContentChange({target: this.slideBodyRef?.nativeElement}); }
+    if (z) { this.activeImg.style.zIndex = z; this.onContentChange({ target: this.slideBodyRef?.nativeElement }); }
   }
 
   arrangeAlign() {
     this.closeMenus();
     if (!this.activeImg) { this.showToast('Select an element first'); return; }
     const a = prompt('Align (left, center, right):', 'center');
-    if (a) { 
-       if(a==='left') this.activeImg.style.left = '0px';
-       if(a==='center') this.activeImg.style.left = '50%';
-       if(a==='right') this.activeImg.style.left = '90%';
-       this.onContentChange({target: this.slideBodyRef?.nativeElement}); 
+    if (a) {
+      if (a === 'left') this.activeImg.style.left = '0px';
+      if (a === 'center') this.activeImg.style.left = '50%';
+      if (a === 'right') this.activeImg.style.left = '90%';
+      this.onContentChange({ target: this.slideBodyRef?.nativeElement });
     }
   }
 
@@ -1224,7 +1233,7 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     this.activeImg.style.left = '50%';
     this.activeImg.style.top = '50%';
     this.activeImg.style.transform = 'translate(-50%, -50%)';
-    this.onContentChange({target: this.slideBodyRef?.nativeElement});
+    this.onContentChange({ target: this.slideBodyRef?.nativeElement });
   }
 
   groupElements() { this.closeMenus(); this.showToast('Elements grouped'); }
@@ -1249,7 +1258,7 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     this.dictLoading = true;
     this.dictError = '';
     this.dictResults = [];
-    
+
     fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(this.dictWord.trim())}`)
       .then(res => {
         if (!res.ok) throw new Error('Word not found');
@@ -1281,7 +1290,7 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     this.closeMenus();
     const c = prompt('Enter your comment:');
     if (c) {
-       this.showToast('Comment added: ' + c);
+      this.showToast('Comment added: ' + c);
     }
   }
 
@@ -1289,17 +1298,17 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     this.closeMenus();
     const t = prompt('Enter theme (light, dark, blue):', 'dark');
     if (t) {
-       let bg = '#ffffff';
-       let color = '#374151';
-       if (t.toLowerCase() === 'dark') { bg = '#202124'; color = '#ffffff'; }
-       else if (t.toLowerCase() === 'blue') { bg = '#e3f2fd'; color = '#001d35'; }
-       
-       for (const id of this.data.pageOrder) {
-         this.data.pages[id].bg = bg;
-         this.data.pages[id].color = color;
-       }
-       this.onChanged();
-       this.showToast('Theme applied to all slides.');
+      let bg = '#ffffff';
+      let color = '#374151';
+      if (t.toLowerCase() === 'dark') { bg = '#202124'; color = '#ffffff'; }
+      else if (t.toLowerCase() === 'blue') { bg = '#e3f2fd'; color = '#001d35'; }
+
+      for (const id of this.data.pageOrder) {
+        this.data.pages[id].bg = bg;
+        this.data.pages[id].color = color;
+      }
+      this.onChanged();
+      this.showToast('Theme applied to all slides.');
     }
   }
 
@@ -1307,7 +1316,7 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     this.closeMenus();
     const t = prompt('Enter transition (fade, slide):', 'fade');
     if (t) {
-       this.showToast('Transition applied: ' + t);
+      this.showToast('Transition applied: ' + t);
     }
   }
 }

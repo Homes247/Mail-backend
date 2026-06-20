@@ -69,7 +69,7 @@ import { AuthService } from '../../services/auth.service';
                 <svg *ngIf="res.doc_type === 'slide'" class="search-res-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2" ry="2"></rect><path d="M8 22l4-6 4 6M12 16v-4"></path><path d="M7 10h10M12 10v3"></path></svg>
                 <div class="search-res-text">
                   <div class="srt-title">{{ res.title }}</div>
-                  <div class="srt-owner">admin</div>
+                  <div class="srt-owner">{{ isOwner(res) ? 'me' : (res.owner_name || 'Unknown') }}</div>
                 </div>
                 <div class="search-res-date">Last modified on {{ formatDate(res.updated_at) }}</div>
               </div>
@@ -248,8 +248,8 @@ import { AuthService } from '../../services/auth.service';
                   <span class="doc-title-text">{{ doc.title }}</span>
                 </div>
                 <div class="col-owner">
-                  <div class="owner-avatar" [style.background]="doc.owner_id == auth.user?.id ? '#1a73e8' : '#8ab4f8'">{{ doc.owner_id == auth.user?.id ? 'Me' : (doc.owner_name ? doc.owner_name.charAt(0).toUpperCase() : 'U') }}</div>
-                  <span class="owner-name">{{ doc.owner_id == auth.user?.id ? 'Me' : (doc.owner_name || 'Unknown') }}</span>
+                  <div class="owner-avatar" [style.background]="isOwner(doc) ? '#1a73e8' : '#8ab4f8'">{{ isOwner(doc) ? 'M' : (doc.owner_name ? doc.owner_name.charAt(0).toUpperCase() : 'U') }}</div>
+                  <span class="owner-name">{{ isOwner(doc) ? 'me' : (doc.owner_name || 'Unknown') }}</span>
                 </div>
                 <div class="col-date">
                   <span class="date-text">{{ formatDate(doc.updated_at) }}</span>
@@ -340,6 +340,24 @@ import { AuthService } from '../../services/auth.service';
       </div>
 
       <div class="toast" [class.show]="toastVisible">{{ toastMsg }}</div>
+
+      <!-- Delete Confirmation Modal -->
+      <div class="modal-backdrop" *ngIf="deleteConfirmDoc" (click)="cancelDelete()">
+        <div class="delete-modal shadow-lg" (click)="$event.stopPropagation()">
+          <div class="dm-header">
+            <span class="material-symbols-outlined" style="color: #d32f2f;">warning</span>
+            <span>Confirm Deletion</span>
+          </div>
+          <div class="dm-body">
+            <p *ngIf="deleteConfirmPermanent">Are you sure you want to permanently delete <strong>{{ deleteConfirmDoc.title }}</strong>? This action cannot be undone.</p>
+            <p *ngIf="!deleteConfirmPermanent">Are you sure you want to move <strong>{{ deleteConfirmDoc.title }}</strong> to the trash?</p>
+          </div>
+          <div class="dm-footer">
+            <button class="btn btn-outline-primary" (click)="cancelDelete()">Cancel</button>
+            <button class="btn btn-danger" (click)="confirmDelete()">{{ deleteConfirmPermanent ? 'Permanently Delete' : 'Move to Trash' }}</button>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
@@ -539,6 +557,17 @@ import { AuthService } from '../../services/auth.service';
     
     .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: #323232; color: #fff; padding: 12px 24px; border-radius: 4px; font-size: 14px; opacity: 0; transition: all .25s; pointer-events: none; z-index: 1000; }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Modals */
+    .modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+    .delete-modal { background: #fff; border-radius: 8px; width: 400px; max-width: 90vw; display: flex; flex-direction: column; overflow: hidden; animation: modalIn 0.2s ease-out; }
+    .dm-header { padding: 16px 24px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 600; color: #202124; }
+    .dm-body { padding: 24px; font-size: 14px; color: #3c4043; line-height: 1.5; margin: 0; }
+    .dm-body p { margin: 0; }
+    .dm-footer { padding: 16px 24px; background: #f8f9fa; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 12px; }
+    .btn-danger { background: #d32f2f; color: #fff; border: none; }
+    .btn-danger:hover { background: #b71c1c; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    @keyframes modalIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
   `]
 })
 export class DashboardComponent implements OnInit {
@@ -636,10 +665,10 @@ export class DashboardComponent implements OnInit {
         list = list.filter(d => d._favorite);
       } else if (this.currentTab === 'Shared with me') {
         const myId = this.auth.user?.id;
-        list = list.filter(d => d.owner_id != myId);
+        list = list.filter(d => myId != null && String(d.owner_id) !== String(myId));
       } else if (this.currentTab === 'My Documents') {
         const myId = this.auth.user?.id;
-        list = list.filter(d => d.owner_id == myId);
+        list = list.filter(d => myId != null && String(d.owner_id) === String(myId));
       } else if (this.currentTab === 'Recents') {
         const twoDaysAgo = new Date();
         twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
@@ -655,11 +684,19 @@ export class DashboardComponent implements OnInit {
     return this.docs.filter(d => d.title.toLowerCase().includes(q) && !d.is_trashed).slice(0, 5);
   }
 
+  isOwner(doc: any): boolean {
+    if (!this.auth.user || !this.auth.user.id) return false;
+    return String(doc.owner_id) === String(this.auth.user.id);
+  }
+
   constructor(public auth: AuthService, private api: ApiService, private router: Router) {}
 
   ngOnInit() { 
     this.detectSubdomain();
-    this.load(); 
+    // Wait for auth to be ready before loading docs
+    this.auth.ready$.subscribe(ready => {
+      if (ready) this.load();
+    });
   }
 
   detectSubdomain() {
@@ -747,15 +784,19 @@ export class DashboardComponent implements OnInit {
   }
 
   isDeleting: {[key: string]: boolean} = {};
+  deleteConfirmDoc: any = null;
+  deleteConfirmPermanent = false;
 
   delete(doc: any) {
-    const isPermanent = doc.is_trashed === 1 || doc.is_trashed === true || doc.is_trashed == '1';
-    const confirmMsg = isPermanent 
-      ? 'Are you sure you want to permanently delete this document?' 
-      : 'Are you sure you want to move this document to the trash?';
-    
-    if (!confirm(confirmMsg)) return;
+    this.deleteConfirmPermanent = doc.is_trashed === 1 || doc.is_trashed === true || doc.is_trashed == '1';
+    this.deleteConfirmDoc = doc;
+  }
 
+  confirmDelete() {
+    if (!this.deleteConfirmDoc) return;
+    const doc = this.deleteConfirmDoc;
+    const isPermanent = this.deleteConfirmPermanent;
+    
     if (this.isDeleting[doc.id]) return;
     this.isDeleting[doc.id] = true;
     this.api.deleteDocument(doc.id).subscribe({
@@ -763,11 +804,17 @@ export class DashboardComponent implements OnInit {
         this.showToast(isPermanent ? 'Permanently deleted.' : 'Moved to trash.');
         this.load();
         delete this.isDeleting[doc.id];
+        this.deleteConfirmDoc = null;
       },
       error: () => {
         delete this.isDeleting[doc.id];
+        this.deleteConfirmDoc = null;
       }
     });
+  }
+
+  cancelDelete() {
+    this.deleteConfirmDoc = null;
   }
 
   restore(doc: any, event: Event) {

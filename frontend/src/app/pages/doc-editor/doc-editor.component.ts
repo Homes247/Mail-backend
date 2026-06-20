@@ -13,170 +13,194 @@ import { AuthService } from '../../services/auth.service';
   imports: [CommonModule, FormsModule, ChatWidgetComponent],
   template: `
     <div class="shell" (click)="closeMenus($event)">
-      <div class="top-bar">
-        <div class="top-left">
-          <button class="back" (click)="back()" title="Back to Dashboard">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="icon-sm"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+      <!-- Header Bar -->
+      <div class="header-bar">
+        <div class="header-left">
+          <button class="back-btn" (click)="back()" title="Back to Dashboard" style="background:none; border:none; cursor:pointer; color:inherit; display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; flex-shrink:0; opacity:0.8; margin-right:4px;">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           </button>
+          <div class="brand-btn" title="Writer">
+            <span class="material-symbols-outlined" style="font-size:22px;">description</span>
+            <span class="brand-label">Writer</span>
+          </div>
           <div class="doc-meta">
-            <input class="title-input" [(ngModel)]="title" (blur)="save()" placeholder="Untitled document" />
-            <div class="menu-bar" (mousedown)="$event.preventDefault()">
-              <div class="menu-item" (click)="toggleMenu('file', $event)" [class.active]="activeMenu === 'file'">
-                File
-                <div class="dropdown" *ngIf="activeMenu === 'file'">
-                  <div class="dd-item" (click)="newDoc()"><span class="dd-text">New</span></div>
-                  <div class="dd-item" (click)="docInput.click(); closeMenus()"><span class="dd-text">Open</span><span class="dd-hint">Ctrl+O</span></div>
-                  <div class="dd-item" (click)="makeCopy()"><span class="dd-text">Make a copy</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="shareModalOpen = true; closeMenus()"><span class="dd-text">Share</span></div>
-                  <div class="dd-item" (click)="emailDoc()"><span class="dd-text">Email</span></div>
-                  <div class="dd-item" (click)="exportFile('docx')"><span class="dd-text">Download (.docx)</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="renameDoc()"><span class="dd-text">Rename</span></div>
-                  <div class="dd-item" (click)="trashDoc()"><span class="dd-text">Move to trash</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="showVersionHistory()"><span class="dd-text">Version history</span></div>
-                  <div class="dd-item" (click)="makeOffline()"><span class="dd-text">Make available offline</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="showDetails()"><span class="dd-text">Details</span></div>
-                </div>
+            <div class="title-row">
+              <input class="title-input" [(ngModel)]="title" (blur)="save()" placeholder="Untitled Document" [style.width.ch]="(title || 'Untitled Document').length + 3" />
+              <button class="star-btn" (click)="toggleStar()" title="Star">
+                <span class="material-symbols-outlined" [class.filled]="isStarred">{{ isStarred ? 'star' : 'star_border' }}</span>
+              </button>
+              <span class="save-status">
+                <span class="material-symbols-outlined" style="font-size:15px;">cloud_done</span> 
+                {{ isSaving ? 'Saving...' : savedTimeStr }}
+              </span>
+            </div>
+            
+          </div>
+        </div>
+
+        <div class="header-right">
+          <span class="collab-badge" *ngIf="activeUsers > 1">
+            <span class="material-symbols-outlined" style="font-size:16px;">group</span>
+            {{ activeUsers }}
+          </span>
+          <button class="share-btn" (click)="shareModalOpen = true; closeMenus()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Share
+          </button>
+          <div style="position:relative;">
+            <button class="header-icon-btn" (click)="toggleMenu('notif', $event)" title="Notifications"><span class="material-symbols-outlined">notifications</span></button>
+            <div class="dropdown notif-dd shadow-lg" *ngIf="activeMenu === 'notif'" (click)="$event.stopPropagation()">
+              <div style="padding:12px; font-weight:600; border-bottom:1px solid #e0e3e8; font-size:12px; color:#5f6368;">NOTIFICATION</div>
+              <div style="padding:24px 16px; text-align:center; color:#5f6368; font-size:13px;">You haven't received any notifications yet</div>
+            </div>
+          </div>
+          
+          <div style="position:relative;">
+            <div class="avatar" (click)="toggleMenu('profile', $event)" [title]="auth.user?.name ?? ''" style="cursor:pointer;">{{ initials }}</div>
+            <div class="dropdown profile-dd shadow-lg" *ngIf="activeMenu === 'profile'" (click)="$event.stopPropagation()">
+              <div style="padding:16px; text-align:center; border-bottom:1px solid #e0e3e8;">
+                <div style="width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg, #667eea, #764ba2); color:#fff; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:600; margin:0 auto 8px;">{{ initials }}</div>
+                <div style="font-weight:600; font-size:14px; color:#202124;">{{ auth.user?.email || 'admin@vsnapmail.co.in' }}</div>
+                <div style="font-size:12px; color:#5f6368; margin-top:2px;">User ID: {{ auth.user?.id || 1 }}</div>
               </div>
-              <div class="menu-item" (click)="toggleMenu('edit', $event)" [class.active]="activeMenu === 'edit'">
-                Edit
-                <div class="dropdown" *ngIf="activeMenu === 'edit'">
-                  <div class="dd-item" (click)="exec('undo')"><span class="dd-text">Undo</span><span class="dd-hint">Ctrl+Z</span></div>
-                  <div class="dd-item" (click)="exec('redo')"><span class="dd-text">Redo</span><span class="dd-hint">Ctrl+Y</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="showToast('Use Ctrl+X to cut')"><span class="dd-text">Cut</span><span class="dd-hint">Ctrl+X</span></div>
-                  <div class="dd-item" (click)="showToast('Use Ctrl+C to copy')"><span class="dd-text">Copy</span><span class="dd-hint">Ctrl+C</span></div>
-                  <div class="dd-item" (click)="showToast('Use Ctrl+V to paste')"><span class="dd-text">Paste</span><span class="dd-hint">Ctrl+V</span></div>
-                  <div class="dd-item" (click)="showToast('Use Ctrl+Shift+V')"><span class="dd-text">Paste without formatting</span><span class="dd-hint">Ctrl+Shift+V</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="exec('selectAll')"><span class="dd-text">Select all</span><span class="dd-hint">Ctrl+A</span></div>
-                  <div class="dd-item" (click)="exec('delete')"><span class="dd-text">Delete</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="openFind()"><span class="dd-text">Find</span><span class="dd-hint">Ctrl+F</span></div>
-                </div>
-              </div>
-              <div class="menu-item" (click)="toggleMenu('view', $event)" [class.active]="activeMenu === 'view'">
-                View
-                <div class="dropdown" *ngIf="activeMenu === 'view'">
-                  <div class="dd-item" (click)="toggleViewMode()"><span class="dd-text">Mode: {{ viewMode }}</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="togglePrintLayout()"><span class="dd-text">{{ showPrintLayout ? '✓ ' : '' }}Show print layout</span></div>
-                  <div class="dd-item" (click)="toggleRuler()"><span class="dd-text">{{ showRuler ? '✓ ' : '' }}Show ruler</span></div>
-                  <div class="dd-item" (click)="toggleEquationToolbar()"><span class="dd-text">{{ showEquationToolbar ? '✓ ' : '' }}Show equation toolbar</span></div>
-                  <div class="dd-item" (click)="toggleNonPrinting()"><span class="dd-text">{{ showNonPrinting ? '✓ ' : '' }}Show non-printing characters</span><span class="dd-hint">Ctrl+Shift+P</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="toggleFullScreen()"><span class="dd-text">Full screen</span></div>
-                </div>
-              </div>
-              <div class="menu-item" (click)="toggleMenu('insert', $event)" [class.active]="activeMenu === 'insert'">
-                Insert
-                <div class="dropdown" *ngIf="activeMenu === 'insert'">
-                  <div class="dd-item" (click)="imageInput.click(); closeMenus()"><span class="dd-text">Image</span></div>
-                  <div class="dd-item" (click)="insertTable()"><span class="dd-text">Table</span></div>
-                  <div class="dd-item" (click)="insertBuildingBlock()"><span class="dd-text">Building blocks</span></div>
-                  <div class="dd-item" (click)="insertSmartChip()"><span class="dd-text">Smart chips</span></div>
-                  <div class="dd-item" (click)="insertSignature()"><span class="dd-text">eSignature</span><span class="dd-premium">Premium</span></div>
-                  <div class="dd-item" (click)="insertLink()"><span class="dd-text">Link</span><span class="dd-hint">Ctrl+K</span></div>
-                  <div class="dd-item" (click)="insertDrawing()"><span class="dd-text">Drawing</span></div>
-                  <div class="dd-item" (click)="insertChart()"><span class="dd-text">Chart</span></div>
-                  <div class="dd-item" (click)="insertSymbol()"><span class="dd-text">Symbols</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="insertHTML('&emsp;&emsp;')"><span class="dd-text">Tab</span><span class="dd-hint">Shift+F11</span></div>
-                  <div class="dd-item" (click)="exec('insertHorizontalRule')"><span class="dd-text">Horizontal line</span></div>
-                  <div class="dd-item" (click)="insertBreak()"><span class="dd-text">Break</span></div>
-                  <div class="dd-item" (click)="insertHTML('🔖')"><span class="dd-text">Bookmark</span></div>
-                </div>
-              </div>
-              <div class="menu-item" (click)="toggleMenu('format', $event)" [class.active]="activeMenu === 'format'">
-                Format
-                <div class="dropdown" *ngIf="activeMenu === 'format'">
-                  <div class="dd-item" (click)="exec('bold')"><span class="dd-text">Bold</span><span class="dd-hint">Ctrl+B</span></div>
-                  <div class="dd-item" (click)="exec('italic')"><span class="dd-text">Italic</span><span class="dd-hint">Ctrl+I</span></div>
-                  <div class="dd-item" (click)="exec('underline')"><span class="dd-text">Underline</span><span class="dd-hint">Ctrl+U</span></div>
-                  <div class="dd-item" (click)="exec('strikeThrough')"><span class="dd-text">Strikethrough</span><span class="dd-hint">Alt+Shift+5</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="exec('justifyLeft')"><span class="dd-text">Align left</span><span class="dd-hint">Ctrl+Shift+L</span></div>
-                  <div class="dd-item" (click)="exec('justifyCenter')"><span class="dd-text">Align center</span><span class="dd-hint">Ctrl+Shift+E</span></div>
-                  <div class="dd-item" (click)="exec('justifyRight')"><span class="dd-text">Align right</span><span class="dd-hint">Ctrl+Shift+R</span></div>
-                </div>
-              </div>
-              <div class="menu-item" (click)="toggleMenu('tools', $event)" [class.active]="activeMenu === 'tools'">
-                Tools
-                <div class="dropdown" *ngIf="activeMenu === 'tools'">
-                  <div class="dd-item" (click)="checkSpelling()"><span class="dd-text">Spelling and grammar</span></div>
-                  <div class="dd-item" (click)="showWordCount()"><span class="dd-text">Word count</span><span class="dd-hint">Ctrl+Shift+C</span></div>
-                  <div class="dd-item" (click)="openDictionary()"><span class="dd-text">Dictionary</span><span class="dd-hint">Ctrl+Shift+Y</span></div>
-                </div>
-              </div>
-              <div class="menu-item" (click)="toggleMenu('extensions', $event)" [class.active]="activeMenu === 'extensions'">
-                Extensions
-                <div class="dropdown" *ngIf="activeMenu === 'extensions'">
-                  <div class="dd-item" (click)="showToast('No extensions installed')"><span class="dd-text">Add-ons</span></div>
-                </div>
-              </div>
-              <div class="menu-item" (click)="toggleMenu('help', $event)" [class.active]="activeMenu === 'help'">
-                Help
-                <div class="dropdown" *ngIf="activeMenu === 'help'">
-                  <div class="dd-item" (click)="showToast('Coming soon')"><span class="dd-text">Docs Help</span></div>
-                  <div class="dd-item" (click)="showToast('Coming soon')"><span class="dd-text">Keyboard shortcuts</span><span class="dd-hint">Ctrl+/</span></div>
+              <div style="padding:8px 0;">
+                <div class="dd-item" (click)="auth.logout()">
+                  <span class="material-symbols-outlined dd-icon">logout</span>
+                  <span class="dd-text">Sign Out</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
-
-        <div class="top-right">
-          <span class="badge" *ngIf="activeUsers > 1">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="icon-sm" style="margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-            {{ activeUsers }} online
-          </span>
-          <div style="position: relative;">
-            <button class="btn outline" (click)="shareModalOpen = true; closeMenus()">
-              <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="icon-sm" style="margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-              Share
-            </button>
-          </div>
-          <div class="avatar" [title]="auth.user?.name ?? ''">{{ initials }}</div>
-        </div>
       </div>
+      <div class="menu-bar-row" style="display:flex; align-items:center; padding: 2px 12px; background: #fff; border-bottom: 1px solid #dadce0; position: relative; z-index: 205;">
+            <div class="menu-bar" (mousedown)="$event.preventDefault()">
+              <div class="menu-item" (click)="toggleMenu('file', $event)" [class.active]="activeMenu === 'file'">
+                File
+                <div class="dropdown" *ngIf="activeMenu === 'file'">
+                  <div class="dd-item" (click)="newDoc()"><span class="material-symbols-outlined dd-icon">note_add</span><span class="dd-text">New</span></div>
+                  <div class="dd-item" (click)="docInput.click(); closeMenus()"><span class="material-symbols-outlined dd-icon">folder_open</span><span class="dd-text">Open</span><span class="dd-hint">Ctrl+O</span></div>
+                  <div class="dd-item" (click)="makeCopy()"><span class="material-symbols-outlined dd-icon">content_copy</span><span class="dd-text">Make a copy</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="shareModalOpen = true; closeMenus()"><span class="material-symbols-outlined dd-icon">share</span><span class="dd-text">Share</span></div>
+                  <div class="dd-item" (click)="emailDoc()"><span class="material-symbols-outlined dd-icon">mail</span><span class="dd-text">Email</span></div>
+                  <div class="dd-item" (click)="exportFile('docx')"><span class="material-symbols-outlined dd-icon">download</span><span class="dd-text">Download (.docx)</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="renameDoc()"><span class="material-symbols-outlined dd-icon">edit</span><span class="dd-text">Rename</span></div>
+                  <div class="dd-item" (click)="trashDoc()"><span class="material-symbols-outlined dd-icon">delete</span><span class="dd-text">Move to trash</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="showVersionHistory()"><span class="material-symbols-outlined dd-icon">history</span><span class="dd-text">Version history</span></div>
+                  <div class="dd-item" (click)="makeOffline()"><span class="material-symbols-outlined dd-icon">offline_pin</span><span class="dd-text">Make available offline</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="showDetails()"><span class="material-symbols-outlined dd-icon">info</span><span class="dd-text">Details</span></div>
+                </div>
+              </div>
+              <div class="menu-item" (click)="toggleMenu('edit', $event)" [class.active]="activeMenu === 'edit'">
+                Edit
+                <div class="dropdown" *ngIf="activeMenu === 'edit'">
+                  <div class="dd-item" (click)="exec('undo')"><span class="material-symbols-outlined dd-icon">undo</span><span class="dd-text">Undo</span><span class="dd-hint">Ctrl+Z</span></div>
+                  <div class="dd-item" (click)="exec('redo')"><span class="material-symbols-outlined dd-icon">redo</span><span class="dd-text">Redo</span><span class="dd-hint">Ctrl+Y</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="showToast('Use Ctrl+X to cut')"><span class="material-symbols-outlined dd-icon">content_cut</span><span class="dd-text">Cut</span><span class="dd-hint">Ctrl+X</span></div>
+                  <div class="dd-item" (click)="showToast('Use Ctrl+C to copy')"><span class="material-symbols-outlined dd-icon">content_copy</span><span class="dd-text">Copy</span><span class="dd-hint">Ctrl+C</span></div>
+                  <div class="dd-item" (click)="showToast('Use Ctrl+V to paste')"><span class="material-symbols-outlined dd-icon">content_paste</span><span class="dd-text">Paste</span><span class="dd-hint">Ctrl+V</span></div>
+                  <div class="dd-item" (click)="exec('selectAll')"><span class="dd-text">Select all</span><span class="dd-hint">Ctrl+A</span></div>
+                  <div class="dd-item" (click)="exec('delete')"><span class="dd-text">Delete</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="exec('selectAll')"><span class="material-symbols-outlined dd-icon">select_all</span><span class="dd-text">Select all</span><span class="dd-hint">Ctrl+A</span></div>
+                  <div class="dd-item" (click)="exec('delete')"><span class="material-symbols-outlined dd-icon">backspace</span><span class="dd-text">Delete</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="openFind()"><span class="material-symbols-outlined dd-icon">search</span><span class="dd-text">Find and replace</span><span class="dd-hint">Ctrl+F</span></div>
+                  <div class="dd-item" (click)="exec('delete')"><span class="material-symbols-outlined dd-icon">backspace</span><span class="dd-text">Delete</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="openFind()"><span class="material-symbols-outlined dd-icon">search</span><span class="dd-text">Find and replace</span><span class="dd-hint">Ctrl+F</span></div>
+                </div>
+              </div>
+              <div class="menu-item" (click)="toggleMenu('view', $event)" [class.active]="activeMenu === 'view'">
+                View
+                <div class="dropdown" *ngIf="activeMenu === 'view'">
+                  <div class="dd-item" (click)="toggleViewMode()"><span class="material-symbols-outlined dd-icon">edit_note</span><span class="dd-text">Mode: {{ viewMode }}</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="togglePrintLayout()"><span class="material-symbols-outlined dd-icon">{{ showPrintLayout ? 'check_box' : 'check_box_outline_blank' }}</span><span class="dd-text">Print layout</span></div>
+                  <div class="dd-item" (click)="toggleRuler()"><span class="material-symbols-outlined dd-icon">{{ showRuler ? 'check_box' : 'check_box_outline_blank' }}</span><span class="dd-text">Ruler</span></div>
+                  <div class="dd-item" (click)="toggleEquationToolbar()"><span class="material-symbols-outlined dd-icon">{{ showEquationToolbar ? 'check_box' : 'check_box_outline_blank' }}</span><span class="dd-text">Equation toolbar</span></div>
+                  <div class="dd-item" (click)="toggleRuler()"><span class="dd-text">{{ showRuler ? '✓ ' : '' }}Show ruler</span></div>
+                  <div class="dd-item" (click)="toggleEquationToolbar()"><span class="dd-text">{{ showEquationToolbar ? '✓ ' : '' }}Show equation toolbar</span></div>
+                  <div class="dd-item" (click)="toggleNonPrinting()"><span class="dd-text">{{ showNonPrinting ? '✓ ' : '' }}Show non-printing characters</span><span class="dd-hint">Ctrl+Shift+P</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="toggleFullScreen()"><span class="material-symbols-outlined dd-icon">fullscreen</span><span class="dd-text">Full screen</span></div>
+                </div>
+              </div>
+              <div class="menu-item" (click)="toggleMenu('insert', $event)" [class.active]="activeMenu === 'insert'">
+                Insert
+                <div class="dropdown" *ngIf="activeMenu === 'insert'">
+                  <div class="dd-item" (click)="imageInput.click(); closeMenus()"><span class="material-symbols-outlined dd-icon">image</span><span class="dd-text">Image</span></div>
+                  <div class="dd-item" (click)="insertTable()"><span class="material-symbols-outlined dd-icon">table</span><span class="dd-text">Table</span></div>
+                  <div class="dd-item" (click)="insertLink()"><span class="material-symbols-outlined dd-icon">link</span><span class="dd-text">Link</span><span class="dd-hint">Ctrl+K</span></div>
+                  <div class="dd-item" (click)="insertDrawing()"><span class="material-symbols-outlined dd-icon">draw</span><span class="dd-text">Drawing</span></div>
+                  <div class="dd-item" (click)="insertChart()"><span class="material-symbols-outlined dd-icon">bar_chart</span><span class="dd-text">Chart</span></div>
+                  <div class="dd-item" (click)="insertSymbol()"><span class="material-symbols-outlined dd-icon">special_character</span><span class="dd-text">Special characters</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="exec('insertHorizontalRule')"><span class="material-symbols-outlined dd-icon">horizontal_rule</span><span class="dd-text">Horizontal line</span></div>
+                  <div class="dd-item" (click)="insertBreak()"><span class="material-symbols-outlined dd-icon">insert_page_break</span><span class="dd-text">Page break</span></div>
+                </div>
+              </div>
+              <div class="menu-item" (click)="toggleMenu('format', $event)" [class.active]="activeMenu === 'format'">
+                Format
+                <div class="dropdown" *ngIf="activeMenu === 'format'">
+                  <div class="dd-item" (click)="exec('bold')"><span class="material-symbols-outlined dd-icon">format_bold</span><span class="dd-text">Bold</span><span class="dd-hint">Ctrl+B</span></div>
+                  <div class="dd-item" (click)="exec('italic')"><span class="material-symbols-outlined dd-icon">format_italic</span><span class="dd-text">Italic</span><span class="dd-hint">Ctrl+I</span></div>
+                  <div class="dd-item" (click)="exec('underline')"><span class="material-symbols-outlined dd-icon">format_underlined</span><span class="dd-text">Underline</span><span class="dd-hint">Ctrl+U</span></div>
+                  <div class="dd-item" (click)="exec('strikeThrough')"><span class="material-symbols-outlined dd-icon">strikethrough_s</span><span class="dd-text">Strikethrough</span></div>
+                  <div class="dd-sep"></div>
+                  <div class="dd-item" (click)="exec('justifyLeft')"><span class="material-symbols-outlined dd-icon">format_align_left</span><span class="dd-text">Align left</span></div>
+                  <div class="dd-item" (click)="exec('justifyCenter')"><span class="material-symbols-outlined dd-icon">format_align_center</span><span class="dd-text">Align center</span></div>
+                  <div class="dd-item" (click)="exec('justifyRight')"><span class="material-symbols-outlined dd-icon">format_align_right</span><span class="dd-text">Align right</span></div>
+                  <div class="dd-item" (click)="exec('justifyFull')"><span class="material-symbols-outlined dd-icon">format_align_justify</span><span class="dd-text">Justify</span></div>
+                </div>
+              </div>
+              <div class="menu-item" (click)="toggleMenu('tools', $event)" [class.active]="activeMenu === 'tools'">
+                Tools
+                <div class="dropdown" *ngIf="activeMenu === 'tools'">
+                  <div class="dd-item" (click)="checkSpelling()"><span class="material-symbols-outlined dd-icon">spellcheck</span><span class="dd-text">Spelling and grammar</span></div>
+                  <div class="dd-item" (click)="showWordCount()"><span class="material-symbols-outlined dd-icon">123</span><span class="dd-text">Word count</span><span class="dd-hint">Ctrl+Shift+C</span></div>
+                  <div class="dd-item" (click)="openDictionary()"><span class="material-symbols-outlined dd-icon">dictionary</span><span class="dd-text">Dictionary</span><span class="dd-hint">Ctrl+Shift+Y</span></div>
+                </div>
+              </div>
+              <div class="menu-item" (click)="toggleMenu('help', $event)" [class.active]="activeMenu === 'help'">
+                Help
+                <div class="dropdown" *ngIf="activeMenu === 'help'">
+                  <div class="dd-item" (click)="showToast('Coming soon')"><span class="material-symbols-outlined dd-icon">help</span><span class="dd-text">Writer Help</span></div>
+                  <div class="dd-item" (click)="showToast('Coming soon')"><span class="material-symbols-outlined dd-icon">keyboard</span><span class="dd-text">Keyboard shortcuts</span><span class="dd-hint">Ctrl+/</span></div>
+                </div>
+            </div>
+          </div>
+        </div>
 
+      <!-- Formatting Toolbar -->
       <div class="fmt-bar" (mousedown)="$event.preventDefault()">
-        <button class="fb" (click)="exec('undo')" title="Undo">↩</button>
-        <button class="fb" (click)="exec('redo')" title="Redo">↪</button>
-        <button class="fb" (click)="printDoc()" title="Print">🖨️</button>
-        <span class="sep"></span>
-        <button class="fb" (click)="exec('bold')" title="Bold"><b>B</b></button>
-        <button class="fb" (click)="exec('italic')" title="Italic"><i>I</i></button>
-        <button class="fb" (click)="exec('underline')" title="Underline"><u>U</u></button>
-        <span class="sep"></span>
-        <button class="fb" (click)="exec('justifyLeft')" title="Left">⬅</button>
-        <button class="fb" (click)="exec('justifyCenter')" title="Center">↔</button>
-        <button class="fb" (click)="exec('justifyRight')" title="Right">➡</button>
-        <span class="sep"></span>
-        <button class="fb" (click)="exec('insertUnorderedList')" title="Bullet List">•</button>
-        <button class="fb" (click)="exec('insertOrderedList')" title="Numbered List">1.</button>
+        <button class="fb" (click)="exec('undo')" title="Undo"><span class="material-symbols-outlined">undo</span></button>
+        <button class="fb" (click)="exec('redo')" title="Redo"><span class="material-symbols-outlined">redo</span></button>
+        <button class="fb" (click)="printDoc()" title="Print"><span class="material-symbols-outlined">print</span></button>
         <span class="sep"></span>
 
-        <div class="menu-item style-dropdown" (click)="toggleMenu('style', $event)" [class.active]="activeMenu === 'style'" title="Styles">
-          {{ activeBlockStyle }} <span class="arrow">▼</span>
-          <div class="dropdown" *ngIf="activeMenu === 'style'" style="min-width: 160px;">
-            <div class="dd-item" (click)="changeStyle('p', 'Normal text')"><span class="dd-text" style="font-size: 14px;">Normal text</span></div>
-            <div class="dd-item" (click)="changeStyle('h1', 'Title')"><span class="dd-text" style="font-size: 24px; font-weight: bold;">Title</span></div>
-            <div class="dd-item" (click)="changeStyle('h2', 'Subtitle')"><span class="dd-text" style="font-size: 18px; color: #5f6368;">Subtitle</span></div>
-            <div class="dd-item" (click)="changeStyle('h3', 'Heading 1')"><span class="dd-text" style="font-size: 20px;">Heading 1</span></div>
-            <div class="dd-item" (click)="changeStyle('h4', 'Heading 2')"><span class="dd-text" style="font-size: 16px;">Heading 2</span></div>
-            <div class="dd-item" (click)="changeStyle('h5', 'Heading 3')"><span class="dd-text" style="font-size: 14px; font-weight: bold;">Heading 3</span></div>
+        <div class="menu-item style-dropdown" (click)="toggleMenu('style', $event)" [class.active]="activeMenu === 'style'" title="Paragraph style">
+          <span style="max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; vertical-align:middle;">{{ activeBlockStyle }}</span> <span class="material-symbols-outlined arrow-icon" style="vertical-align:middle;">expand_more</span>
+          <div class="dropdown style-dd" *ngIf="activeMenu === 'style'">
+            <div class="dd-item" (click)="changeStyle('p', 'Normal')"><span class="dd-text" style="font-size:14px;">Normal</span></div>
+            <div class="dd-item" (click)="changeStyle('h1', 'Title')"><span class="dd-text" style="font-size:22px;font-weight:700;">Title</span></div>
+            <div class="dd-item" (click)="changeStyle('h2', 'Subtitle')"><span class="dd-text" style="font-size:16px;color:#5f6368;">Subtitle</span></div>
+            <div class="dd-item" (click)="changeStyle('h3', 'Heading 1')"><span class="dd-text" style="font-size:18px;font-weight:600;">Heading 1</span></div>
+            <div class="dd-item" (click)="changeStyle('h4', 'Heading 2')"><span class="dd-text" style="font-size:15px;font-weight:600;">Heading 2</span></div>
+            <div class="dd-item" (click)="changeStyle('h5', 'Heading 3')"><span class="dd-text" style="font-size:13px;font-weight:600;">Heading 3</span></div>
           </div>
         </div>
         
         <span class="sep"></span>
 
-        <div class="menu-item font-dropdown" (click)="toggleMenu('font', $event)" [class.active]="activeMenu === 'font'" title="Font">
-          <span [style.font-family]="activeFontFamily">{{ activeFontFamily }}</span> <span class="arrow">▼</span>
-          <div class="dropdown" *ngIf="activeMenu === 'font'" style="min-width: 160px; max-height: 300px; overflow-y: auto;">
+        <div class="menu-item font-dropdown" (click)="toggleMenu('font', $event)" [class.active]="activeMenu === 'font'" title="Font family">
+          <span [style.font-family]="activeFontFamily" style="max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; vertical-align:middle;">{{ activeFontFamily }}</span> <span class="material-symbols-outlined arrow-icon" style="vertical-align:middle;">expand_more</span>
+          <div class="dropdown font-dd" *ngIf="activeMenu === 'font'">
             <div class="dd-item" *ngFor="let font of fonts" (click)="changeFont(font)">
               <span class="dd-text" [style.font-family]="font">{{ font }}</span>
             </div>
@@ -185,13 +209,58 @@ import { AuthService } from '../../services/auth.service';
 
         <span class="sep"></span>
 
-        <div class="font-size-control">
-          <button class="fb size-btn" (click)="decrementFontSize()" title="Decrease font size">−</button>
-          <input class="size-input" [(ngModel)]="activeFontSize" (change)="onFontSizeInputChange()" />
-          <button class="fb size-btn" (click)="incrementFontSize()" title="Increase font size">+</button>
+        <div class="font-size-control" style="position: relative;">
+          <button class="fb size-btn" (click)="decrementFontSize()" title="Decrease font size"><span class="material-symbols-outlined">remove</span></button>
+          
+          <div class="size-input-wrapper" (click)="showFontSizeMenu = !showFontSizeMenu; $event.stopPropagation()">
+            <input class="size-input" [(ngModel)]="activeFontSize" (change)="onFontSizeInputChange()" (click)="$event.stopPropagation()" />
+            <span class="material-symbols-outlined">arrow_drop_down</span>
+          </div>
+
+          <button class="fb size-btn" (click)="incrementFontSize()" title="Increase font size"><span class="material-symbols-outlined">add</span></button>
+          <div class="dropdown" *ngIf="showFontSizeMenu" (click)="$event.stopPropagation()" style="position: absolute; top: 100%; left: 24px; width: 52px; min-width: 52px; z-index: 1000; max-height: 250px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); background: white; border: 1px solid #ccc; padding: 4px 0; display: block;">
+            <div class="dd-item" style="padding: 6px 12px; text-align: center; cursor: pointer; border-bottom: none;" *ngFor="let s of [8,9,10,11,12,14,18,24,30,36,48,60,72]" (click)="changeFontSize(s)">{{ s }}</div>
+          </div>
         </div>
 
         <span class="sep"></span>
+
+        <button class="fb" (click)="exec('bold')" [class.active-fb]="isBold" title="Bold (Ctrl+B)"><span class="material-symbols-outlined">format_bold</span></button>
+        <button class="fb" (click)="exec('italic')" [class.active-fb]="isItalic" title="Italic (Ctrl+I)"><span class="material-symbols-outlined">format_italic</span></button>
+        <button class="fb" (click)="exec('underline')" [class.active-fb]="isUnderline" title="Underline (Ctrl+U)"><span class="material-symbols-outlined">format_underlined</span></button>
+        <button class="fb" (click)="exec('strikeThrough')" [class.active-fb]="isStrikethrough" title="Strikethrough"><span class="material-symbols-outlined">strikethrough_s</span></button>
+        
+        <label class="fb color-btn" title="Text color" style="cursor:pointer; position:relative; overflow:hidden;">
+          <span class="material-symbols-outlined">format_color_text</span>
+          <span class="color-indicator" [style.background]="activeColor"></span>
+          <input type="color" [(ngModel)]="activeColor" (change)="execVal('foreColor', activeColor)" style="position:absolute; opacity:0; width:0; height:0;" />
+        </label>
+        
+        <label class="fb color-btn" title="Highlight color" style="cursor:pointer; position:relative; overflow:hidden;">
+          <span class="material-symbols-outlined">format_ink_highlighter</span>
+          <span class="color-indicator" [style.background]="activeHighlight"></span>
+          <input type="color" [(ngModel)]="activeHighlight" (change)="execVal('hiliteColor', activeHighlight)" style="position:absolute; opacity:0; width:0; height:0;" />
+        </label>
+
+        <span class="sep"></span>
+
+        <button class="fb" (click)="exec('justifyLeft')" title="Align left"><span class="material-symbols-outlined">format_align_left</span></button>
+        <button class="fb" (click)="exec('justifyCenter')" title="Align center"><span class="material-symbols-outlined">format_align_center</span></button>
+        <button class="fb" (click)="exec('justifyRight')" title="Align right"><span class="material-symbols-outlined">format_align_right</span></button>
+        <button class="fb" (click)="exec('justifyFull')" title="Justify"><span class="material-symbols-outlined">format_align_justify</span></button>
+
+        <span class="sep"></span>
+
+        <button class="fb" (click)="exec('insertUnorderedList')" title="Bulleted list"><span class="material-symbols-outlined">format_list_bulleted</span></button>
+        <button class="fb" (click)="exec('insertOrderedList')" title="Numbered list"><span class="material-symbols-outlined">format_list_numbered</span></button>
+        <button class="fb" (click)="exec('indent')" title="Increase indent"><span class="material-symbols-outlined">format_indent_increase</span></button>
+        <button class="fb" (click)="exec('outdent')" title="Decrease indent"><span class="material-symbols-outlined">format_indent_decrease</span></button>
+
+        <span class="sep"></span>
+
+        <button class="fb" (click)="insertLink()" title="Insert link"><span class="material-symbols-outlined">link</span></button>
+        <button class="fb" (click)="imageInput.click()" title="Insert image"><span class="material-symbols-outlined">image</span></button>
+        <button class="fb" (click)="insertTable()" title="Insert table"><span class="material-symbols-outlined">table</span></button>
       </div>
 
       <div class="equation-bar" *ngIf="showEquationToolbar">
@@ -204,13 +273,18 @@ import { AuthService } from '../../services/auth.service';
         <div class="sidebar" *ngIf="showPrintLayout">
           <div class="thumbnail" *ngFor="let p of pageCountArray; let i = index" (click)="scrollToPage(i)">
             <div class="thumb-page">
-              <button class="delete-page-btn" (click)="deletePage(i, $event)" title="Delete Page">×</button>
+              <button class="delete-page-btn" (click)="deletePage(i, $event)" title="Delete Page">&times;</button>
             </div>
             <div class="thumb-label">{{ i + 1 }}</div>
           </div>
+          <div class="add-page-btn-wrapper" style="margin-top: 16px; display: flex; justify-content: center;">
+            <button (click)="insertBreak()" title="Add new page" style="width: 40px; height: 40px; border-radius: 50%; background: #fff; border: 1px solid #dadce0; box-shadow: 0 1px 3px rgba(60,64,67,.1); display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <span class="material-symbols-outlined" style="color: #1a73e8; font-size: 24px;">add</span>
+            </button>
+          </div>
         </div>
         <div class="page-area" #pageArea [class.no-print]="!showPrintLayout" (scroll)="updateOverlay()" (mousedown)="onPageMouseDown($event)">
-          <div style="display:flex; flex-direction: column; align-items: center;">
+          <div style="margin: 0 auto; width: 816px; display:flex; flex-direction: column; align-items: center; padding-bottom: 48px;">
             <div class="ruler" *ngIf="showRuler"></div>
             <div style="position: relative; width: 816px;">
               <div class="page-bg-layer" *ngIf="showPrintLayout">
@@ -284,21 +358,65 @@ import { AuthService } from '../../services/auth.service';
       <!-- Share Modal -->
       <div class="modal-overlay" *ngIf="shareModalOpen" (click)="shareModalOpen = false">
         <div class="modal share-modal" (click)="$event.stopPropagation()">
-          <h3 style="margin-top: 0; color: #202124;">Share this document</h3>
-          <p style="color: #5f6368; font-size: 14px; margin-bottom: 24px;">Choose a platform to share the link with collaborators:</p>
-          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-             <button class="btn" style="background: #25d366; color: #fff;" (click)="shareTo('whatsapp')">WhatsApp</button>
-             <button class="btn" style="background: #ea4335; color: #fff;" (click)="shareTo('email')">Email</button>
-             <button class="btn outline" (click)="copyLink()">Copy Link</button>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="background:#1a73e8; color:#fff; display:flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:4px;">
+                <span class="material-symbols-outlined" style="font-size:16px;">description</span>
           </div>
-          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e8eaed;">
-            <div style="font-size: 12px; color: #5f6368; margin-bottom: 8px;">Or share this link directly:</div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <input type="text" [value]="currentUrl" readonly style="flex:1; padding: 8px 10px; border: 1px solid #dadce0; border-radius: 4px; font-size: 12px; color: #5f6368; background: #f8f9fa; outline: none;">
-              <button class="btn" (click)="copyLink()" style="white-space: nowrap; font-size: 13px;">Copy</button>
+              <h3>Share "{{ title || 'Untitled document' }}"</h3>
             </div>
           </div>
-          <button (click)="shareModalOpen = false" style="position: absolute; top: 12px; right: 16px; background: none; border: none; font-size: 20px; cursor: pointer; color: #5f6368; line-height: 1;">×</button>
+            <button class="sm-close-btn" (click)="shareModalOpen = false" style="position: absolute; top: 12px; right: 16px; background: none; border: none;">
+              <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+            </button>
+          <div style="position:relative; margin-bottom:32px;">
+            <div style="display:flex; align-items:center; gap:12px; position:relative;">
+              <div class="sm-input-box">
+                <input type="text" class="sm-input" [(ngModel)]="shareQuery" (ngModelChange)="onShareSearch()" placeholder="Add people and groups">
+                <div class="sm-dropdown-txt" (click)="shareRoleDropdownOpen = !shareRoleDropdownOpen" style="position:relative;">
+                  {{ shareRole }} <span class="material-symbols-outlined" style="font-size:18px; color:inherit; opacity: 0.8;">arrow_drop_down</span>
+                  
+                  <div *ngIf="shareRoleDropdownOpen" class="sm-list" style="position:absolute; top:30px; right:0; left:auto; width:100px; z-index:100; min-width:100px; max-height:none;">
+                     <div (click)="shareRole = 'View'; shareRoleDropdownOpen = false; $event.stopPropagation()" class="sm-list-item" style="padding:8px 12px; border-bottom:none;">View</div>
+                     <div (click)="shareRole = 'Edit'; shareRoleDropdownOpen = false; $event.stopPropagation()" class="sm-list-item" style="padding:8px 12px; border-bottom:none;">Edit</div>
+                  </div>
+                </div>
+              </div>
+              <button (click)="performShare()" style="background:#1a73e8; color:#fff; border:none; border-radius:24px; font-weight:500; font-size:14px; padding:0 24px; height:44px; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#1557b0'" onmouseout="this.style.background='#1a73e8'">Share</button>
+            </div>
+            <div *ngIf="userSearchResults.length > 0" class="sm-list">
+              <div *ngFor="let u of userSearchResults" (click)="selectShareUser(u)" class="sm-list-item">
+                <div style="width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; font-weight:500;" [style.background]="u.avatar_color">{{u.name.charAt(0).toUpperCase()}}</div>
+                <div style="display:flex; flex-direction:column;">
+                  <div class="name">{{u.name}}</div>
+                  <div class="email">{{u.email}}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-bottom:32px;">
+            <div style="font-size:11px; font-weight:600; color:#9aa0a6; letter-spacing:0.8px; margin-bottom:16px;">WHO CAN ACCESS</div>
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <div style="display:flex; align-items:center; gap:16px;">
+                <div class="sm-icon-bg">
+                  <span class="material-symbols-outlined" style="font-size:20px;">{{ isPublic ? 'public' : 'link' }}</span>
+                </div>
+                <div>
+                  <div class="sm-txt-main">{{ isPublic ? 'Public Link - Anyone on the internet can view' : 'Permalink - Private, not shared with anyone' }}</div>
+                </div>
+              </div>
+              <button *ngIf="!isPublic" (click)="makePublic()" class="sm-sec-btn">
+                <span class="material-symbols-outlined" style="font-size:16px;">settings</span> Make Public
+              </button>
+              <button *ngIf="isPublic" (click)="isPublic = false" class="sm-sec-btn">
+                <span class="material-symbols-outlined" style="font-size:16px;">lock</span> Make Private
+              </button>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <button (click)="copyLink()" class="sm-copy-btn">Copy Link</button>
+            <button (click)="shareModalOpen = false" class="sm-done-btn">Done</button>
+          </div>
         </div>
       </div>
 
@@ -335,19 +453,32 @@ import { AuthService } from '../../services/auth.service';
         </div>
       </div>
 
-      <div class="bottom-chat-bar">
-         <div class="bcb-item" (click)="toggleWidget('chat')">
-            <span class="material-symbols-outlined" style="color:#d32f2f;">chat</span>
-            <span>Unread Chats</span>
-            <div class="bcb-badge">0</div>
+      <!-- Status Bar -->
+      <div class="status-bar">
+        <div class="status-left">
+          <div class="status-item" (click)="toggleWidget('chat')">
+            <span class="material-symbols-outlined" style="font-size:16px;color:#d32f2f;">chat</span>
+            <span>Chats</span>
          </div>
-         <div class="bcb-item" (click)="toggleWidget('channels')">
-            <span class="material-symbols-outlined" style="color:#5f6368;">group</span>
+          <div class="status-item" (click)="toggleWidget('channels')">
+            <span class="material-symbols-outlined" style="font-size:16px;">group</span>
             <span>Channels</span>
          </div>
-         <div class="bcb-item" (click)="toggleWidget('contacts')">
-            <span class="material-symbols-outlined" style="color:#5f6368;">person</span>
+          <div class="status-item" (click)="toggleWidget('contacts')">
+            <span class="material-symbols-outlined" style="font-size:16px;">person</span>
             <span>Contacts</span>
+          </div>
+          <span class="status-divider"></span>
+          <div class="status-info">Words: {{ wordCount }}</div>
+          <div class="status-info">Chars: {{ charCount }}</div>
+          <div class="status-info">Page: {{ currentPage }} of {{ pageCountArray.length }}</div>
+        </div>
+        <div class="status-right">
+          <div class="status-info">{{ viewMode }}</div>
+          <span class="status-divider"></span>
+          <button class="zoom-btn" (click)="zoomOut()"><span class="material-symbols-outlined" style="font-size:16px;">remove</span></button>
+          <div class="status-info">{{ zoomLevel }}%</div>
+          <button class="zoom-btn" (click)="zoomIn()"><span class="material-symbols-outlined" style="font-size:16px;">add</span></button>
          </div>
       </div>
 
@@ -355,186 +486,7 @@ import { AuthService } from '../../services/auth.service';
 
     </div>
   `,
-  styles: [`
-    /* Bottom Chat Bar */
-    .bottom-chat-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #f8f9fa; border-top: 1px solid #e0e0e0; z-index: 9999; height: 36px; box-shadow: 0 -1px 3px rgba(0,0,0,0.05); }
-    .bcb-item { display: flex; align-items: center; gap: 8px; padding: 0 16px; cursor: pointer; border-right: 1px solid #e0e0e0; font-size: 13px; font-weight: 500; color: #202124; transition: background 0.2s; position: relative; }
-    .bcb-item:hover { background: #e8f0fe; }
-    .bcb-item .material-symbols-outlined { font-size: 18px; }
-    .bcb-badge { position: absolute; top: -6px; left: 16px; background: #d32f2f; color: #fff; font-size: 10px; font-weight: bold; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
-
-    /* Widgets */
-    .widget-panel { position: fixed; bottom: 48px; right: 24px; width: 300px; background: #fff; border-radius: 8px; border: 1px solid #e0e0e0; z-index: 10000; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    .wp-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #e0e0e0; font-weight: 500; color: #202124; background: #f8f9fa; }
-    .wp-body { padding: 16px; flex: 1; min-height: 200px; display: flex; flex-direction: column; }
-
-    .shell { display: flex; flex-direction: column; height: calc(100vh - 36px); background: #f9fbfd; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
-    
-    .top-bar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 16px; background: #f9fbfd; position: relative; z-index: 210;
-    }
-    .top-left { display: flex; align-items: flex-start; gap: 12px; }
-    .back { 
-      background: none; border: none; cursor: pointer; color: #5f6368; 
-      display: flex; align-items: center; justify-content: center;
-      width: 40px; height: 40px; border-radius: 50%;
-      margin-top: 4px;
-    }
-    .back:hover { background: #f1f3f4; }
-    .icon-sm { width: 16px; height: 16px; display: inline-block; vertical-align: middle; }
-    
-    .doc-meta { display: flex; flex-direction: column; }
-    .title-input { 
-      width: 250px; border: 1px solid transparent; border-radius: 4px;
-      font-size: 18px; color: #202124; outline: none; padding: 2px 6px;
-      background: transparent; margin-bottom: 2px;
-    }
-    .title-input:hover { border-color: #dadce0; }
-    .title-input:focus { border-color: #1a73e8; background: #fff; }
-
-    .menu-bar { display: flex; gap: 2px; flex-direction: row; }
-    .menu-item {
-      padding: 4px 8px; font-size: 14px; color: #202124; cursor: pointer;
-      border-radius: 4px; position: relative; user-select: none;
-    }
-    .menu-item:hover, .menu-item.active { background: #e8eaed; }
-
-    .dropdown {
-      position: absolute; top: 100%; left: 0; min-width: 320px;
-      background: #fff; border: 1px solid #dadce0; border-radius: 4px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15); padding: 6px 0;
-      z-index: 100; display: flex; flex-direction: column;
-    }
-    .dd-item { 
-      padding: 6px 24px 6px 36px; font-size: 14px; color: #202124; cursor: pointer;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .dd-item:hover { background: #f1f3f4; }
-    .dd-text { flex: 1; }
-    .dd-hint { color: #5f6368; font-size: 12px; margin-left: 16px; }
-    .dd-premium { background: #1a73e8; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 12px; font-weight: 600; margin-left: 16px; }
-    .dd-sep { height: 1px; background: #e8eaed; margin: 6px 0; }
-
-    .top-right { display: flex; align-items: center; gap: 12px; }
-    .badge { font-size: 12px; background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 12px; font-weight: 600; display: flex; align-items: center; white-space: nowrap; }
-    .btn { padding: 8px 16px; background: #c2e7ff; color: #001d35; border: none; border-radius: 24px; cursor: pointer; font-size: 14px; font-weight: 500; display: flex; align-items: center; }
-    .btn.outline { background: #c2e7ff; color: #001d35; }
-    .btn:hover { background: #b3d4ec; }
-    .avatar {
-      width: 36px; height: 36px; border-radius: 50%; background: #1a73e8;
-      color: #fff; font-size: 14px; font-weight: 500; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center; cursor: default;
-    }
-
-    .fmt-bar {
-      display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
-      padding: 6px 16px; background: #edf2fa; border-radius: 24px; margin: 0 16px;
-      position: relative; z-index: 200;
-    }
-    .fb { min-width: 32px; height: 32px; padding: 0 8px; background: none; border: 1px solid transparent; border-radius: 4px; cursor: pointer; font-size: 14px; color: #444746; display: flex; align-items: center; justify-content: center;}
-    .fb:hover { background: #e0e6ed; }
-    .fsel { height: 32px; border: 1px solid transparent; border-radius: 4px; font-size: 14px; padding: 0 8px; cursor: pointer; background: transparent; color: #444746; outline: none; }
-    .fsel:hover { background: #e0e6ed; }
-    .sep { width: 1px; height: 20px; background: #c7c7c7; margin: 0 6px; }
-
-    .arrow { font-size: 10px; margin-left: 4px; color: #5f6368; }
-    .style-dropdown { min-width: 100px; display: flex; justify-content: space-between; align-items: center; }
-    .font-dropdown { min-width: 130px; display: flex; justify-content: space-between; align-items: center; }
-    .font-size-control { display: flex; align-items: center; background: #fff; border: 1px solid #dadce0; border-radius: 4px; height: 30px; overflow: hidden; }
-    .font-size-control .size-btn { width: 26px; height: 30px; border-radius: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #444746; background: transparent; border: none; cursor: pointer; }
-    .font-size-control .size-btn:hover { background: #e0e6ed; }
-    .font-size-control .size-input { width: 32px; height: 100%; text-align: center; border: none; border-left: 1px solid #dadce0; border-right: 1px solid #dadce0; font-size: 14px; outline: none; padding: 0; color: #202124; background: #fff; }
-
-    .doc-editor { display: flex; flex-direction: column; height: 100vh; background: #f9fbfd; }
-    
-    .editor-layout { display: flex; flex: 1; overflow: hidden; background: #f9fbfd; }
-    .sidebar { width: 140px; background: #f8f9fa; border-right: 1px solid #dadce0; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: 16px; }
-    .thumbnail { display: flex; flex-direction: column; align-items: center; cursor: pointer; opacity: 0.8; position: relative; }
-    .thumbnail:hover { opacity: 1; }
-    .thumb-page { width: 90px; height: 116px; background: #fff; border: 1px solid #dadce0; margin-bottom: 6px; box-shadow: 0 1px 2px rgba(60,64,67,.1); position: relative; }
-    .thumbnail:hover .thumb-page { border-color: #1a73e8; }
-    .delete-page-btn {
-      position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%;
-      background: #ea4335; color: white; border: none; font-size: 14px; line-height: 14px;
-      font-weight: bold; cursor: pointer; display: none; align-items: center; justify-content: center;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3); padding: 0;
-    }
-    .thumbnail:hover .delete-page-btn { display: flex; }
-    .thumb-label { font-size: 11px; color: #5f6368; font-weight: 500; }
-
-    .page-area { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; justify-content: center; background: #f9fbfd; scroll-behavior: smooth; }
-    
-    .page-bg-layer { position: absolute; top: 0; left: 0; width: 100%; z-index: 0; pointer-events: none; display: flex; flex-direction: column; gap: 24px; }
-    .page-bg { width: 816px; height: 1056px; background: #fff; box-shadow: 0 1px 3px 1px rgba(60,64,67,.15); border-radius: 2px; }
-
-    .page {
-      width: 816px; min-height: 1056px; 
-      background-color: transparent; 
-      box-shadow: none;
-      padding: 96px; border-radius: 2px; outline: none; font-size: 11pt;
-      line-height: 1.5; color: #000; font-family: Arial, sans-serif;
-      position: relative; z-index: 1; box-sizing: border-box;
-    }
-    .page-area.no-print .page { padding: 20px 0; box-shadow: none; background-color: transparent; }
-    .page-area.no-print .page-bg-layer { display: none; }
-    .ruler { height: 16px; background: url('https://upload.wikimedia.org/wikipedia/commons/7/7b/Ruler_15_cm.png') repeat-x; opacity: 0.3; margin-bottom: 8px; width: 816px; }
-    .equation-bar { padding: 4px 16px; background: #f1f3f4; display: flex; gap: 8px; border-top: 1px solid #e8eaed; font-family: math; justify-content: center; }
-    .page.show-np p::after, .page.show-np div::after { content: '¶'; color: #9aa0a6; padding-left: 4px; font-weight: normal; }
-    
-    :host ::ng-deep .page img { max-width: 100%; height: auto; display: inline-block; cursor: pointer; }
-    
-    .resize-overlay {
-      position: fixed; border: 2px solid #1a73e8; pointer-events: none; z-index: 100; box-sizing: border-box;
-    }
-    .resize-handle {
-      position: absolute; width: 16px; height: 16px; background: #1a73e8;
-      border: 2px solid #fff; pointer-events: auto; box-sizing: border-box;
-      border-radius: 2px;
-    }
-    .resize-handle.tl { top: -8px; left: -8px; cursor: nwse-resize; }
-    .resize-handle.tr { top: -8px; right: -8px; cursor: nesw-resize; }
-    .resize-handle.bl { bottom: -8px; left: -8px; cursor: nesw-resize; }
-    .resize-handle.br { bottom: -8px; right: -8px; cursor: nwse-resize; }
-
-    .page:empty::before { content: ''; }
-    
-    .toast {
-      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px);
-      background: #323232; color: #f1f3f4; padding: 12px 24px; border-radius: 4px;
-      font-size: 14px; opacity: 0; transition: all .25s; pointer-events: none;
-      z-index: 1000;
-    }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-    
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.5); z-index: 999; display: flex; align-items: center; justify-content: center;
-    }
-    .modal { background: white; padding: 24px; border-radius: 8px; width: 460px; max-width: 90%; text-align: center; box-shadow: 0 4px 24px rgba(0,0,0,0.2); position: relative; }
-    .share-modal { text-align: left; }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
-    .form-control { width: 100%; padding: 8px 12px; border: 1px solid #dadce0; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
-    .form-control:focus { outline: none; border-color: #1a73e8; }
-    .find-dialog { position: absolute; top: 70px; right: 24px; background: #fff; padding: 12px; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; gap: 8px; z-index: 300; }
-    .find-dialog input {
-      border: 1px solid #dadce0; border-radius: 4px; padding: 6px 12px; font-size: 14px;
-      outline: none; width: 200px;
-    }
-    .find-dialog input:focus { border-color: #1a73e8; }
-
-    /* ===== PRINT STYLES ===== */
-    @media print {
-      .top-bar, .fmt-bar, .equation-bar, .sidebar, .find-dialog,
-      .modal-overlay, .toast, .resize-overlay { display: none !important; }
-      .shell { display: block !important; }
-      .editor-layout { display: block !important; overflow: visible !important; }
-      .page-area { padding: 0 !important; overflow: visible !important; display: block !important; }
-      .page { width: 100% !important; min-height: auto !important; box-shadow: none !important;
-              padding: 15mm 20mm !important; margin: 0 !important; }
-      .page-bg-layer { display: none !important; }
-    }
-  `]
+  styleUrls: ['./doc-editor.component.css']
 })
 export class DocEditorComponent implements OnInit, OnDestroy {
   activeWidget: string | null = null;
@@ -552,6 +504,26 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   htmlContent = '';
   activeUsers = 1;
   activeMenu: string | null = null;
+  wordCount = 0;
+  charCount = 0;
+  currentPage = 1;
+  zoomLevel = 100;
+  isSaving = false;
+  lastSavedTime: Date | null = null;
+  isStarred = false;
+
+  get savedTimeStr() {
+    if (!this.lastSavedTime) return 'Saved';
+    return 'Saved at ' + this.lastSavedTime.toLocaleTimeString();
+  }
+
+  isBold = false;
+  isItalic = false;
+  isUnderline = false;
+  isStrikethrough = false;
+  activeColor = '#000000';
+  activeHighlight = '#ffffff';
+
   get currentUrl(): string { return window.location.href; }
   
   viewMode: 'Editing' | 'Viewing' = 'Editing';
@@ -561,6 +533,11 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   showNonPrinting = false;
 
   shareModalOpen = false;
+  isPublic = false;
+  shareQuery = '';
+  shareRoleDropdownOpen = false;
+  shareRole = 'View';
+  userSearchResults: any[] = [];
   findDialogVisible = false;
   findTextQuery = '';
   pageCountArray: number[] = [0];
@@ -612,7 +589,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     private router: Router,
     private api: ApiService,
     public auth: AuthService
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.docId = this.route.snapshot.paramMap.get('id') ?? '';
@@ -620,16 +597,22 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     
     this.api.getDocument(this.docId).subscribe((doc: any) => {
       this.title = doc.title;
+      if (doc.updated_at) {
+        this.lastSavedTime = new Date(doc.updated_at);
+      }
       try { 
         const p = JSON.parse(doc.content || '{}'); 
         this.htmlContent = p.html ?? '<div><br></div>'; 
         const el = document.querySelector('.page') as HTMLElement;
         if (el) {
           el.innerHTML = this.htmlContent;
-          try { document.execCommand('enableObjectResizing', false, 'false'); } catch (e) {}
+          try { document.execCommand('enableObjectResizing', false, 'false'); } catch (e) { }
           setTimeout(() => {
              this.autoPaginate();
              this.updatePageHeight();
+
+            // Setup selection change listener
+            document.addEventListener('selectionchange', this.onSelectionChange.bind(this));
           }, 100);
         }
       } catch { }
@@ -649,7 +632,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
             const el = document.querySelector('.page') as HTMLElement;
             if (el) {
               el.innerHTML = this.htmlContent;
-              try { document.execCommand('enableObjectResizing', false, 'false'); } catch (e) {}
+              try { document.execCommand('enableObjectResizing', false, 'false'); } catch (e) { }
               setTimeout(() => {
                  this.autoPaginate();
                  this.updatePageHeight();
@@ -662,6 +645,39 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     });
   }
 
+
+  onSelectionChange() {
+    if (this.viewMode !== 'Editing') return;
+
+    // Update toolbar buttons based on selection
+    this.isBold = document.queryCommandState('bold');
+    this.isItalic = document.queryCommandState('italic');
+    this.isUnderline = document.queryCommandState('underline');
+    this.isStrikethrough = document.queryCommandState('strikeThrough');
+
+    // Attempt to get font family
+    const fontName = document.queryCommandValue('fontName');
+    if (fontName) {
+      this.activeFontFamily = fontName.replace(/["']/g, '').split(',')[0].trim();
+    }
+
+    // Attempt to get format block
+    const formatBlock = document.queryCommandValue('formatBlock');
+    if (formatBlock) {
+      if (formatBlock === 'p' || formatBlock === 'div') this.activeBlockStyle = 'Normal text';
+      else if (formatBlock === 'h1') this.activeBlockStyle = 'Title';
+      else if (formatBlock === 'h2') this.activeBlockStyle = 'Subtitle';
+      else if (formatBlock === 'h3') this.activeBlockStyle = 'Heading 1';
+      else if (formatBlock === 'h4') this.activeBlockStyle = 'Heading 2';
+      else if (formatBlock === 'h5') this.activeBlockStyle = 'Heading 3';
+    }
+  }
+
+  toggleStar() {
+    this.isStarred = !this.isStarred;
+    this.showToast(this.isStarred ? 'Starred' : 'Unstarred');
+  }
+
   toggleMenu(menu: string, event: Event) {
     event.stopPropagation();
     this.activeMenu = this.activeMenu === menu ? null : menu;
@@ -669,6 +685,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
   closeMenus(event?: Event) {
     this.activeMenu = null;
+    this.showFontSizeMenu = false;
   }
 
   newDoc() {
@@ -737,6 +754,11 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     } else {
       document.exitFullscreen();
     }
+  }
+  showFontSizeMenu = false;
+
+  hideFontSizeMenu() {
+    setTimeout(() => { this.showFontSizeMenu = false; }, 150);
   }
 
   toggleViewMode() { this.viewMode = this.viewMode === 'Editing' ? 'Viewing' : 'Editing'; this.closeMenus(); }
@@ -848,7 +870,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       if (!el.contains(window.getSelection()?.anchorNode || null)) {
         el.focus();
       }
-      try { document.execCommand('enableObjectResizing', false, 'false'); } catch (e) {}
+      try { document.execCommand('enableObjectResizing', false, 'false'); } catch (e) { }
     }
     document.execCommand(cmd, false); 
     setTimeout(() => {
@@ -858,10 +880,18 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     }, 10);
   }
 
-  execVal(cmd: string, e: Event) {
-    const val = (e.target as HTMLSelectElement).value;
-    if (val) document.execCommand(cmd, false, val);
-    (e.target as HTMLSelectElement).value = '';
+  execVal(cmd: string, val: string | Event) {
+    this.closeMenus();
+    const el = document.querySelector('.page') as HTMLElement;
+    if (el) el.focus();
+
+    let value = typeof val === 'string' ? val : (val.target as HTMLSelectElement).value;
+    if (value) document.execCommand(cmd, false, value);
+
+    if (typeof val !== 'string') {
+      (val.target as HTMLSelectElement).value = '';
+    }
+
     setTimeout(() => {
       this.updateOverlay();
       this.updatePageHeight();
@@ -880,13 +910,29 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     this.activeFontSize = size;
     const val = size + 'pt';
     const el = document.querySelector('.page') as HTMLElement;
-    if (el) el.focus();
+    if (!el) return;
+    el.focus();
+
+    const sel = window.getSelection();
+    if (sel && sel.isCollapsed) {
+      const span = document.createElement('span');
+      span.style.fontSize = val;
+      span.innerHTML = '&#8203;';
+      const range = sel.getRangeAt(0);
+      range.insertNode(span);
+      range.setStart(span.firstChild!, 1);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
     document.execCommand('fontSize', false, '7'); 
     const fontEls = document.querySelectorAll('font[size="7"]');
     fontEls.forEach(f => {
-      (f as HTMLElement).removeAttribute('size');
-      (f as HTMLElement).style.fontSize = val;
+        f.removeAttribute('size');
+        f.setAttribute('style', `font-size: ${val}`);
     });
+    }
+
     this.closeMenus();
     setTimeout(() => { this.updatePageHeight(); this.save(); }, 10);
   }
@@ -921,7 +967,29 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
   insertHTML(html: string) {
     const el = document.querySelector('.page') as HTMLElement;
-    if (el) el.focus();
+    if (!el) return;
+
+    el.focus();
+    const sel = window.getSelection();
+    if (sel) {
+      let hasValidRange = false;
+      if (sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        if (el.contains(range.commonAncestorContainer)) {
+          hasValidRange = true;
+        }
+      }
+
+      // If no valid selection inside the editor, place cursor at the end
+      if (!hasValidRange) {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false); // collapse to end
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+
     document.execCommand('insertHTML', false, html);
     this.closeMenus();
   }
@@ -954,7 +1022,52 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   }
 
   insertBreak() {
-    this.insertHTML('<br><br><div style="page-break-after: always; height: 1px; border-bottom: 2px dashed #ccc; margin: 20px 0;"></div><br>');
+    const el = document.querySelector('.page') as HTMLElement;
+    if (!el) return;
+
+    // Get current selection
+    const sel = window.getSelection();
+    let targetBlock: HTMLElement | null = null;
+
+    if (sel && sel.rangeCount > 0) {
+      let node = sel.getRangeAt(0).commonAncestorContainer as HTMLElement;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentElement as HTMLElement;
+
+      // Traverse up to find the direct child of .page
+      while (node && node !== el && node.parentElement !== el) {
+        node = node.parentElement as HTMLElement;
+      }
+      if (node && node.parentElement === el) {
+        targetBlock = node as HTMLElement;
+      }
+    }
+
+    const breakHTML = '<div class="manual-page-break" style="page-break-after: always;"></div><div class="page-break-content" style="min-height: 20px;">&#8203;</div>';
+
+    if (targetBlock) {
+      targetBlock.insertAdjacentHTML('afterend', breakHTML);
+      const newBlock = targetBlock.nextElementSibling?.nextElementSibling;
+      if (newBlock) {
+        const range = document.createRange();
+        range.selectNodeContents(newBlock);
+        range.collapse(false);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }
+    } else {
+      el.insertAdjacentHTML('beforeend', breakHTML);
+      const newBlock = el.lastElementChild;
+      if (newBlock) {
+        const range = document.createRange();
+        range.selectNodeContents(newBlock);
+        range.collapse(false);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }
+    }
+
+    this.closeMenus();
+    this.onInput(el); // Force update
   }
 
   insertBuildingBlock() {
@@ -1055,7 +1168,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     const colors = ['#4285f4', '#ea4335', '#fbbc04', '#34a853', '#673ab7', '#ff9800'];
     
     let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="background:#fff; border:1px solid #ccc; border-radius: 4px;">`;
-    svg += `<text x="${width/2}" y="30" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="#202124">${this.chartTitle}</text>`;
+    svg += `<text x="${width / 2}" y="30" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="#202124">${this.chartTitle}</text>`;
     
     vals.forEach((v, i) => {
       const h = (v / max) * (height - 80);
@@ -1063,7 +1176,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       const y = height - 30 - h;
       const color = colors[i % colors.length];
       svg += `<rect x="${x}" y="${y}" width="${barWidth - 20}" height="${h}" fill="${color}" rx="2" />`;
-      svg += `<text x="${x + (barWidth-20)/2}" y="${y - 8}" font-family="Arial" font-size="12" font-weight="bold" text-anchor="middle" fill="#5f6368">${v}</text>`;
+      svg += `<text x="${x + (barWidth - 20) / 2}" y="${y - 8}" font-family="Arial" font-size="12" font-weight="bold" text-anchor="middle" fill="#5f6368">${v}</text>`;
     });
     
     svg += `</svg>`;
@@ -1093,6 +1206,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     this.htmlContent = editor.innerHTML;
     this.updateOverlay();
     this.updatePageHeight();
+    this.updateCounts();
     this.api.sendUpdate(JSON.stringify({ html: this.htmlContent }), this.title);
   }
 
@@ -1117,6 +1231,8 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       if (child.style.position !== 'absolute') child.style.marginTop = '0px';
     });
 
+    let forceNextPage = false;
+
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
       if (child.style.position === 'absolute') continue;
@@ -1128,10 +1244,20 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       const currentPage = Math.floor(childTop / 1080) + 1;
       const textBottomLimit = (currentPage - 1) * 1080 + 960;
       
-      if (childBottom > textBottomLimit) {
+      if (forceNextPage || childBottom > textBottomLimit) {
          const nextPageTextStart = currentPage * 1080 + 96;
          const pushAmount = nextPageTextStart - childTop;
          child.style.marginTop = Math.max(0, pushAmount) + 'px';
+        forceNextPage = false;
+      }
+
+      // Detect manual page break either on the child itself or if it contains a break element
+      const isBreak = child.style?.pageBreakAfter === 'always' ||
+        child.classList?.contains('manual-page-break') ||
+        (child.querySelector && child.querySelector('[style*="page-break-after: always"], .manual-page-break'));
+
+      if (isBreak) {
+        forceNextPage = true;
       }
     }
   }
@@ -1178,14 +1304,34 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
     const children = Array.from(pageEl.children) as HTMLElement[];
     let elementsDeleted = false;
+    let lastChildOnPrevPage: HTMLElement | null = null;
 
-    children.forEach(child => {
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
       // If the child mathematically sits within this page's vertical coordinate block, remove it
       if (child.offsetTop >= pageTopY && child.offsetTop < pageBottomY) {
+        if (!elementsDeleted && lastChildOnPrevPage) {
+          const breakEls = lastChildOnPrevPage.classList.contains('manual-page-break')
+            ? [lastChildOnPrevPage]
+            : Array.from(lastChildOnPrevPage.querySelectorAll('.manual-page-break'));
+          breakEls.forEach((el: any) => el.remove());
+        }
         child.remove();
         elementsDeleted = true;
+      } else if (child.offsetTop < pageTopY) {
+        lastChildOnPrevPage = child;
       }
-    });
+    }
+
+    if (!elementsDeleted && lastChildOnPrevPage) {
+      const breakEls = (lastChildOnPrevPage as any).classList.contains('manual-page-break')
+        ? [lastChildOnPrevPage]
+        : Array.from((lastChildOnPrevPage as any).querySelectorAll('.manual-page-break'));
+      if (breakEls.length > 0) {
+        breakEls.forEach((el: any) => (el as HTMLElement).remove());
+        elementsDeleted = true;
+      }
+    }
 
     if (elementsDeleted) {
       this.save(); // Save will trigger autoPaginate() which recalculates all margins instantly
@@ -1202,6 +1348,12 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown', ['$event'])
   onKeyDown(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      this.save();
+      return;
+    }
+
     if (this.selectedImage && (e.key === 'Backspace' || e.key === 'Delete')) {
       this.selectedImage.remove();
       this.selectedImage = null;
@@ -1325,6 +1477,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   }
 
   save() {
+    this.isSaving = true;
     this.autoPaginate();
     const el = document.querySelector('.page') as HTMLElement;
     if (el) {
@@ -1334,19 +1487,42 @@ export class DocEditorComponent implements OnInit, OnDestroy {
          el.innerHTML = this.htmlContent;
       }
     }
-    this.api.saveDocument(this.docId, this.title, JSON.stringify({ html: this.htmlContent })).subscribe();
+    this.api.saveDocument(this.docId, this.title, JSON.stringify({ html: this.htmlContent })).subscribe(() => {
+      this.isSaving = false;
+      this.lastSavedTime = new Date();
+    });
   }
 
-  shareTo(platform: string) {
-    this.closeMenus();
-    this.shareModalOpen = false;
-    const url = encodeURIComponent(window.location.href);
-    const text = encodeURIComponent(`Check out this document: ${this.title}\n\n`);
-    if (platform === 'whatsapp') {
-      window.open(`https://api.whatsapp.com/send?text=${text}${url}`, '_blank');
-    } else if (platform === 'email') {
-      this.emailDoc();
+  onShareSearch() {
+    if (this.shareQuery.trim().length < 2) {
+      this.userSearchResults = [];
+      return;
     }
+    this.api.searchUsers(this.shareQuery).subscribe(users => {
+      this.userSearchResults = users.filter((u: any) => u.id !== this.auth.user?.id);
+    });
+  }
+
+  selectShareUser(user: any) {
+    this.shareQuery = user.email;
+    this.userSearchResults = [];
+  }
+
+  performShare() {
+    if (!this.shareQuery) return;
+    this.api.shareDocument(this.docId, this.shareQuery, this.shareRole.toLowerCase()).subscribe({
+      next: () => {
+        this.showToast(`Shared with ${this.shareQuery}`);
+        this.shareQuery = '';
+    this.shareModalOpen = false;
+      },
+      error: () => this.showToast('Failed to share: User not found.')
+    });
+  }
+
+  makePublic() {
+    this.isPublic = true;
+    this.copyLink();
   }
 
   copyLink() {
@@ -1409,5 +1585,35 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   }
 
   back() { this.save(); this.router.navigate(['/']); }
-  ngOnDestroy() { this.syncSub?.unsubscribe(); this.api.disconnectSync(); }
+
+  zoomIn() {
+    if (this.zoomLevel < 200) {
+      this.zoomLevel += 10;
+      const page = document.querySelector('.page') as HTMLElement;
+      if (page) page.style.transform = `scale(${this.zoomLevel / 100})`;
+    }
+  }
+
+  zoomOut() {
+    if (this.zoomLevel > 50) {
+      this.zoomLevel -= 10;
+      const page = document.querySelector('.page') as HTMLElement;
+      if (page) page.style.transform = `scale(${this.zoomLevel / 100})`;
+    }
+  }
+
+  updateCounts() {
+    const el = document.querySelector('.page') as HTMLElement;
+    if (el) {
+      const text = el.innerText || '';
+      this.charCount = text.length;
+      this.wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+    }
+  }
+
+  ngOnDestroy() {
+    document.removeEventListener('selectionchange', this.onSelectionChange.bind(this));
+    this.syncSub?.unsubscribe();
+    this.api.disconnectSync();
+  }
 }
