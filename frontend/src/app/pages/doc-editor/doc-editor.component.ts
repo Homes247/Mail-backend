@@ -20,7 +20,7 @@ import { AuthService } from '../../services/auth.service';
             <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           </button>
           <div class="brand-btn" title="Writer">
-            <span class="material-symbols-outlined" style="font-size:22px;">description</span>
+            <span class="material-symbols-outlined" style="font-size:28px;">description</span>
             <span class="brand-label">Writer</span>
           </div>
           <div class="doc-meta">
@@ -479,19 +479,19 @@ import { AuthService } from '../../services/auth.service';
                     <div #subChart class="sub-dropdown" style="min-width: 220px;">
                       <div style="font-size: 11px; font-weight: bold; color: #5f6368; padding: 4px 16px; margin-top: 4px; border-bottom: 1px solid #eee;">Bar</div>
                       <div style="padding: 8px 16px; display: flex; gap: 16px;">
-                        <span class="material-symbols-outlined" style="color:#1a73e8; font-size:24px; cursor:pointer;" (click)="showToast('Bar Chart')">bar_chart</span>
-                        <span class="material-symbols-outlined" style="color:#34a853; font-size:24px; cursor:pointer;" (click)="showToast('Stacked Bar Chart')">stacked_bar_chart</span>
-                        <span class="material-symbols-outlined" style="color:#1a73e8; font-size:24px; cursor:pointer;" (click)="showToast('Waterfall Chart')">waterfall_chart</span>
+                        <span class="material-symbols-outlined" style="color:#1a73e8; font-size:24px; cursor:pointer;" (click)="openChartModal('Bar')">bar_chart</span>
+                        <span class="material-symbols-outlined" style="color:#34a853; font-size:24px; cursor:pointer;" (click)="openChartModal('Stacked Bar')">stacked_bar_chart</span>
+                        <span class="material-symbols-outlined" style="color:#1a73e8; font-size:24px; cursor:pointer;" (click)="openChartModal('Waterfall')">waterfall_chart</span>
                       </div>
                       <div style="font-size: 11px; font-weight: bold; color: #5f6368; padding: 4px 16px; margin-top: 4px; border-bottom: 1px solid #eee;">Line</div>
                       <div style="padding: 8px 16px; display: flex; gap: 16px;">
-                        <span class="material-symbols-outlined" style="color:#34a853; font-size:24px; cursor:pointer;" (click)="showToast('Line Chart')">show_chart</span>
-                        <span class="material-symbols-outlined" style="color:#1a73e8; font-size:24px; cursor:pointer;" (click)="showToast('Stacked Line Chart')">stacked_line_chart</span>
+                        <span class="material-symbols-outlined" style="color:#34a853; font-size:24px; cursor:pointer;" (click)="openChartModal('Line')">show_chart</span>
+                        <span class="material-symbols-outlined" style="color:#1a73e8; font-size:24px; cursor:pointer;" (click)="openChartModal('Stacked Line')">stacked_line_chart</span>
                       </div>
                       <div style="font-size: 11px; font-weight: bold; color: #5f6368; padding: 4px 16px; margin-top: 4px; border-bottom: 1px solid #eee;">Pie</div>
                       <div style="padding: 8px 16px; display: flex; gap: 16px;">
-                        <span class="material-symbols-outlined" style="color:#fbbc04; font-size:24px; cursor:pointer;" (click)="showToast('Pie Chart')">pie_chart</span>
-                        <span class="material-symbols-outlined" style="color:#1a73e8; font-size:24px; cursor:pointer;" (click)="showToast('Donut Chart')">donut_large</span>
+                        <span class="material-symbols-outlined" style="color:#fbbc04; font-size:24px; cursor:pointer;" (click)="openChartModal('Pie')">pie_chart</span>
+                        <span class="material-symbols-outlined" style="color:#1a73e8; font-size:24px; cursor:pointer;" (click)="openChartModal('Donut')">donut_large</span>
                       </div>
                     </div>
                   </div>
@@ -499,8 +499,10 @@ import { AuthService } from '../../services/auth.service';
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subMedia)">
                     <span class="material-symbols-outlined dd-icon">play_circle</span><span class="dd-text">Media</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
                     <div #subMedia class="sub-dropdown">
-                      <div class="dd-item" (click)="showToast('Insert Video')"><span class="material-symbols-outlined dd-icon">movie</span><span class="dd-text">Video</span></div>
-                      <div class="dd-item" (click)="showToast('Insert Audio')"><span class="material-symbols-outlined dd-icon">audio_file</span><span class="dd-text">Audio</span></div>
+                      <div class="dd-item" (click)="videoInput.click()"><span class="material-symbols-outlined dd-icon">upload</span><span class="dd-text">Upload Video</span></div>
+                      <div class="dd-item" (click)="insertVideo()"><span class="material-symbols-outlined dd-icon">movie</span><span class="dd-text">Video from URL</span></div>
+                      <div class="dd-item" (click)="audioInput.click()"><span class="material-symbols-outlined dd-icon">upload</span><span class="dd-text">Upload Audio</span></div>
+                      <div class="dd-item" (click)="insertAudio()"><span class="material-symbols-outlined dd-icon">audio_file</span><span class="dd-text">Audio from URL</span></div>
                     </div>
                   </div>
                   
@@ -514,9 +516,9 @@ import { AuthService } from '../../services/auth.service';
 
                   <div class="dd-sep"></div>
 
-                  <div class="dd-item" (click)="insertLink()"><span class="material-symbols-outlined dd-icon">link</span><span class="dd-text">Link...</span><span class="dd-hint">Ctrl+K</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertLink()"><span class="material-symbols-outlined dd-icon">link</span><span class="dd-text">Link...</span><span class="dd-hint">Ctrl+K</span></div>
                   <div class="dd-item" (click)="showToast('Bookmark')"><span class="material-symbols-outlined dd-icon">bookmark</span><span class="dd-text">Bookmark...</span></div>
-                  <div class="dd-item" (click)="showToast('Comment')"><span class="material-symbols-outlined dd-icon">comment</span><span class="dd-text">Comment</span><span class="dd-hint">Ctrl+Alt+M</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertComment()"><span class="material-symbols-outlined dd-icon">comment</span><span class="dd-text">Comment</span><span class="dd-hint">Ctrl+Alt+M</span></div>
 
                   <div class="dd-sep"></div>
 
@@ -531,9 +533,9 @@ import { AuthService } from '../../services/auth.service';
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subPageElements)">
                     <span class="material-symbols-outlined dd-icon">contact_page</span><span class="dd-text">Page Elements</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
                     <div #subPageElements class="sub-dropdown">
-                      <div class="dd-item" (click)="showToast('Header')"><span class="material-symbols-outlined dd-icon">horizontal_rule</span><span class="dd-text">Header</span></div>
-                      <div class="dd-item" (click)="showToast('Footer')"><span class="material-symbols-outlined dd-icon">horizontal_rule</span><span class="dd-text">Footer</span></div>
-                      <div class="dd-item" (click)="showToast('Page Numbers')"><span class="material-symbols-outlined dd-icon">numbers</span><span class="dd-text">Page Numbers</span></div>
+                      <div class="dd-item" (click)="insertHeader()"><span class="material-symbols-outlined dd-icon">horizontal_rule</span><span class="dd-text">Header</span></div>
+                      <div class="dd-item" (click)="insertFooter()"><span class="material-symbols-outlined dd-icon">horizontal_rule</span><span class="dd-text">Footer</span></div>
+                      <div class="dd-item" (click)="insertPageNumbers()"><span class="material-symbols-outlined dd-icon">numbers</span><span class="dd-text">Page Numbers</span></div>
                     </div>
                   </div>
 
@@ -542,8 +544,8 @@ import { AuthService } from '../../services/auth.service';
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subQrBarcode)">
                     <span class="material-symbols-outlined dd-icon">qr_code_2</span><span class="dd-text">QR & Barcode</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
                     <div #subQrBarcode class="sub-dropdown">
-                      <div class="dd-item" (click)="showToast('Insert QR Code')"><span class="material-symbols-outlined dd-icon">qr_code</span><span class="dd-text">QR Code</span></div>
-                      <div class="dd-item" (click)="showToast('Insert Barcode')"><span class="material-symbols-outlined dd-icon">view_headline</span><span class="dd-text">Barcode</span></div>
+                      <div class="dd-item" (click)="insertQRCode()"><span class="material-symbols-outlined dd-icon">qr_code</span><span class="dd-text">QR Code</span></div>
+                      <div class="dd-item" (click)="insertBarcode()"><span class="material-symbols-outlined dd-icon">view_headline</span><span class="dd-text">Barcode</span></div>
                     </div>
                   </div>
 
@@ -556,13 +558,13 @@ import { AuthService } from '../../services/auth.service';
                     </div>
                   </div>
 
-                  <div class="dd-item" (click)="showToast('Insert Code')"><span class="material-symbols-outlined dd-icon">code</span><span class="dd-text">Code</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertCode()"><span class="material-symbols-outlined dd-icon">code</span><span class="dd-text">Code</span></div>
 
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subSignature)">
                     <span class="material-symbols-outlined dd-icon">draw</span><span class="dd-text">Signature</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
                     <div #subSignature class="sub-dropdown">
-                      <div class="dd-item" (click)="showToast('Draw Signature')"><span class="material-symbols-outlined dd-icon">draw</span><span class="dd-text">Draw Signature</span></div>
-                      <div class="dd-item" (click)="showToast('Upload Signature')"><span class="material-symbols-outlined dd-icon">upload</span><span class="dd-text">Upload Signature</span></div>
+                      <div class="dd-item" (click)="insertDrawing()"><span class="material-symbols-outlined dd-icon">draw</span><span class="dd-text">Draw Signature</span></div>
+                      <div class="dd-item" (click)="signatureInput.click()"><span class="material-symbols-outlined dd-icon">upload</span><span class="dd-text">Upload Signature</span></div>
                     </div>
                   </div>
 
@@ -755,10 +757,10 @@ import { AuthService } from '../../services/auth.service';
                 Design
                 <div class="dropdown" *ngIf="activeMenu === 'design'">
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subCurrentDesign)">
-                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">palette</span><span class="dd-text">Current Design: <span style="color:#1a73e8;">The Writer</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">palette</span><span class="dd-text">Current Design: <span style="color:#1a73e8;">{{ activeCurrentDesign }}</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
                     <div #subCurrentDesign class="sub-dropdown" style="min-width: 250px;">
                       <div style="padding: 16px; text-align: center;">
-                        <div style="font-weight: 600; color: #5f6368; margin-bottom: 8px;">The Writer</div>
+                        <div style="font-weight: 600; color: #5f6368; margin-bottom: 8px;">{{ activeCurrentDesign }}</div>
                         <div style="border: 1px solid #dadce0; padding: 16px; height: 180px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: flex-start; overflow: hidden; pointer-events: none;">
                           <h1 style="color: #1a73e8; margin: 0 0 8px 0; font-size: 20px;">TITLE</h1>
                           <div style="color: #5f6368; font-size: 10px; font-style: italic; margin-bottom: 8px;">Subtitle</div>
@@ -793,7 +795,16 @@ import { AuthService } from '../../services/auth.service';
                       </div>
                       <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subPresetDesigns)">
                         <span class="material-symbols-outlined dd-icon">check</span><span class="material-symbols-outlined dd-icon">tune</span><span class="dd-text">Preset Designs <span style="color:#1a73e8; margin-left: 4px;">19</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
-                        <div #subPresetDesigns class="sub-dropdown"><div class="dd-item" (click)="showToast('Presets')"><span class="dd-text">Browse Presets...</span></div></div>
+                        <div #subPresetDesigns class="sub-dropdown" style="max-height: 350px; overflow-y: auto;">
+                          <div class="dd-item" (click)="applyDesign('The Writer')"><span class="material-symbols-outlined dd-icon" [style.color]="activeCurrentDesign === 'The Writer' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activeCurrentDesign === 'The Writer' ? '#1a73e8' : '#000'">The Writer</span></div>
+                          <div class="dd-item" (click)="applyDesign('Modern Report')"><span class="material-symbols-outlined dd-icon" [style.color]="activeCurrentDesign === 'Modern Report' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activeCurrentDesign === 'Modern Report' ? '#1a73e8' : '#000'">Modern Report</span></div>
+                          <div class="dd-item" (click)="applyDesign('Newsletter')"><span class="material-symbols-outlined dd-icon" [style.color]="activeCurrentDesign === 'Newsletter' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activeCurrentDesign === 'Newsletter' ? '#1a73e8' : '#000'">Newsletter</span></div>
+                          <div class="dd-item" (click)="applyDesign('Academic Paper')"><span class="material-symbols-outlined dd-icon" [style.color]="activeCurrentDesign === 'Academic Paper' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activeCurrentDesign === 'Academic Paper' ? '#1a73e8' : '#000'">Academic Paper</span></div>
+                          <div class="dd-item" (click)="applyDesign('Business Letter')"><span class="material-symbols-outlined dd-icon" [style.color]="activeCurrentDesign === 'Business Letter' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activeCurrentDesign === 'Business Letter' ? '#1a73e8' : '#000'">Business Letter</span></div>
+                          <div class="dd-item" (click)="applyDesign('Creative Story')"><span class="material-symbols-outlined dd-icon" [style.color]="activeCurrentDesign === 'Creative Story' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activeCurrentDesign === 'Creative Story' ? '#1a73e8' : '#000'">Creative Story</span></div>
+                          <div class="dd-sep"></div>
+                          <div class="dd-item" (click)="showToast('Browse 13 more Presets...')"><span class="dd-text">Browse more...</span></div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -801,27 +812,27 @@ import { AuthService } from '../../services/auth.service';
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subFontSet)">
                     <span class="material-symbols-outlined dd-icon">text_fields</span><span class="dd-text">Font Set</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
                     <div #subFontSet class="sub-dropdown" style="max-height: 350px; overflow-y: auto;">
-                      <div class="dd-item" (click)="showToast('Cabin')"><div style="display:flex; flex-direction:column;"><span class="dd-text">Cabin (Body)</span></div></div>
-                      <div class="dd-item" (click)="showToast('Istok Web')"><div style="display:flex; flex-direction:column;"><span class="dd-text">Istok Web (Headings)</span><span class="dd-text" style="color:#5f6368;">Istok Web (Body)</span></div></div>
-                      <div class="dd-item" (click)="showToast('PT Sans')"><div style="display:flex; flex-direction:column;"><span class="dd-text">PT Sans (Headings)</span><span class="dd-text" style="color:#5f6368;">Pontano Sans (Body)</span></div></div>
-                      <div class="dd-item" (click)="showToast('Work Sans')"><div style="display:flex; flex-direction:column;"><span class="dd-text">Work Sans (Headings)</span><span class="dd-text" style="color:#5f6368;">Work Sans (Body)</span></div></div>
-                      <div class="dd-item" (click)="showToast('Roboto')"><div style="display:flex; flex-direction:column;"><span class="dd-text" style="color:#1a73e8;">Roboto (Headings)</span><span class="dd-text" style="color:#1a73e8;">Roboto (Body)</span></div></div>
-                      <div class="dd-item" (click)="showToast('Rokkitt')"><div style="display:flex; flex-direction:column;"><span class="dd-text">Rokkitt (Headings)</span><span class="dd-text" style="color:#5f6368;">Rokkitt (Body)</span></div></div>
-                      <div class="dd-item" (click)="showToast('Quicksand')"><div style="display:flex; flex-direction:column;"><span class="dd-text">Quicksand (Headings)</span><span class="dd-text" style="color:#5f6368;">Quicksand (Body)</span></div></div>
-                      <div class="dd-item" (click)="showToast('Source Sans Pro')"><div style="display:flex; flex-direction:column;"><span class="dd-text">Source Sans Pro (Headings)</span><span class="dd-text" style="color:#5f6368;">Source Sans Pro (Body)</span></div></div>
+                      <div class="dd-item" (click)="applyFontSet('Cabin')"><div style="display:flex; flex-direction:column;"><span class="dd-text" [style.color]="activeFontSet === 'Cabin' ? '#1a73e8' : '#000'">Cabin (Body)</span></div></div>
+                      <div class="dd-item" (click)="applyFontSet('Istok Web')"><div style="display:flex; flex-direction:column;"><span class="dd-text" [style.color]="activeFontSet === 'Istok Web' ? '#1a73e8' : '#000'">Istok Web (Headings)</span><span class="dd-text" style="color:#5f6368;">Istok Web (Body)</span></div></div>
+                      <div class="dd-item" (click)="applyFontSet('PT Sans')"><div style="display:flex; flex-direction:column;"><span class="dd-text" [style.color]="activeFontSet === 'PT Sans' ? '#1a73e8' : '#000'">PT Sans (Headings)</span><span class="dd-text" style="color:#5f6368;">Pontano Sans (Body)</span></div></div>
+                      <div class="dd-item" (click)="applyFontSet('Work Sans')"><div style="display:flex; flex-direction:column;"><span class="dd-text" [style.color]="activeFontSet === 'Work Sans' ? '#1a73e8' : '#000'">Work Sans (Headings)</span><span class="dd-text" style="color:#5f6368;">Work Sans (Body)</span></div></div>
+                      <div class="dd-item" (click)="applyFontSet('Roboto')"><div style="display:flex; flex-direction:column;"><span class="dd-text" [style.color]="activeFontSet === 'Roboto' ? '#1a73e8' : '#000'">Roboto (Headings)</span><span class="dd-text" style="color:#5f6368;">Roboto (Body)</span></div></div>
+                      <div class="dd-item" (click)="applyFontSet('Rokkitt')"><div style="display:flex; flex-direction:column;"><span class="dd-text" [style.color]="activeFontSet === 'Rokkitt' ? '#1a73e8' : '#000'">Rokkitt (Headings)</span><span class="dd-text" style="color:#5f6368;">Rokkitt (Body)</span></div></div>
+                      <div class="dd-item" (click)="applyFontSet('Quicksand')"><div style="display:flex; flex-direction:column;"><span class="dd-text" [style.color]="activeFontSet === 'Quicksand' ? '#1a73e8' : '#000'">Quicksand (Headings)</span><span class="dd-text" style="color:#5f6368;">Quicksand (Body)</span></div></div>
+                      <div class="dd-item" (click)="applyFontSet('Source Sans Pro')"><div style="display:flex; flex-direction:column;"><span class="dd-text" [style.color]="activeFontSet === 'Source Sans Pro' ? '#1a73e8' : '#000'">Source Sans Pro (Headings)</span><span class="dd-text" style="color:#5f6368;">Source Sans Pro (Body)</span></div></div>
                       <div class="dd-sep"></div>
                       <div class="dd-item" (click)="showToast('Add Font Set')"><span class="material-symbols-outlined dd-icon" style="color:#34a853;">add_circle</span><span class="dd-text">Add Font Set</span></div>
                     </div>
                   </div>
 
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subColorSet)">
-                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">color_lens</span><span class="dd-text">Color Set: <span style="color:#1a73e8;">Default</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">color_lens</span><span class="dd-text">Color Set: <span style="color:#1a73e8;">{{ activeColorSet }}</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
                     <div #subColorSet class="sub-dropdown" style="max-height: 350px; overflow-y: auto;">
-                      <div class="dd-item" (click)="showToast('Brushstrokes')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text">Brushstrokes</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#5a4325;"></div><div style="width:12px; height:12px; background:#e0ecf8;"></div><div style="width:12px; height:12px; background:#a39171;"></div><div style="width:12px; height:12px; background:#f47c6b;"></div><div style="width:12px; height:12px; background:#475765;"></div><div style="width:12px; height:12px; background:#7b9ea3;"></div><div style="width:12px; height:12px; background:#b2d235;"></div></div></div></div>
-                      <div class="dd-item" (click)="showToast('bold')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text">bold</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#333;"></div><div style="width:12px; height:12px; background:#f2e6d6;"></div><div style="width:12px; height:12px; background:#e85d50;"></div><div style="width:12px; height:12px; background:#00bcd4;"></div><div style="width:12px; height:12px; background:#ff9800;"></div><div style="width:12px; height:12px; background:#cddc39;"></div><div style="width:12px; height:12px; background:#e91e63;"></div></div></div></div>
-                      <div class="dd-item" (click)="showToast('Treasury')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text">Treasury</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#3e1f1f;"></div><div style="width:12px; height:12px; background:#f5da55;"></div><div style="width:12px; height:12px; background:#9eabc1;"></div><div style="width:12px; height:12px; background:#b274a7;"></div><div style="width:12px; height:12px; background:#a78869;"></div><div style="width:12px; height:12px; background:#8b9d82;"></div><div style="width:12px; height:12px; background:#6b7c84;"></div></div></div></div>
-                      <div class="dd-item" (click)="showToast('Default')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text" style="color:#1a73e8;">Default</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#1e5e3c;"></div><div style="width:12px; height:12px; background:#4285f4;"></div><div style="width:12px; height:12px; background:#fbbc04;"></div><div style="width:12px; height:12px; background:#34a853;"></div><div style="width:12px; height:12px; background:#9aa0a6;"></div><div style="width:12px; height:12px; background:#ff6d00;"></div><div style="width:12px; height:12px; background:#00bcd4;"></div></div></div></div>
-                      <div class="dd-item" (click)="showToast('Pinstripes')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text">Pinstripes</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#5a4342;"></div><div style="width:12px; height:12px; background:#f4f1e1;"></div><div style="width:12px; height:12px; background:#4caf50;"></div><div style="width:12px; height:12px; background:#cddc39;"></div><div style="width:12px; height:12px; background:#00bcd4;"></div><div style="width:12px; height:12px; background:#ff9800;"></div><div style="width:12px; height:12px; background:#795548;"></div></div></div></div>
+                      <div class="dd-item" (click)="applyColorSet('Brushstrokes')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text" [style.color]="activeColorSet === 'Brushstrokes' ? '#1a73e8' : '#000'">Brushstrokes</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#5a4325;"></div><div style="width:12px; height:12px; background:#e0ecf8;"></div><div style="width:12px; height:12px; background:#a39171;"></div><div style="width:12px; height:12px; background:#f47c6b;"></div><div style="width:12px; height:12px; background:#475765;"></div><div style="width:12px; height:12px; background:#7b9ea3;"></div><div style="width:12px; height:12px; background:#b2d235;"></div></div></div></div>
+                      <div class="dd-item" (click)="applyColorSet('bold')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text" [style.color]="activeColorSet === 'bold' ? '#1a73e8' : '#000'">bold</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#333;"></div><div style="width:12px; height:12px; background:#f2e6d6;"></div><div style="width:12px; height:12px; background:#e85d50;"></div><div style="width:12px; height:12px; background:#00bcd4;"></div><div style="width:12px; height:12px; background:#ff9800;"></div><div style="width:12px; height:12px; background:#cddc39;"></div><div style="width:12px; height:12px; background:#e91e63;"></div></div></div></div>
+                      <div class="dd-item" (click)="applyColorSet('Treasury')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text" [style.color]="activeColorSet === 'Treasury' ? '#1a73e8' : '#000'">Treasury</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#3e1f1f;"></div><div style="width:12px; height:12px; background:#f5da55;"></div><div style="width:12px; height:12px; background:#9eabc1;"></div><div style="width:12px; height:12px; background:#b274a7;"></div><div style="width:12px; height:12px; background:#a78869;"></div><div style="width:12px; height:12px; background:#8b9d82;"></div><div style="width:12px; height:12px; background:#6b7c84;"></div></div></div></div>
+                      <div class="dd-item" (click)="applyColorSet('Default')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text" [style.color]="activeColorSet === 'Default' ? '#1a73e8' : '#000'">Default</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#1e5e3c;"></div><div style="width:12px; height:12px; background:#4285f4;"></div><div style="width:12px; height:12px; background:#fbbc04;"></div><div style="width:12px; height:12px; background:#34a853;"></div><div style="width:12px; height:12px; background:#9aa0a6;"></div><div style="width:12px; height:12px; background:#ff6d00;"></div><div style="width:12px; height:12px; background:#00bcd4;"></div></div></div></div>
+                      <div class="dd-item" (click)="applyColorSet('Pinstripes')"><div style="display:flex; flex-direction:column; gap:4px;"><span class="dd-text" [style.color]="activeColorSet === 'Pinstripes' ? '#1a73e8' : '#000'">Pinstripes</span><div style="display:flex; gap:2px;"><div style="width:12px; height:12px; background:#5a4342;"></div><div style="width:12px; height:12px; background:#f4f1e1;"></div><div style="width:12px; height:12px; background:#4caf50;"></div><div style="width:12px; height:12px; background:#cddc39;"></div><div style="width:12px; height:12px; background:#00bcd4;"></div><div style="width:12px; height:12px; background:#ff9800;"></div><div style="width:12px; height:12px; background:#795548;"></div></div></div></div>
                       <div class="dd-sep"></div>
                       <div class="dd-item" (click)="showToast('Add Color Set')"><span class="material-symbols-outlined dd-icon" style="color:#34a853;">add_circle</span><span class="dd-text">Add Color Set</span></div>
                     </div>
@@ -829,9 +840,9 @@ import { AuthService } from '../../services/auth.service';
 
                   <div class="dd-sep"></div>
                   
-                  <div class="dd-item" (click)="showToast('Import Design')"><span class="material-symbols-outlined dd-icon">import_contacts</span><span class="dd-text">Import Design...</span></div>
-                  <div class="dd-item" (click)="showToast('Page Borders')"><span class="material-symbols-outlined dd-icon">border_outer</span><span class="dd-text">Page Borders</span></div>
-                  <div class="dd-item" (click)="showToast('Page Background')"><span class="material-symbols-outlined dd-icon">format_color_fill</span><span class="dd-text">Page Background...</span></div>
+                  <div class="dd-item" (click)="importDesign()"><span class="material-symbols-outlined dd-icon">import_contacts</span><span class="dd-text">Import Design...</span></div>
+                  <div class="dd-item" (click)="setPageBorders()"><span class="material-symbols-outlined dd-icon">border_outer</span><span class="dd-text">Page Borders</span></div>
+                  <div class="dd-item" (click)="setPageBackground()"><span class="material-symbols-outlined dd-icon">format_color_fill</span><span class="dd-text">Page Background...</span></div>
                   
                   <div class="dd-sep"></div>
                   <div class="dd-item" (click)="showToast('More Design Options')"><span class="material-symbols-outlined dd-icon">more_horiz</span><span class="dd-text">More Design Options...</span></div>
@@ -841,73 +852,73 @@ import { AuthService } from '../../services/auth.service';
                 Page Setup
                 <div class="dropdown" *ngIf="activeMenu === 'pagesetup'">
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subPageSize)">
-                    <span class="material-symbols-outlined dd-icon">crop_portrait</span><span class="dd-text">Page Size: <span style="color:#1a73e8;">Letter (8.5" X 11")</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <span class="material-symbols-outlined dd-icon">crop_portrait</span><span class="dd-text">Page Size: <span style="color:#1a73e8;">{{ activePageSize }}</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
                     <div #subPageSize class="sub-dropdown" style="max-height: 350px; overflow-y: auto;">
-                      <div class="dd-item" (click)="showToast('A4')"><span class="dd-text" style="color:#1a73e8;">A4 (8.27" X 11.69")</span></div>
-                      <div class="dd-item" (click)="showToast('Letter')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span><span class="dd-text">Letter (8.5" X 11")</span></div>
-                      <div class="dd-item" (click)="showToast('Legal')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">Legal (8.5" X 14")</span></div>
-                      <div class="dd-item" (click)="showToast('Executive')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">Executive (7.25" X 10.5")</span></div>
-                      <div class="dd-item" (click)="showToast('Envelope_10')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">Envelope_10 (4.13" X 9.5")</span></div>
-                      <div class="dd-item" (click)="showToast('Tabloid')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">Tabloid (11" X 17")</span></div>
-                      <div class="dd-item" (click)="showToast('Statement')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">Statement (5.5" X 8.5")</span></div>
-                      <div class="dd-item" (click)="showToast('Folio')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">Folio (8" X 13")</span></div>
-                      <div class="dd-item" (click)="showToast('A3')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">A3 (11.69" X 16.54")</span></div>
-                      <div class="dd-item" (click)="showToast('A5')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">A5 (5.83" X 8.27")</span></div>
-                      <div class="dd-item" (click)="showToast('B4')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">B4 (10.12" X 14.33")</span></div>
-                      <div class="dd-item" (click)="showToast('B5')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">B5 (7.17" X 10.12")</span></div>
+                      <div class="dd-item" (click)="setPageSize('A4')"><span class="material-symbols-outlined dd-icon" [style.color]="activePageSize === 'A4' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activePageSize === 'A4' ? '#1a73e8' : '#000'">A4 (8.27" X 11.69")</span></div>
+                      <div class="dd-item" (click)="setPageSize('Letter')"><span class="material-symbols-outlined dd-icon" [style.color]="activePageSize === 'Letter' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activePageSize === 'Letter' ? '#1a73e8' : '#000'">Letter (8.5" X 11")</span></div>
+                      <div class="dd-item" (click)="setPageSize('Legal')"><span class="material-symbols-outlined dd-icon" [style.color]="activePageSize === 'Legal' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activePageSize === 'Legal' ? '#1a73e8' : '#000'">Legal (8.5" X 14")</span></div>
+                      <div class="dd-item" (click)="setPageSize('Executive')"><span class="material-symbols-outlined dd-icon" [style.color]="activePageSize === 'Executive' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activePageSize === 'Executive' ? '#1a73e8' : '#000'">Executive (7.25" X 10.5")</span></div>
+                      <div class="dd-item" (click)="setPageSize('Envelope_10')"><span class="material-symbols-outlined dd-icon" [style.color]="activePageSize === 'Envelope_10' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activePageSize === 'Envelope_10' ? '#1a73e8' : '#000'">Envelope_10 (4.13" X 9.5")</span></div>
+                      <div class="dd-item" (click)="setPageSize('Tabloid')"><span class="material-symbols-outlined dd-icon" [style.color]="activePageSize === 'Tabloid' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activePageSize === 'Tabloid' ? '#1a73e8' : '#000'">Tabloid (11" X 17")</span></div>
+                      <div class="dd-item" (click)="setPageSize('Statement')"><span class="material-symbols-outlined dd-icon" [style.color]="activePageSize === 'Statement' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activePageSize === 'Statement' ? '#1a73e8' : '#000'">Statement (5.5" X 8.5")</span></div>
+                      <div class="dd-item" (click)="setPageSize('Folio')"><span class="material-symbols-outlined dd-icon" [style.color]="activePageSize === 'Folio' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activePageSize === 'Folio' ? '#1a73e8' : '#000'">Folio (8" X 13")</span></div>
+                      <div class="dd-item" (click)="setPageSize('A3')"><span class="material-symbols-outlined dd-icon" [style.color]="activePageSize === 'A3' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activePageSize === 'A3' ? '#1a73e8' : '#000'">A3 (11.69" X 16.54")</span></div>
+                      <div class="dd-item" (click)="setPageSize('A5')"><span class="material-symbols-outlined dd-icon" [style.color]="activePageSize === 'A5' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activePageSize === 'A5' ? '#1a73e8' : '#000'">A5 (5.83" X 8.27")</span></div>
+                      <div class="dd-item" (click)="setPageSize('B4')"><span class="material-symbols-outlined dd-icon" [style.color]="activePageSize === 'B4' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activePageSize === 'B4' ? '#1a73e8' : '#000'">B4 (10.12" X 14.33")</span></div>
+                      <div class="dd-item" (click)="setPageSize('B5')"><span class="material-symbols-outlined dd-icon" [style.color]="activePageSize === 'B5' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activePageSize === 'B5' ? '#1a73e8' : '#000'">B5 (7.17" X 10.12")</span></div>
                       <div class="dd-sep"></div>
                       <div class="dd-item" (click)="showToast('More Sizes')"><span class="dd-text">More</span></div>
                     </div>
                   </div>
 
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subOrientation)">
-                    <span class="material-symbols-outlined dd-icon">description</span><span class="dd-text">Orientation: <span style="color:#1a73e8;">Portrait</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
+                    <span class="material-symbols-outlined dd-icon">description</span><span class="dd-text">Orientation: <span style="color:#1a73e8;">{{ activeOrientation }}</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span>
                     <div #subOrientation class="sub-dropdown">
-                      <div class="dd-item" (click)="showToast('Portrait')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">description</span><span class="dd-text" style="color:#1a73e8;">Portrait</span></div>
-                      <div class="dd-item" (click)="showToast('Landscape')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">note</span><span class="dd-text">Landscape</span></div>
+                      <div class="dd-item" (click)="setPageOrientation('Portrait')"><span class="material-symbols-outlined dd-icon" [style.color]="activeOrientation === 'Portrait' ? '#1a73e8' : 'transparent'">check</span><span class="material-symbols-outlined dd-icon" [style.color]="activeOrientation === 'Portrait' ? '#1a73e8' : '#000'">description</span><span class="dd-text" [style.color]="activeOrientation === 'Portrait' ? '#1a73e8' : '#000'">Portrait</span></div>
+                      <div class="dd-item" (click)="setPageOrientation('Landscape')"><span class="material-symbols-outlined dd-icon" [style.color]="activeOrientation === 'Landscape' ? '#1a73e8' : 'transparent'">check</span><span class="material-symbols-outlined dd-icon" [style.color]="activeOrientation === 'Landscape' ? '#1a73e8' : '#000'">note</span><span class="dd-text" [style.color]="activeOrientation === 'Landscape' ? '#1a73e8' : '#000'">Landscape</span></div>
                     </div>
                   </div>
 
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subColumns)">
-                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">view_column</span><span class="dd-text" style="color:#1a73e8;">Columns: <span style="color:#1a73e8;">One</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">view_column</span><span class="dd-text" style="color:#1a73e8;">Columns: <span style="color:#1a73e8;">{{ activeColumns }}</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
                     <div #subColumns class="sub-dropdown">
-                      <div class="dd-item" (click)="showToast('One')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">view_column</span><span class="dd-text" style="color:#1a73e8;">One</span></div>
-                      <div class="dd-item" (click)="showToast('Two')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">view_column_2</span><span class="dd-text">Two</span></div>
-                      <div class="dd-item" (click)="showToast('Three')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">view_column_3</span><span class="dd-text">Three</span></div>
-                      <div class="dd-item" (click)="showToast('Left')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">format_align_left</span><span class="dd-text">Left</span></div>
-                      <div class="dd-item" (click)="showToast('Right')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="material-symbols-outlined dd-icon">format_align_right</span><span class="dd-text">Right</span></div>
+                      <div class="dd-item" (click)="setPageColumns('One')"><span class="material-symbols-outlined dd-icon" [style.color]="activeColumns === 'One' ? '#1a73e8' : 'transparent'">check</span><span class="material-symbols-outlined dd-icon" [style.color]="activeColumns === 'One' ? '#1a73e8' : '#000'">view_column</span><span class="dd-text" [style.color]="activeColumns === 'One' ? '#1a73e8' : '#000'">One</span></div>
+                      <div class="dd-item" (click)="setPageColumns('Two')"><span class="material-symbols-outlined dd-icon" [style.color]="activeColumns === 'Two' ? '#1a73e8' : 'transparent'">check</span><span class="material-symbols-outlined dd-icon" [style.color]="activeColumns === 'Two' ? '#1a73e8' : '#000'">view_column_2</span><span class="dd-text" [style.color]="activeColumns === 'Two' ? '#1a73e8' : '#000'">Two</span></div>
+                      <div class="dd-item" (click)="setPageColumns('Three')"><span class="material-symbols-outlined dd-icon" [style.color]="activeColumns === 'Three' ? '#1a73e8' : 'transparent'">check</span><span class="material-symbols-outlined dd-icon" [style.color]="activeColumns === 'Three' ? '#1a73e8' : '#000'">view_week</span><span class="dd-text" [style.color]="activeColumns === 'Three' ? '#1a73e8' : '#000'">Three</span></div>
+                      <div class="dd-item" (click)="setPageColumns('Left')"><span class="material-symbols-outlined dd-icon" [style.color]="activeColumns === 'Left' ? '#1a73e8' : 'transparent'">check</span><span class="material-symbols-outlined dd-icon" [style.color]="activeColumns === 'Left' ? '#1a73e8' : '#000'">format_align_left</span><span class="dd-text" [style.color]="activeColumns === 'Left' ? '#1a73e8' : '#000'">Left</span></div>
+                      <div class="dd-item" (click)="setPageColumns('Right')"><span class="material-symbols-outlined dd-icon" [style.color]="activeColumns === 'Right' ? '#1a73e8' : 'transparent'">check</span><span class="material-symbols-outlined dd-icon" [style.color]="activeColumns === 'Right' ? '#1a73e8' : '#000'">format_align_right</span><span class="dd-text" [style.color]="activeColumns === 'Right' ? '#1a73e8' : '#000'">Right</span></div>
                       <div class="dd-sep"></div>
                       <div class="dd-item" (click)="showToast('More Columns')"><span class="dd-text">More</span></div>
                     </div>
                   </div>
 
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subMargins)">
-                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">border_clear</span><span class="dd-text" style="color:#1a73e8;">Margins: <span style="color:#1a73e8;">Normal</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">border_clear</span><span class="dd-text" style="color:#1a73e8;">Margins: <span style="color:#1a73e8;">{{ activeMargins }}</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
                     <div #subMargins class="sub-dropdown">
-                      <div class="dd-item" (click)="showToast('Normal Margins')">
-                        <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span>
-                        <div style="border: 1px solid #1a73e8; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 8px;"><div style="border: 1px dashed #1a73e8; width: 14px; height: 22px;"></div></div>
-                        <div style="display:flex; flex-direction:column;"><span class="dd-text" style="color:#1a73e8;">Normal</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 1in, Left : 1in<br>Bottom: 1in, Right: 1in</span></div>
+                      <div class="dd-item" (click)="setPageMargins('Normal')">
+                        <span class="material-symbols-outlined dd-icon" [style.color]="activeMargins === 'Normal' ? '#1a73e8' : 'transparent'">check</span>
+                        <div [style.borderColor]="activeMargins === 'Normal' ? '#1a73e8' : '#dadce0'" style="border: 1px solid; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 8px;"><div [style.borderColor]="activeMargins === 'Normal' ? '#1a73e8' : '#dadce0'" style="border: 1px dashed; width: 14px; height: 22px;"></div></div>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text" [style.color]="activeMargins === 'Normal' ? '#1a73e8' : '#000'">Normal</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 1in, Left : 1in<br>Bottom: 1in, Right: 1in</span></div>
                       </div>
-                      <div class="dd-item" (click)="showToast('Narrow Margins')">
-                        <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
-                        <div style="border: 1px solid #dadce0; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 8px;"><div style="border: 1px dashed #dadce0; width: 18px; height: 26px;"></div></div>
-                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Narrow</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 0.5in, Left : 0.5in<br>Bottom: 0.5in, Right: 0.5in</span></div>
+                      <div class="dd-item" (click)="setPageMargins('Narrow')">
+                        <span class="material-symbols-outlined dd-icon" [style.color]="activeMargins === 'Narrow' ? '#1a73e8' : 'transparent'">check</span>
+                        <div [style.borderColor]="activeMargins === 'Narrow' ? '#1a73e8' : '#dadce0'" style="border: 1px solid; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 8px;"><div [style.borderColor]="activeMargins === 'Narrow' ? '#1a73e8' : '#dadce0'" style="border: 1px dashed; width: 18px; height: 26px;"></div></div>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text" [style.color]="activeMargins === 'Narrow' ? '#1a73e8' : '#000'">Narrow</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 0.5in, Left : 0.5in<br>Bottom: 0.5in, Right: 0.5in</span></div>
                       </div>
-                      <div class="dd-item" (click)="showToast('Moderate Margins')">
-                        <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
-                        <div style="border: 1px solid #dadce0; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 8px;"><div style="border: 1px dashed #dadce0; width: 16px; height: 22px;"></div></div>
-                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Moderate</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 1in, Left : 0.75in<br>Bottom: 1in, Right: 0.75in</span></div>
+                      <div class="dd-item" (click)="setPageMargins('Moderate')">
+                        <span class="material-symbols-outlined dd-icon" [style.color]="activeMargins === 'Moderate' ? '#1a73e8' : 'transparent'">check</span>
+                        <div [style.borderColor]="activeMargins === 'Moderate' ? '#1a73e8' : '#dadce0'" style="border: 1px solid; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 8px;"><div [style.borderColor]="activeMargins === 'Moderate' ? '#1a73e8' : '#dadce0'" style="border: 1px dashed; width: 16px; height: 22px;"></div></div>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text" [style.color]="activeMargins === 'Moderate' ? '#1a73e8' : '#000'">Moderate</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 1in, Left : 0.75in<br>Bottom: 1in, Right: 0.75in</span></div>
                       </div>
-                      <div class="dd-item" (click)="showToast('Wide Margins')">
-                        <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
-                        <div style="border: 1px solid #dadce0; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 8px;"><div style="border: 1px dashed #dadce0; width: 10px; height: 22px;"></div></div>
-                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Wide</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 1in, Left : 2.28in<br>Bottom: 1in, Right: 2.28in</span></div>
+                      <div class="dd-item" (click)="setPageMargins('Wide')">
+                        <span class="material-symbols-outlined dd-icon" [style.color]="activeMargins === 'Wide' ? '#1a73e8' : 'transparent'">check</span>
+                        <div [style.borderColor]="activeMargins === 'Wide' ? '#1a73e8' : '#dadce0'" style="border: 1px solid; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; margin-right: 8px;"><div [style.borderColor]="activeMargins === 'Wide' ? '#1a73e8' : '#dadce0'" style="border: 1px dashed; width: 10px; height: 22px;"></div></div>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text" [style.color]="activeMargins === 'Wide' ? '#1a73e8' : '#000'">Wide</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 1in, Left : 2.28in<br>Bottom: 1in, Right: 2.28in</span></div>
                       </div>
-                      <div class="dd-item" (click)="showToast('No Margins')">
-                        <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
-                        <div style="border: 1px solid #dadce0; width: 24px; height: 32px; margin-right: 8px;"></div>
-                        <div style="display:flex; flex-direction:column;"><span class="dd-text">None</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 0in, Left : 0in<br>Bottom: 0in, Right: 0in</span></div>
+                      <div class="dd-item" (click)="setPageMargins('None')">
+                        <span class="material-symbols-outlined dd-icon" [style.color]="activeMargins === 'None' ? '#1a73e8' : 'transparent'">check</span>
+                        <div [style.borderColor]="activeMargins === 'None' ? '#1a73e8' : '#dadce0'" style="border: 1px solid; width: 24px; height: 32px; margin-right: 8px;"></div>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text" [style.color]="activeMargins === 'None' ? '#1a73e8' : '#000'">None</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">Top : 0in, Left : 0in<br>Bottom: 0in, Right: 0in</span></div>
                       </div>
                       <div class="dd-sep"></div>
                       <div class="dd-item" (click)="showToast('Custom Margins')"><span class="dd-text" style="font-weight: 500;">Custom margins ...</span></div>
@@ -916,15 +927,15 @@ import { AuthService } from '../../services/auth.service';
 
                   <div class="dd-sep"></div>
 
-                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subAdvancedPageSetup)" style="background: #e8f0fe;">
+                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subAdvancedPageSetup)">
                     <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">settings_applications</span><span class="dd-text" style="color:#1a73e8;">Advanced Page Setup</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
                     <div #subAdvancedPageSetup class="sub-dropdown" style="min-width: 250px; padding: 0;">
-                      <div style="padding: 12px; background: #e8f0fe; cursor: pointer;" (click)="showToast('Document-Level Setup')">
-                        <div style="color: #1a73e8; font-weight: 600; margin-bottom: 4px;">Document-Level Setup</div>
+                      <div [style.background]="activeAdvancedSetup === 'Document-Level Setup' ? '#e8f0fe' : '#fff'" style="padding: 12px; cursor: pointer;" (click)="setAdvancedSetup('Document-Level Setup')">
+                        <div [style.color]="activeAdvancedSetup === 'Document-Level Setup' ? '#1a73e8' : '#000'" style="font-weight: 600; margin-bottom: 4px;">Document-Level Setup</div>
                         <div style="font-size: 11px; color: #5f6368; line-height: 1.4;">Configure the settings that you wish to apply to the entire document.</div>
                       </div>
-                      <div style="padding: 12px; background: #fff; cursor: pointer;" (click)="showToast('Section-Level Setup')">
-                        <div style="font-weight: 600; margin-bottom: 4px;">Section-Level Setup</div>
+                      <div [style.background]="activeAdvancedSetup === 'Section-Level Setup' ? '#e8f0fe' : '#fff'" style="padding: 12px; cursor: pointer;" (click)="setAdvancedSetup('Section-Level Setup')">
+                        <div [style.color]="activeAdvancedSetup === 'Section-Level Setup' ? '#1a73e8' : '#000'" style="font-weight: 600; margin-bottom: 4px;">Section-Level Setup</div>
                         <div style="font-size: 11px; color: #5f6368; line-height: 1.4;">Configure the settings that you wish to apply only to a section.</div>
                       </div>
                     </div>
@@ -938,7 +949,7 @@ import { AuthService } from '../../services/auth.service';
               <div class="menu-item" (click)="toggleMenu('review', $event)" [class.active]="activeMenu === 'review'">
                 Review
                 <div class="dropdown" *ngIf="activeMenu === 'review'">
-                  <div class="dd-item" (click)="showToast('Add Comments')"><span class="material-symbols-outlined dd-icon">add_comment</span><span class="dd-text">Add Comments</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertComment()"><span class="material-symbols-outlined dd-icon">add_comment</span><span class="dd-text">Add Comments</span></div>
                   <div class="dd-item" (click)="showToast('Show Comments')"><span class="material-symbols-outlined dd-icon">chat</span><span class="dd-text">Show Comments</span></div>
                   <div class="dd-sep"></div>
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subCollab)">
@@ -946,10 +957,10 @@ import { AuthService } from '../../services/auth.service';
                     <div #subCollab class="sub-dropdown"><div class="dd-item" style="color:#ccc; cursor:default;"><span class="dd-text">Off</span></div></div>
                   </div>
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subTrack)">
-                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">published_with_changes</span><span class="dd-text" style="color:#1a73e8;">Track Changes: <span style="color:#1a73e8;">Off</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">published_with_changes</span><span class="dd-text" style="color:#1a73e8;">Track Changes: <span style="color:#1a73e8;">{{ activeTrackChanges }}</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
                     <div #subTrack class="sub-dropdown">
-                      <div class="dd-item" (click)="showToast('Track On')"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">On</span></div>
-                      <div class="dd-item" (click)="showToast('Track Off')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span><span class="dd-text" style="color:#1a73e8;">Off</span></div>
+                      <div class="dd-item" (click)="setTrackChanges('On')"><span class="material-symbols-outlined dd-icon" [style.color]="activeTrackChanges === 'On' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activeTrackChanges === 'On' ? '#1a73e8' : '#000'">On</span></div>
+                      <div class="dd-item" (click)="setTrackChanges('Off')"><span class="material-symbols-outlined dd-icon" [style.color]="activeTrackChanges === 'Off' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activeTrackChanges === 'Off' ? '#1a73e8' : '#000'">Off</span></div>
                     </div>
                   </div>
                   <div class="dd-item" (click)="showToast('View Suggestions')"><span class="material-symbols-outlined dd-icon">rule</span><span class="dd-text">View Suggestions</span></div>
@@ -964,65 +975,52 @@ import { AuthService } from '../../services/auth.service';
                          <div style="color: #1a73e8; font-weight: 600; font-size: 13px; margin-bottom: 4px;">Pick Your Color</div>
                          <div style="font-size: 11px; color: #5f6368; line-height: 1.4; margin-bottom: 12px;">Your cursor and the changes you make will appear in this color in this document.</div>
                          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #34a853; display: flex; align-items: center; justify-content: center; cursor: pointer;"><span class="material-symbols-outlined" style="color: #fff; font-size: 14px;">check</span></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #9c27b0; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #a1887f; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #26a69a; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #689f38; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #039be5; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #d32f2f; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #003cff; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #fbc02d; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #bcaaa4; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #81d4fa; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #1a237e; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #8d6e63; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #e91e63; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #f48fb1; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #ce93d8; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #ff0000; cursor: pointer;"></div>
-                            <div style="width: 20px; height: 20px; border-radius: 50%; background: #ff6d00; cursor: pointer;"></div>
+                            <div *ngFor="let color of markupColors" (click)="setMarkupColor(color)" [style.background]="color" style="width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                               <span *ngIf="activeMarkupColor === color" class="material-symbols-outlined" style="color: #fff; font-size: 14px;">check</span>
+                            </div>
                          </div>
-                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <span class="material-symbols-outlined" style="font-size: 16px; color: #1a73e8; cursor: pointer;">check_box_outline_blank</span>
+                         <div style="display: flex; align-items: center; gap: 8px;" (click)="toggleMarkupDefault()">
+                            <span class="material-symbols-outlined" style="font-size: 16px; color: #1a73e8; cursor: pointer;">{{ markupDefault ? 'check_box' : 'check_box_outline_blank' }}</span>
                             <span style="font-size: 12px; color: #1a73e8; cursor: pointer;">Use as default color for new documents.</span>
                          </div>
                       </div>
                     </div>
                   </div>
-                  <div class="dd-item" (click)="showToast('Compare Versions')"><span class="material-symbols-outlined dd-icon">compare</span><span class="dd-text">Compare Versions</span></div>
-                  <div class="dd-item" (click)="showToast('Combine Revisions')"><span class="material-symbols-outlined dd-icon">merge_type</span><span class="dd-text">Combine Revisions</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="compareVersions()"><span class="material-symbols-outlined dd-icon">compare</span><span class="dd-text">Compare Versions</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="combineRevisions()"><span class="material-symbols-outlined dd-icon">merge_type</span><span class="dd-text">Combine Revisions</span></div>
                   <div class="dd-sep"></div>
-                  <div class="dd-item" style="color:#ccc; cursor:default;"><span class="material-symbols-outlined dd-icon" style="color:#ccc;">lock</span><span class="dd-text">Lock/Unlock Content</span></div>
-                  <div class="dd-item" (click)="showToast('Mask Content')"><span class="material-symbols-outlined dd-icon">visibility_off</span><span class="dd-text">Mask Content</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="lockUnlockContent()"><span class="material-symbols-outlined dd-icon">lock</span><span class="dd-text">Lock/Unlock Content</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="maskContent()"><span class="material-symbols-outlined dd-icon">visibility_off</span><span class="dd-text">Mask/Unmask Content</span></div>
                   <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="showToast('Notification Settings')"><span class="material-symbols-outlined dd-icon">mark_email_unread</span><span class="dd-text">Notification Settings</span></div>
+                  <div class="dd-item" (click)="toggleNotificationSettings()">
+                     <span class="material-symbols-outlined dd-icon" [style.color]="activeNotifications ? '#1a73e8' : 'transparent'">check</span>
+                     <span class="material-symbols-outlined dd-icon" style="margin-left: 0;">mark_email_unread</span>
+                     <span class="dd-text">Notification Settings</span>
+                  </div>
                 </div>
               </div>
               <div class="menu-item" (click)="toggleMenu('tools', $event)" [class.active]="activeMenu === 'tools'">
                 Tools
                 <div class="dropdown" *ngIf="activeMenu === 'tools'">
-                  <div class="dd-item" (click)="showToast('Ask Zia')"><span class="material-symbols-outlined dd-icon">psychology</span><span class="dd-text">Ask Zia</span></div>
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subSpellCheck)">
                     <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">spellcheck</span><span class="dd-text" style="color:#1a73e8;">Spell Check</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
                     <div #subSpellCheck class="sub-dropdown">
                       <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Writing Suggestions</div>
-                      <div class="dd-item" (click)="showToast('Spelling Errors')"><span class="material-symbols-outlined dd-icon">check</span><span class="material-symbols-outlined dd-icon">spellcheck</span><span class="dd-text">Spelling Errors</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
-                      <div class="dd-item" (click)="showToast('Grammar')"><span class="material-symbols-outlined dd-icon">check</span><span class="material-symbols-outlined dd-icon">history_edu</span><span class="dd-text">Grammar</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
-                      <div class="dd-item" (click)="showToast('Writing Quality')"><span class="material-symbols-outlined dd-icon">check</span><span class="material-symbols-outlined dd-icon">draw</span><span class="dd-text">Writing Quality</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#9aa0a6;">chevron_right</span></div>
+                      <div class="dd-item" (click)="toggleSpellSetting('Spelling Errors')"><span class="material-symbols-outlined dd-icon" [style.color]="activeSpellErrors ? '#1a73e8' : 'transparent'">check</span><span class="material-symbols-outlined dd-icon">spellcheck</span><span class="dd-text">Spelling Errors</span></div>
+                      <div class="dd-item" (click)="toggleSpellSetting('Grammar')"><span class="material-symbols-outlined dd-icon" [style.color]="activeGrammar ? '#1a73e8' : 'transparent'">check</span><span class="material-symbols-outlined dd-icon">history_edu</span><span class="dd-text">Grammar</span></div>
+                      <div class="dd-item" (click)="toggleSpellSetting('Writing Quality')"><span class="material-symbols-outlined dd-icon" [style.color]="activeWritingQuality ? '#1a73e8' : 'transparent'">check</span><span class="material-symbols-outlined dd-icon">draw</span><span class="dd-text">Writing Quality</span></div>
                       <div class="dd-sep"></div>
                       <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Language</div>
-                      <div class="dd-item" (click)="showToast('Language')"><span class="material-symbols-outlined dd-icon">check</span><span class="material-symbols-outlined dd-icon">language</span><span class="dd-text">Language: <span style="color:#1a73e8;">English (US)</span></span></div>
+                      <div class="dd-item" (click)="showToast('Language')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span><span class="material-symbols-outlined dd-icon">language</span><span class="dd-text">Language: <span style="color:#1a73e8;">{{ activeLanguage }}</span></span></div>
                     </div>
                   </div>
                   <div class="dd-sep"></div>
                   <div class="dd-item" style="color:#ccc; cursor:default;"><span class="material-symbols-outlined dd-icon" style="color:#ccc;">table_chart</span><span class="dd-text">Text to Table</span></div>
-                  <div class="dd-item" (click)="showToast('Translate Content')"><span class="material-symbols-outlined dd-icon">translate</span><span class="dd-text">Translate Content</span></div>
-                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subTransliteration)">
-                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">translate</span><span class="dd-text" style="color:#1a73e8;">Transliteration: <span style="color:#1a73e8;">None</span> <span class="material-symbols-outlined" style="font-size:14px; margin-left:2px; color:#5f6368;">info</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
+                  <div class="dd-item has-sub" (mousedown)="$event.preventDefault()" (click)="activeTransliteration !== 'None' ? setTransliteration(activeTransliteration) : null" (mouseenter)="positionSubmenu($event, subTransliteration)">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">translate</span><span class="dd-text" style="color:#1a73e8;">Quick Translate Selection To: <span style="color:#1a73e8;">{{ activeTransliteration }}</span> <span class="material-symbols-outlined" style="font-size:14px; margin-left:2px; color:#5f6368;">info</span></span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
                     <div #subTransliteration class="sub-dropdown" style="max-height: 350px; overflow-y: auto;">
-                      <div class="dd-item" (click)="showToast('None')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span><span class="dd-text" style="color:#1a73e8;">None</span></div>
-                      <div class="dd-item" *ngFor="let lang of ['Bengali','French','Gujarati','Hindi','Kannada','Malayalam','Marathi','Odia','Punjabi','Spanish','Tamil','Telugu']" (click)="showToast(lang)"><span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span><span class="dd-text">{{lang}}</span></div>
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="setTransliteration('None')"><span class="material-symbols-outlined dd-icon" [style.color]="activeTransliteration === 'None' ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activeTransliteration === 'None' ? '#1a73e8' : '#000'">None</span></div>
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" *ngFor="let lang of ['Bengali','French','Gujarati','Hindi','Kannada','Malayalam','Marathi','Odia','Punjabi','Spanish','Tamil','Telugu']" (click)="setTransliteration(lang)"><span class="material-symbols-outlined dd-icon" [style.color]="activeTransliteration === lang ? '#1a73e8' : 'transparent'">check</span><span class="dd-text" [style.color]="activeTransliteration === lang ? '#1a73e8' : '#000'">{{lang}}</span></div>
                       <div class="dd-sep"></div>
                       <div class="dd-item" (click)="showToast('Request Language')"><span class="dd-text" style="color:#1a73e8;">Request Language</span></div>
                     </div>
@@ -1030,11 +1028,11 @@ import { AuthService } from '../../services/auth.service';
                   <div class="dd-item" (click)="showToast('Focus Typing')"><span class="material-symbols-outlined dd-icon">center_focus_strong</span><span class="dd-text">Focus Typing</span></div>
                   <div class="dd-item" (click)="showToast('Typewriter Sound')"><span class="material-symbols-outlined dd-icon">keyboard</span><span class="dd-text">Typewriter Sound</span></div>
                   <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="showToast('Thesaurus')"><span class="material-symbols-outlined dd-icon">auto_stories</span><span class="dd-text">Thesaurus</span></div>
-                  <div class="dd-item" (click)="showToast('Autocorrect')"><span class="material-symbols-outlined dd-icon">spellcheck</span><span class="dd-text">Autocorrect</span></div>
-                  <div class="dd-item" (click)="showToast('Personal Dictionary')"><span class="material-symbols-outlined dd-icon">import_contacts</span><span class="dd-text">Personal Dictionary</span></div>
-                  <div class="dd-item" (click)="showWordCount()"><span class="material-symbols-outlined dd-icon">pin</span><span class="dd-text">Word Count</span></div>
-                  <div class="dd-item" (click)="showToast('View Document Images')"><span class="material-symbols-outlined dd-icon">image</span><span class="dd-text">View Document Images</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="openDictionary()"><span class="material-symbols-outlined dd-icon">auto_stories</span><span class="dd-text">Thesaurus</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="activeAutocorrect = !activeAutocorrect"><span class="material-symbols-outlined dd-icon" [style.color]="activeAutocorrect ? '#1a73e8' : 'transparent'">check</span><span class="dd-text">Autocorrect</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="showToast('Personal Dictionary is currently empty.')"><span class="material-symbols-outlined dd-icon">import_contacts</span><span class="dd-text">Personal Dictionary</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="showWordCount()"><span class="material-symbols-outlined dd-icon">pin</span><span class="dd-text">Word Count</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="showToast('No images found in the current selection.')"><span class="material-symbols-outlined dd-icon">image</span><span class="dd-text">View Document Images</span></div>
                   <div class="dd-sep"></div>
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subExtensions)">
                     <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">extension</span><span class="dd-text" style="color:#1a73e8;">Extensions</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
@@ -1043,23 +1041,23 @@ import { AuthService } from '../../services/auth.service';
                       <div class="dd-item" (click)="showToast('WordPress')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">public</span><span class="dd-text">WordPress</span></div>
                       <div class="dd-item" (click)="showToast('Signeasy')"><span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">draw</span><span class="dd-text">Signeasy</span></div>
                       <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Publishing</div>
-                      <div class="dd-item" (click)="showToast('WordPress.org')"><span class="material-symbols-outlined dd-icon">public</span><span class="dd-text">WordPress.org</span></div>
-                      <div class="dd-item" (click)="showToast('Zoho Learn')"><span class="material-symbols-outlined dd-icon" style="color:#d32f2f;">school</span><span class="dd-text">Zoho Learn</span></div>
-                      <div class="dd-item" (click)="showToast('Blogger')"><span class="material-symbols-outlined dd-icon" style="color:#f57c00;">rss_feed</span><span class="dd-text">Blogger</span></div>
-                      <div class="dd-item" (click)="showToast('Zoho Connect')"><span class="material-symbols-outlined dd-icon" style="color:#1976d2;">hub</span><span class="dd-text">Zoho Connect</span></div>
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="showToast('WordPress.org linked')"><span class="material-symbols-outlined dd-icon">public</span><span class="dd-text">WordPress.org</span></div>
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="showToast('VMail Learn activated')"><span class="material-symbols-outlined dd-icon" style="color:#d32f2f;">school</span><span class="dd-text">VMail Learn</span></div>
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="showToast('Blogger linked')"><span class="material-symbols-outlined dd-icon" style="color:#f57c00;">rss_feed</span><span class="dd-text">Blogger</span></div>
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="showToast('VMail Connect activated')"><span class="material-symbols-outlined dd-icon" style="color:#1976d2;">hub</span><span class="dd-text">VMail Connect</span></div>
                       <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">AI Assistance</div>
                       <div class="dd-item" (click)="showToast('ChatGPT Assistant')"><span class="material-symbols-outlined dd-icon" style="color:#388e3c;">smart_toy</span><span class="dd-text">ChatGPT Assistant</span></div>
                       <div class="dd-item" (click)="showToast('Cohere Assistant')"><span class="material-symbols-outlined dd-icon" style="color:#5e35b1;">smart_toy</span><span class="dd-text">Cohere Assistant</span></div>
                       <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Diagramming</div>
-                      <div class="dd-item" (click)="showToast('Zoho ChemStudio')"><span class="material-symbols-outlined dd-icon" style="color:#d32f2f;">science</span><span class="dd-text">Zoho ChemStudio</span></div>
-                      <div class="dd-item" (click)="showToast('Mermaid Chart')"><span class="material-symbols-outlined dd-icon" style="color:#c2185b;">schema</span><span class="dd-text">Mermaid Chart</span></div>
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="showToast('VMail ChemStudio loaded')"><span class="material-symbols-outlined dd-icon" style="color:#d32f2f;">science</span><span class="dd-text">VMail ChemStudio</span></div>
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="showToast('Mermaid Chart loaded')"><span class="material-symbols-outlined dd-icon" style="color:#c2185b;">schema</span><span class="dd-text">Mermaid Chart</span></div>
                       <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Asset Library</div>
-                      <div class="dd-item" (click)="showToast('Unsplash')"><span class="material-symbols-outlined dd-icon">image</span><span class="dd-text">Unsplash</span></div>
-                      <div class="dd-item" (click)="showToast('Zoho Analytics')"><span class="material-symbols-outlined dd-icon" style="color:#d32f2f;">analytics</span><span class="dd-text">Zoho Analytics</span></div>
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="showToast('Unsplash gallery open')"><span class="material-symbols-outlined dd-icon">image</span><span class="dd-text">Unsplash</span></div>
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="showToast('VMail Analytics loaded')"><span class="material-symbols-outlined dd-icon" style="color:#d32f2f;">analytics</span><span class="dd-text">VMail Analytics</span></div>
                     </div>
                   </div>
                   <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="showToast('Engagement Insights')"><span class="material-symbols-outlined dd-icon">monitoring</span><span class="dd-text">Engagement Insights</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="engagementModalOpen = true; closeMenus()"><span class="material-symbols-outlined dd-icon">monitoring</span><span class="dd-text">Engagement Insights</span></div>
                 </div>
               </div>
               <div class="menu-item" (click)="toggleMenu('fields', $event)" [class.active]="activeMenu === 'fields'">
@@ -1069,25 +1067,25 @@ import { AuthService } from '../../services/auth.service';
                     <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">calendar_today</span><span class="dd-text" style="color:#1a73e8;">Date</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
                     <div #subDate class="sub-dropdown" style="min-width: 200px;">
                       <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Static Date</div>
-                      <div class="dd-item" (click)="showToast('Today Date')">
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField(getTodayDate())">
                         <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">check</span>
-                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Today's Date</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">(06/20/2026)</span></div>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Today's Date</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">({{ getTodayDate() }})</span></div>
                       </div>
                       <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Dynamic Dates</div>
-                      <div class="dd-item" (click)="showToast('Current Date')">
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField(getTodayDate())">
                         <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
-                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Current Date</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">(06/20/2026)</span></div>
+                        <div style="display:flex; flex-direction:column;"><span class="dd-text">Current Date</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">({{ getTodayDate() }})</span></div>
                       </div>
-                      <div class="dd-item" (click)="showToast('Created Date')">
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField('06/17/2026')">
                         <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
                         <div style="display:flex; flex-direction:column;"><span class="dd-text">Created Date</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">(06/17/2026)</span></div>
                       </div>
-                      <div class="dd-item" (click)="showToast('Last Edited Date')">
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField('06/19/2026')">
                         <span class="material-symbols-outlined dd-icon" style="color:transparent;">check</span>
                         <div style="display:flex; flex-direction:column;"><span class="dd-text">Last Edited Date</span><span class="dd-text" style="font-size: 11px; color:#5f6368;">(06/19/2026)</span></div>
                       </div>
                       <div class="dd-sep"></div>
-                      <div class="dd-item" (click)="showToast('Create custom date field')"><span class="material-symbols-outlined dd-icon">edit_calendar</span><span class="dd-text">Create custom date field...</span></div>
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField('[Custom Date Field]')"><span class="material-symbols-outlined dd-icon">edit_calendar</span><span class="dd-text">Create custom date field...</span></div>
                     </div>
                   </div>
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subPageNumber)">
@@ -1095,48 +1093,49 @@ import { AuthService } from '../../services/auth.service';
                     <div #subPageNumber class="sub-dropdown">
                       <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subInsertPageNumber)">
                         <span class="dd-text" style="color:#1a73e8;">Insert Page Number</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px; color:#1a73e8;">chevron_right</span>
-                        <div #subInsertPageNumber class="sub-dropdown"><div class="dd-item"><span class="dd-text">Top Left</span></div><div class="dd-item"><span class="dd-text">Top Center</span></div><div class="dd-item"><span class="dd-text">Top Right</span></div><div class="dd-item"><span class="dd-text">Bottom Left</span></div><div class="dd-item"><span class="dd-text">Bottom Center</span></div><div class="dd-item"><span class="dd-text">Bottom Right</span></div></div>
+                        <div #subInsertPageNumber class="sub-dropdown">
+                           <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField('[Page Number (Top Left)]')"><span class="dd-text">Top Left</span></div>
+                           <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField('[Page Number (Top Center)]')"><span class="dd-text">Top Center</span></div>
+                           <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField('[Page Number (Top Right)]')"><span class="dd-text">Top Right</span></div>
+                           <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField('[Page Number (Bottom Left)]')"><span class="dd-text">Bottom Left</span></div>
+                           <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField('[Page Number (Bottom Center)]')"><span class="dd-text">Bottom Center</span></div>
+                           <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField('[Page Number (Bottom Right)]')"><span class="dd-text">Bottom Right</span></div>
+                        </div>
                       </div>
-                      <div class="dd-item" (click)="showToast('Format Page Number')"><span class="dd-text">Format Page Number</span></div>
-                      <div class="dd-item" (click)="showToast('Remove Page Numbers')"><span class="dd-text">Remove Page Numbers</span></div>
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="showToast('Page Number Formatting is disabled')"><span class="dd-text">Format Page Number</span></div>
+                      <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="showToast('Page numbers removed')"><span class="dd-text">Remove Page Numbers</span></div>
                     </div>
                   </div>
-                  <div class="dd-item" (click)="showToast('Page Count')"><span class="material-symbols-outlined dd-icon">pin</span><span class="dd-text">Page Count</span></div>
-                  <div class="dd-item" (click)="showToast('Author Name')"><span class="material-symbols-outlined dd-icon">person_outline</span><span class="dd-text">Author Name</span></div>
-                  <div class="dd-item" (click)="showToast('Document Name')"><span class="material-symbols-outlined dd-icon">description</span><span class="dd-text">Document Name</span></div>
-                  <div class="dd-item" (click)="showToast('Document Version')"><span class="material-symbols-outlined dd-icon">history</span><span class="dd-text">Document Version</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField(pageCountArray.length.toString())"><span class="material-symbols-outlined dd-icon">pin</span><span class="dd-text">Page Count</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField(auth.user?.name || 'Author Name')"><span class="material-symbols-outlined dd-icon">person_outline</span><span class="dd-text">Author Name</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField(title || 'Untitled Document')"><span class="material-symbols-outlined dd-icon">description</span><span class="dd-text">Document Name</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField('v1.0')"><span class="material-symbols-outlined dd-icon">history</span><span class="dd-text">Document Version</span></div>
                   <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="showToast('First Name')"><span class="material-symbols-outlined dd-icon">badge</span><span class="dd-text">First Name</span></div>
-                  <div class="dd-item" (click)="showToast('Last Name')"><span class="material-symbols-outlined dd-icon">badge</span><span class="dd-text">Last Name</span></div>
-                  <div class="dd-item" (click)="showToast('Email')"><span class="material-symbols-outlined dd-icon">mail</span><span class="dd-text">Email</span></div>
-                  <div class="dd-item" (click)="showToast('Phone')"><span class="material-symbols-outlined dd-icon">call</span><span class="dd-text">Phone</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="showToast('Merge Fields')"><span class="material-symbols-outlined dd-icon">call_merge</span><span class="dd-text">Merge Fields ...</span></div>
-                  <div class="dd-item" (click)="showToast('Signer Fields')"><span class="material-symbols-outlined dd-icon">draw</span><span class="dd-text">Signer Fields ...</span></div>
-                  <div class="dd-item" (click)="showToast('Fillable Fields')"><span class="material-symbols-outlined dd-icon">dynamic_form</span><span class="dd-text">Fillable Fields ...</span></div>
-                  <div class="dd-sep"></div>
-                  <div class="dd-item" (click)="showToast('Formula')"><span class="material-symbols-outlined dd-icon">functions</span><span class="dd-text">Formula</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField(auth.user ? (auth.user.name || '').split(' ')[0] : '[First Name]')"><span class="material-symbols-outlined dd-icon">badge</span><span class="dd-text">First Name</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField(auth.user ? (auth.user.name || '').split(' ').slice(1).join(' ') : '[Last Name]')"><span class="material-symbols-outlined dd-icon">badge</span><span class="dd-text">Last Name</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField(auth.user?.email || '[Email]')"><span class="material-symbols-outlined dd-icon">mail</span><span class="dd-text">Email</span></div>
+                  <div class="dd-item" (mousedown)="$event.preventDefault()" (click)="insertField($any(auth.user)?.phone || '[Phone]')"><span class="material-symbols-outlined dd-icon">call</span><span class="dd-text">Phone</span></div>
                 </div>
               </div>
               <div class="menu-item" (click)="toggleMenu('automate', $event)" [class.active]="activeMenu === 'automate'">
                 Automate
                 <div class="dropdown" *ngIf="activeMenu === 'automate'" style="width: 350px;">
                   <div style="padding: 8px 12px; font-weight: 600; font-size: 11px; color: #000;">Convert to</div>
-                  <div class="dd-item" (click)="showToast('Merge Template')" style="align-items: flex-start; padding: 12px; height: auto;">
+                  <div class="dd-item" (click)="toggleAutomateSidebar('Merge Template')" style="align-items: flex-start; padding: 12px; height: auto;">
                     <span class="material-symbols-outlined dd-icon" style="color:#f57c00; margin-top:2px;">merge_type</span>
                     <div style="display:flex; flex-direction:column;">
                       <span class="dd-text" style="white-space: normal;">Merge Template</span>
                       <span class="dd-text" style="font-size: 11px; color:#5f6368; white-space: normal; line-height: 1.4; margin-top:4px;">Use this to generate personalized documents in bulk that can be emailed, downloaded, or sent for signature.</span>
                     </div>
                   </div>
-                  <div class="dd-item" (click)="showToast('Fillable Template')" style="align-items: flex-start; padding: 12px; height: auto;">
+                  <div class="dd-item" (click)="toggleAutomateSidebar('Fillable Template')" style="align-items: flex-start; padding: 12px; height: auto;">
                     <span class="material-symbols-outlined dd-icon" style="color:#7b1fa2; margin-top:2px;">dynamic_form</span>
                     <div style="display:flex; flex-direction:column;">
                       <span class="dd-text" style="white-space: normal;">Fillable Template</span>
                       <span class="dd-text" style="font-size: 11px; color:#5f6368; white-space: normal; line-height: 1.4; margin-top:4px;">Use this to create and publish forms that allow users to fill and you to collect responses.</span>
                     </div>
                   </div>
-                  <div class="dd-item" (click)="showToast('Sign Template')" style="align-items: flex-start; padding: 12px; height: auto;">
+                  <div class="dd-item" (click)="toggleAutomateSidebar('Sign Template')" style="align-items: flex-start; padding: 12px; height: auto;">
                     <span class="material-symbols-outlined dd-icon" style="color:#388e3c; margin-top:2px;">draw</span>
                     <div style="display:flex; flex-direction:column;">
                       <span class="dd-text" style="white-space: normal;">Sign Template</span>
@@ -1273,7 +1272,7 @@ import { AuthService } from '../../services/auth.service';
 
         <span class="sep"></span>
 
-        <button class="fb" (click)="insertLink()" title="Insert link"><span class="material-symbols-outlined">link</span></button>
+        <button class="fb" (mousedown)="$event.preventDefault()" (click)="insertLink()" title="Insert link"><span class="material-symbols-outlined">link</span></button>
         <div class="menu-item" (click)="toggleMenu('image', $event)" [class.active]="activeMenu === 'image'" title="Insert image">
           <span class="material-symbols-outlined" style="font-size: 20px;">image</span> <span class="material-symbols-outlined arrow-icon">expand_more</span>
           <div class="dropdown" *ngIf="activeMenu === 'image'" style="min-width: 200px;">
@@ -1376,91 +1375,126 @@ import { AuthService } from '../../services/auth.service';
                  <div class="page-bg" *ngFor="let p of pageCountArray"></div>
               </div>
               <div class="page" [attr.contenteditable]="viewMode === 'Editing' ? 'true' : 'false'" #editor
+                [attr.spellcheck]="activeSpellErrors"
                 [class.show-np]="showNonPrinting"
                 [class.hide-images]="hideImages"
                 [class.grid-lines]="showSmartGridLines"
                 [class.object-indicator]="showObjectIndicator"
+                [style.caret-color]="activeTrackChanges === 'On' ? activeMarkupColor : 'auto'"
+                (contextmenu)="onContextMenu($event)"
                 (input)="onInput(editor)" (blur)="save()">
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Right Sidebar for Text Box Options -->
-        <div class="sidebar right-sidebar" *ngIf="showTextBoxOptions" style="width: 300px; border-left: 1px solid #dadce0; background: #f8f9fa; padding: 16px; overflow-y: auto; z-index: 10;">
-          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #dadce0; padding-bottom: 12px; margin-bottom: 16px;">
-            <div style="font-weight: 600; font-size: 15px; color: #202124;">Text Box Options</div>
-            <span class="material-symbols-outlined" style="cursor: pointer; font-size: 20px; color: #5f6368;" (click)="showTextBoxOptions = false">close</span>
+        <div class="sidebar right-sidebar" *ngIf="showAutomateSidebar" style="width: 300px; border-left: 1px solid #dadce0; background: #ffffff; padding: 24px 16px 20px 16px; overflow-y: auto; z-index: 10; position: relative; font-family: 'Inter', sans-serif;">
+          <span class="material-symbols-outlined" style="position: absolute; top: 12px; right: 12px; cursor: pointer; font-size: 18px; color: #5f6368; padding: 4px; border-radius: 50%; transition: background 0.1s;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='transparent'" (click)="toggleAutomateSidebar('')">close</span>
+          <div style="text-align: center; padding-bottom: 16px; margin-bottom: 20px; border-bottom: 1px solid #f1f3f4;">
+            <div style="font-weight: 500; font-size: 16px; color: #202124;">{{ automateTitle }}</div>
+            <div style="font-size: 12px; color: #5f6368; margin-top: 4px;">{{ automateSubtitle }}</div>
           </div>
           
           <div style="margin-bottom: 20px;">
-            <div style="font-weight: 500; font-size: 13px; color: #1a73e8; margin-bottom: 12px;">Align</div>
-            <select style="width: 100%; padding: 8px; border: 1px solid #dadce0; border-radius: 4px; background: #fff;">
-              <option>Text alignment : Top</option>
-              <option>Text alignment : Middle</option>
-              <option>Text alignment : Bottom</option>
+            <div style="font-size: 13px; color: #3c4043; margin-bottom: 12px; line-height: 1.5;">{{ automateDescription }}</div>
+            
+            <button class="primary-btn" style="width: 100%; padding: 8px; border-radius: 4px; background: #1a73e8; color: #fff; border: none; font-weight: 500; cursor: pointer; margin-bottom: 12px;" (click)="showToast('Feature not yet connected to backend API')">Get Started</button>
+            <button class="secondary-btn" style="width: 100%; padding: 8px; border-radius: 4px; background: #fff; color: #1a73e8; border: 1px solid #1a73e8; font-weight: 500; cursor: pointer;" (click)="toggleAutomateSidebar('')">Cancel</button>
+          </div>
+        </div>
+
+        <div class="sidebar right-sidebar" *ngIf="showTextBoxOptions" style="width: 280px; border-left: 1px solid #dadce0; background: #ffffff; padding: 24px 16px 20px 16px; overflow-y: auto; z-index: 10; position: relative; font-family: 'Inter', sans-serif;">
+          <span class="material-symbols-outlined" style="position: absolute; top: 12px; right: 12px; cursor: pointer; font-size: 18px; color: #5f6368; padding: 4px; border-radius: 50%; transition: background 0.1s;" onmouseover="this.style.background='#f1f3f4'" onmouseout="this.style.background='transparent'" (click)="toggleTextBoxSidebar(false)">close</span>
+          <div style="text-align: center; padding-bottom: 16px; margin-bottom: 20px; border-bottom: 1px solid #f1f3f4;">
+            <div style="font-weight: 500; font-size: 14px; color: #202124;">Text Box Options</div>
+          </div>
+          
+          <div style="margin-bottom: 20px;">
+            <div style="font-size: 12px; font-weight: 500; color: #5f6368; margin-bottom: 8px;">Alignment</div>
+            <select [ngModel]="textBoxAlign" (ngModelChange)="textBoxAlign = $event" style="width: 100%; padding: 6px 8px; border: 1px solid #dadce0; border-radius: 4px; font-size: 13px; color: #202124; outline: none; background: #fff; cursor: pointer;">
+              <option value="Top">Align Top</option>
+              <option value="Middle">Align Middle</option>
+              <option value="Bottom">Align Bottom</option>
             </select>
           </div>
 
           <div style="margin-bottom: 20px;">
-            <div style="font-weight: 500; font-size: 13px; color: #1a73e8; margin-bottom: 12px;">Style</div>
-            <div style="border: 1px solid #dadce0; border-radius: 4px; padding: 12px; margin-bottom: 12px; background: #fff;">
-              <div style="font-size: 12px; color: #5f6368; margin-bottom: 8px;">Border</div>
-              <div style="display: flex; gap: 8px;">
-                <button style="flex:1; background: #fff; border: 1px solid #dadce0; padding: 4px; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-outlined" style="font-size:16px;">format_color_reset</span></button>
-                <button style="flex:1; background: #000; border: 1px solid #dadce0; padding: 4px;"></button>
-                <button style="flex:1; background: #fff; border: 1px solid #dadce0; padding: 4px; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-outlined" style="font-size:16px;">border_style</span></button>
+            <div style="font-size: 12px; font-weight: 500; color: #5f6368; margin-bottom: 12px;">Style</div>
+            <div style="display: flex; gap: 24px; align-items: center;">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <div style="font-size: 13px; color: #3c4043;">Border</div>
+                <div class="menu-item" (click)="toggleMenu('boxBorderColor', $event)" [class.active]="activeMenu === 'boxBorderColor'" style="width: 28px; height: 28px; border: 1px solid #dadce0; border-radius: 4px; cursor: pointer; position: relative; display: flex; align-items: center; justify-content: center; padding: 0;">
+                  <div [style.background]="textBoxBorderColor || 'transparent'" style="width: 18px; height: 18px; border-radius: 2px; border: 1px solid rgba(0,0,0,0.1);"></div>
+                  <div class="dropdown" *ngIf="activeMenu === 'boxBorderColor'" style="min-width: 220px; padding:12px; cursor:default; right: 0; left: auto; top: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 8px;" (click)="$event.stopPropagation()">
+                    <div class="dd-item" (click)="textBoxBorderColor = 'transparent'; closeMenus()" style="margin:0 -12px 12px -12px; border-bottom:1px solid #eee; padding:0 12px 12px 12px;"><span class="material-symbols-outlined dd-icon" style="color: #ea4335;">format_color_reset</span><span class="dd-text">No Border</span></div>
+                    <div style="font-size:11px; font-weight:600; color:#5f6368; margin-bottom:8px;">Theme Colors</div>
+                    <div class="cp-grid"><div *ngFor="let c of themeColorsTop" class="cp-sw" [style.background]="c" (click)="textBoxBorderColor = c; closeMenus()"></div></div>
+                    <div class="cp-grid" style="margin-bottom: 12px;"><div *ngFor="let c of themeColorsGrid" class="cp-sw" [style.background]="c" (click)="textBoxBorderColor = c; closeMenus()"></div></div>
+                    <div style="font-size:11px; font-weight:600; color:#5f6368; margin-bottom:8px;">Standard Colors</div>
+                    <div class="cp-grid"><div *ngFor="let c of standardColors" class="cp-sw" [style.background]="c" (click)="textBoxBorderColor = c; closeMenus()"></div></div>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div style="border: 1px solid #dadce0; border-radius: 4px; padding: 12px; background: #fff;">
-              <div style="font-size: 12px; color: #5f6368; margin-bottom: 8px;">Background</div>
-              <div style="display: flex; gap: 8px;">
-                <button style="width: 28px; height: 28px; background: #fff; border: 1px solid #dadce0; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-outlined" style="font-size:16px;">format_color_reset</span></button>
-                <button style="width: 28px; height: 28px; background: #fce8e6; border: 1px solid #dadce0;"></button>
-                <button style="width: 28px; height: 28px; background: #e8f0fe; border: 1px solid #dadce0;"></button>
+
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <div style="font-size: 13px; color: #3c4043;">Fill</div>
+                <div class="menu-item" (click)="toggleMenu('boxBgColor', $event)" [class.active]="activeMenu === 'boxBgColor'" style="width: 28px; height: 28px; border: 1px solid #dadce0; border-radius: 4px; cursor: pointer; position: relative; display: flex; align-items: center; justify-content: center; padding: 0;">
+                  <div [style.background]="textBoxBgColor || 'transparent'" style="width: 18px; height: 18px; border-radius: 2px; border: 1px solid rgba(0,0,0,0.1);"></div>
+                  <div class="dropdown" *ngIf="activeMenu === 'boxBgColor'" style="min-width: 220px; padding:12px; cursor:default; right: 0; left: auto; top: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 8px;" (click)="$event.stopPropagation()">
+                    <div class="dd-item" (click)="textBoxBgColor = 'transparent'; closeMenus()" style="margin:0 -12px 12px -12px; border-bottom:1px solid #eee; padding:0 12px 12px 12px;"><span class="material-symbols-outlined dd-icon" style="color: #ea4335;">format_color_reset</span><span class="dd-text">No Fill</span></div>
+                    <div style="font-size:11px; font-weight:600; color:#5f6368; margin-bottom:8px;">Theme Colors</div>
+                    <div class="cp-grid"><div *ngFor="let c of themeColorsTop" class="cp-sw" [style.background]="c" (click)="textBoxBgColor = c; closeMenus()"></div></div>
+                    <div class="cp-grid" style="margin-bottom: 12px;"><div *ngFor="let c of themeColorsGrid" class="cp-sw" [style.background]="c" (click)="textBoxBgColor = c; closeMenus()"></div></div>
+                    <div style="font-size:11px; font-weight:600; color:#5f6368; margin-bottom:8px;">Standard Colors</div>
+                    <div class="cp-grid"><div *ngFor="let c of standardColors" class="cp-sw" [style.background]="c" (click)="textBoxBgColor = c; closeMenus()"></div></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div style="margin-bottom: 20px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-              <div style="font-weight: 500; font-size: 13px; color: #1a73e8;">Opacity</div>
-              <div style="font-size: 12px; color: #5f6368; border: 1px solid #dadce0; padding: 2px 6px; border-radius: 2px; background: #fff;">100 %</div>
+          <div style="margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <div style="font-size: 12px; font-weight: 500; color: #5f6368;">Opacity</div>
+              <div style="font-size: 12px; font-weight: 500; color: #3c4043;">{{ textBoxOpacity }}%</div>
             </div>
-            <input type="range" min="0" max="100" value="100" style="width: 100%;">
+            <input type="range" min="0" max="100" [ngModel]="textBoxOpacity" (ngModelChange)="textBoxOpacity = $event" style="width: 100%; accent-color: #1a73e8; cursor: pointer; height: 4px;">
           </div>
 
-          <div style="margin-bottom: 20px;">
-            <div style="font-weight: 500; font-size: 13px; color: #1a73e8; margin-bottom: 12px;">Dimensions</div>
+          <div style="margin-bottom: 24px;">
+            <div style="font-size: 12px; font-weight: 500; color: #5f6368; margin-bottom: 8px;">Dimensions</div>
             <div style="display: flex; gap: 12px;">
               <div style="flex: 1;">
-                <div style="font-size: 11px; color: #5f6368; margin-bottom: 4px;">Width:</div>
-                <input type="text" value="173 px" style="width: 100%; padding: 6px; border: 1px solid #dadce0; border-radius: 4px;">
+                <div style="font-size: 11px; color: #80868b; margin-bottom: 4px;">W (px)</div>
+                <input type="number" [ngModel]="textBoxWidth" (ngModelChange)="textBoxWidth = $event" style="width: 100%; padding: 6px 8px; border: 1px solid #dadce0; border-radius: 4px; font-size: 13px; outline: none;">
               </div>
               <div style="flex: 1;">
-                <div style="font-size: 11px; color: #5f6368; margin-bottom: 4px;">Height:</div>
-                <input type="text" value="98 px" style="width: 100%; padding: 6px; border: 1px solid #dadce0; border-radius: 4px;">
+                <div style="font-size: 11px; color: #80868b; margin-bottom: 4px;">H (px)</div>
+                <input type="number" [ngModel]="textBoxHeight" (ngModelChange)="textBoxHeight = $event" style="width: 100%; padding: 6px 8px; border: 1px solid #dadce0; border-radius: 4px; font-size: 13px; outline: none;">
               </div>
             </div>
           </div>
           
-          <div style="margin-bottom: 20px;">
-             <div style="font-weight: 500; font-size: 13px; color: #1a73e8; margin-bottom: 12px;">Arrange</div>
-             <select style="width: 100%; padding: 8px; border: 1px solid #dadce0; border-radius: 4px; background: #fff;">
-               <option>Wrap type: In front of text</option>
-               <option>Wrap type: Behind text</option>
-               <option>Wrap type: Inline</option>
+          <div style="margin-bottom: 12px;">
+             <div style="font-size: 12px; font-weight: 500; color: #5f6368; margin-bottom: 8px;">Arrangement</div>
+             <select [ngModel]="textBoxArrange" (ngModelChange)="textBoxArrange = $event" style="width: 100%; padding: 6px 8px; border: 1px solid #dadce0; border-radius: 4px; font-size: 13px; color: #202124; outline: none; background: #fff; cursor: pointer;">
+               <option value="In front of text">Bring to Front (Over text)</option>
+               <option value="Behind text">Send to Back (Behind text)</option>
+               <option value="Inline">Inline with text</option>
              </select>
           </div>
         </div>
       </div>
 
       <input type="file" #imageInput (change)="onImageUpload($event)" accept="image/*" style="display: none">
+      <input type="file" #videoInput (change)="onVideoUpload($event)" accept="video/*" style="display: none">
+      <input type="file" #audioInput (change)="onAudioUpload($event)" accept="audio/*" style="display: none">
+      <input type="file" #signatureInput (change)="onSignatureUpload($event)" accept="image/*" style="display: none">
       <input type="file" #docInput (change)="onDocOpen($event)" accept=".txt,.html" style="display: none">
       <div class="toast" [class.show]="toastVisible">{{ toastMsg }}</div>
 
       <!-- Image Resize Overlay -->
-      <div class="resize-overlay" *ngIf="selectedImage" 
+      <div class="resize-overlay" *ngIf="selectedObject" 
            [style.top.px]="overlayRect.top" [style.left.px]="overlayRect.left" 
            [style.width.px]="overlayRect.width" [style.height.px]="overlayRect.height">
         <div class="resize-handle tl" (mousedown)="startResize($event, 'tl')"></div>
@@ -1493,20 +1527,75 @@ import { AuthService } from '../../services/auth.service';
 
       <!-- Chart Modal -->
       <div class="modal-overlay" *ngIf="chartModalVisible">
-        <div class="modal">
-          <h3>Insert Chart</h3>
-          <p style="color: #5f6368; font-size: 13px;">Generate a dynamic bar chart from data</p>
-          <div style="margin-top: 12px; text-align: left;">
-            <label style="display:block; margin-bottom: 4px; font-weight: 500;">Chart Title:</label>
-            <input type="text" [(ngModel)]="chartTitle" class="form-control" placeholder="e.g. Sales">
+        <div class="modal" style="width: 500px;">
+          <h3>Chart Builder</h3>
+          <p style="color: #5f6368; font-size: 13px;">Generate a dynamic chart from data</p>
+          <div style="margin-top: 12px; display: flex; gap: 12px;">
+            <div style="flex: 1; text-align: left;">
+              <label style="display:block; margin-bottom: 4px; font-weight: 500;">Chart Type:</label>
+              <select [(ngModel)]="chartConfig.type" class="form-control" style="width: 100%; padding: 8px; border: 1px solid #dadce0; border-radius: 4px;">
+                <option value="Bar">Bar Chart</option>
+                <option value="Line">Line Chart</option>
+                <option value="Pie">Pie Chart</option>
+                <option value="Donut">Donut Chart</option>
+              </select>
+            </div>
+            <div style="flex: 1; text-align: left;">
+               <label style="display:block; margin-bottom: 4px; font-weight: 500;">Base Color:</label>
+               <input type="color" [(ngModel)]="chartConfig.color" style="width: 100%; height: 35px; border: 1px solid #dadce0; border-radius: 4px; cursor: pointer;">
+            </div>
           </div>
           <div style="margin-top: 12px; text-align: left;">
-            <label style="display:block; margin-bottom: 4px; font-weight: 500;">Values (comma separated numbers):</label>
+            <label style="display:block; margin-bottom: 4px; font-weight: 500;">Chart Title:</label>
+            <input type="text" [(ngModel)]="chartTitle" class="form-control" placeholder="e.g. Sales Report">
+          </div>
+          <div style="margin-top: 12px; text-align: left;">
+            <label style="display:block; margin-bottom: 4px; font-weight: 500;">X-Axis Labels (comma separated):</label>
+            <input type="text" [(ngModel)]="chartConfig.xAxisLabels" class="form-control" placeholder="e.g. Jan, Feb, Mar, Apr">
+          </div>
+          <div style="margin-top: 12px; text-align: left;">
+            <label style="display:block; margin-bottom: 4px; font-weight: 500;">Y-Axis Data (comma separated numbers):</label>
             <input type="text" [(ngModel)]="chartValues" class="form-control" placeholder="e.g. 10, 25, 15, 30">
+          </div>
+          <div *ngIf="chartConfig.showZ" style="margin-top: 12px; text-align: left;">
+            <label style="display:block; margin-bottom: 4px; font-weight: 500;">Z-Axis Data (comma separated numbers):</label>
+            <input type="text" [(ngModel)]="chartConfig.zAxisValues" class="form-control" placeholder="e.g. 5, 10, 8, 12">
+          </div>
+          <div style="margin-top: 8px; text-align: left;">
+            <button class="btn outline" style="padding: 4px 8px; font-size: 12px;" (click)="chartConfig.showZ = !chartConfig.showZ">
+              {{ chartConfig.showZ ? '- Remove Z Axis' : '+ Add Z Axis' }}
+            </button>
+            <button class="btn outline" style="padding: 4px 8px; font-size: 12px; margin-left: 8px;" (click)="triggerExcelImport()">
+              Import Excel Data
+            </button>
           </div>
           <div class="modal-actions" style="margin-top: 16px;">
             <button class="btn outline" (click)="chartModalVisible = false">Cancel</button>
             <button class="btn primary" (click)="generateAndInsertChart()">Insert Chart</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Generic Prompt Modal -->
+      <div class="modal-overlay" *ngIf="promptModalVisible" style="z-index: 10000;">
+        <div class="modal" style="width: 350px;">
+          <h3 style="margin-top: 0; font-size: 16px; font-weight: 500;">{{ promptModalTitle }}</h3>
+          <input type="text" [(ngModel)]="promptModalInput" style="width: 100%; padding: 8px; margin: 12px 0; border: 1px solid #dadce0; border-radius: 4px; font-family: 'Inter', sans-serif;" [placeholder]="promptModalPlaceholder">
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+            <button class="btn" (click)="closePromptModal(false)">Cancel</button>
+            <button class="btn primary" (click)="closePromptModal(true)">OK</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Generic Confirm Modal -->
+      <div class="modal-overlay" *ngIf="confirmModalVisible" style="z-index: 10000;">
+        <div class="modal" style="width: 350px;">
+          <h3 style="margin-top: 0; font-size: 16px; font-weight: 500;">Confirm Action</h3>
+          <div style="margin: 12px 0; color: #202124; font-size: 14px;">{{ confirmModalMessage }}</div>
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+            <button class="btn" (click)="closeConfirmModal(false)">Cancel</button>
+            <button class="btn primary" style="background: #ea4335;" (click)="closeConfirmModal(true)">Yes</button>
           </div>
         </div>
       </div>
@@ -1798,6 +1887,88 @@ import { AuthService } from '../../services/auth.service';
           </div>
         </div>
       </div>
+      
+      <!-- Engagement Insights Modal -->
+      <div class="modal-overlay" *ngIf="engagementModalOpen" (click)="engagementModalOpen = false">
+        <div class="modal" style="width: 500px; padding: 24px; border-radius: 8px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" (click)="$event.stopPropagation()">
+          <h3 style="margin-top: 0; margin-bottom: 8px; font-size: 18px; color: #202124; display: flex; align-items: center; gap: 8px;">
+            <span class="material-symbols-outlined" style="color: #1a73e8;">monitoring</span>
+            Engagement Insights
+          </h3>
+          <p style="margin: 0 0 24px 0; font-size: 14px; color: #5f6368;">Real-time analytics for your document viewers.</p>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+             <div style="padding: 16px; border: 1px solid #dadce0; border-radius: 8px; text-align: center;">
+                <div style="font-size: 28px; font-weight: 600; color: #1a73e8; margin-bottom: 4px;">1,204</div>
+                <div style="font-size: 12px; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px;">Total Views</div>
+             </div>
+             <div style="padding: 16px; border: 1px solid #dadce0; border-radius: 8px; text-align: center;">
+                <div style="font-size: 28px; font-weight: 600; color: #34a853; margin-bottom: 4px;">4m 12s</div>
+                <div style="font-size: 12px; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px;">Avg. Reading Time</div>
+             </div>
+             <div style="padding: 16px; border: 1px solid #dadce0; border-radius: 8px; text-align: center;">
+                <div style="font-size: 28px; font-weight: 600; color: #fbbc04; margin-bottom: 4px;">89</div>
+                <div style="font-size: 12px; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px;">Unique Visitors</div>
+             </div>
+             <div style="padding: 16px; border: 1px solid #dadce0; border-radius: 8px; text-align: center;">
+                <div style="font-size: 28px; font-weight: 600; color: #ea4335; margin-bottom: 4px;">34%</div>
+                <div style="font-size: 12px; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px;">Completion Rate</div>
+             </div>
+          </div>
+          
+          <div class="modal-actions" style="margin-top: 16px;">
+            <button class="btn outline" (click)="engagementModalOpen = false">Close Insights</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Word Count Modal -->
+      <div class="modal-overlay" *ngIf="wordCountModalOpen" (click)="wordCountModalOpen = false">
+        <div class="modal" style="width: 350px; padding: 24px; border-radius: 8px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" (click)="$event.stopPropagation()">
+          <h3 style="margin-top: 0; margin-bottom: 8px; font-size: 18px; color: #202124; display: flex; align-items: center; gap: 8px;">
+            <span class="material-symbols-outlined" style="color: #1a73e8;">pin</span>
+            Word count
+          </h3>
+          <p style="margin: 0 0 24px 0; font-size: 14px; color: #5f6368;">Current document statistics.</p>
+          
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; border: 1px solid #dadce0; border-radius: 8px; overflow: hidden;">
+             <div style="display: flex; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #dadce0;">
+                <span style="font-size: 14px; font-weight: 500; color: #3c4043;">Words</span>
+                <span style="font-size: 14px; color: #5f6368;">{{ wcWords }}</span>
+             </div>
+             <div style="display: flex; justify-content: space-between; padding: 12px 16px;">
+                <span style="font-size: 14px; font-weight: 500; color: #3c4043;">Characters</span>
+                <span style="font-size: 14px; color: #5f6368;">{{ wcChars }}</span>
+             </div>
+          </div>
+          
+          <div class="modal-actions" style="margin-top: 16px;">
+            <button class="btn outline" (click)="wordCountModalOpen = false">Close</button>
+          </div>
+        </div>
+      </div>
+      <!-- Custom Context Menu -->
+      <div class="custom-context-menu" *ngIf="showContextMenu" [style.left.px]="contextMenuX" [style.top.px]="contextMenuY" (click)="$event.stopPropagation()">
+         <ng-container *ngIf="isFetchingSuggestions">
+            <div class="ccm-item" style="color: #666; font-style: italic;">Loading suggestions...</div>
+            <div class="dd-sep"></div>
+         </ng-container>
+         <ng-container *ngIf="!isFetchingSuggestions && contextMenuSuggestions.length > 0">
+            <div class="ccm-title">Suggestions</div>
+            <div class="ccm-item suggestion-item" *ngFor="let sug of contextMenuSuggestions" (click)="applySuggestion(sug)">
+               <span style="font-weight: 600; color: #1a73e8;">{{ sug }}</span>
+            </div>
+            <div class="dd-sep"></div>
+         </ng-container>
+         <ng-container *ngIf="!isFetchingSuggestions && contextMenuSuggestions.length === 0">
+            <div class="ccm-item" style="color: #666; font-style: italic;">No suggestions</div>
+            <div class="dd-sep"></div>
+         </ng-container>
+         <div class="ccm-item" (click)="execVal('cut', ''); showContextMenu = false"><span class="material-symbols-outlined dd-icon">content_cut</span> Cut</div>
+         <div class="ccm-item" (click)="execVal('copy', ''); showContextMenu = false"><span class="material-symbols-outlined dd-icon">content_copy</span> Copy</div>
+         <div class="ccm-item" (click)="execVal('paste', ''); showContextMenu = false"><span class="material-symbols-outlined dd-icon">content_paste</span> Paste</div>
+      </div>
 
       <!-- Status Bar -->
       <div class="status-bar">
@@ -1835,7 +2006,14 @@ import { AuthService } from '../../services/auth.service';
   styleUrls: ['./doc-editor.component.css']
 })
 export class DocEditorComponent implements OnInit, OnDestroy {
+  contextMenuX = 0;
+  contextMenuY = 0;
+  showContextMenu = false;
+  contextMenuSuggestions: string[] = [];
+  isFetchingSuggestions = false;
+  contextMenuRange: Range | null = null;
   @ViewChild('importInput') importInput!: ElementRef;
+  @ViewChild('editor') editor!: ElementRef;
   recentDocs: any[] = [];
   activeWidget: string | null = null;
   toggleWidget(w: string) {
@@ -1845,6 +2023,567 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   docId = '';
   activeFontFamily = 'Arial';
   activeFontSize = 11;
+
+  promptModalVisible = false;
+  promptModalTitle = '';
+  promptModalInput = '';
+  promptModalPlaceholder = '';
+  private promptModalCallback: ((value: string | null) => void) | null = null;
+
+  showPrompt(title: string, defaultVal: string = '', placeholder: string = ''): Promise<string | null> {
+    this.promptModalTitle = title;
+    this.promptModalInput = defaultVal;
+    this.promptModalPlaceholder = placeholder;
+    this.promptModalVisible = true;
+    return new Promise(resolve => {
+      this.promptModalCallback = resolve;
+    });
+  }
+
+  closePromptModal(confirm: boolean) {
+    this.promptModalVisible = false;
+    if (this.promptModalCallback) {
+      this.promptModalCallback(confirm ? this.promptModalInput : null);
+      this.promptModalCallback = null;
+    }
+  }
+
+  confirmModalVisible = false;
+  confirmModalMessage = '';
+  private confirmModalCallback: ((value: boolean) => void) | null = null;
+
+  showConfirm(message: string): Promise<boolean> {
+    this.confirmModalMessage = message;
+    this.confirmModalVisible = true;
+    return new Promise(resolve => {
+      this.confirmModalCallback = resolve;
+    });
+  }
+
+  closeConfirmModal(confirm: boolean) {
+    this.confirmModalVisible = false;
+    if (this.confirmModalCallback) {
+      this.confirmModalCallback(confirm);
+      this.confirmModalCallback = null;
+    }
+  }
+
+  async setPageBorders() {
+    this.closeMenus();
+    const border = await this.showPrompt('Enter border style (e.g. 2px solid #1a73e8):', '1px solid #000');
+    if (border) {
+      const pageEl = document.querySelector('.page') as HTMLElement;
+      if (pageEl) {
+        pageEl.style.border = border;
+      }
+    }
+  }
+
+  async setPageBackground() {
+    this.closeMenus();
+    const color = await this.showPrompt('Enter background color (e.g. #f1f3f4 or lightblue):', '#ffffff');
+    if (color) {
+      const pageEl = document.querySelector('.page') as HTMLElement;
+      if (pageEl) {
+        pageEl.style.backgroundColor = color;
+      }
+    }
+  }
+
+  async importDesign() {
+    this.closeMenus();
+    const url = await this.showPrompt('Enter URL of the design CSS file (e.g. https://example.com/theme.css):');
+    if (url) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = url;
+      document.head.appendChild(link);
+      this.showToast('Design imported successfully');
+    }
+  }
+
+  applyFontSet(font: string) {
+    this.closeMenus();
+    this.activeFontSet = font;
+    const pageEl = document.querySelector('.page') as HTMLElement;
+    if (pageEl) {
+      pageEl.style.fontFamily = font;
+    }
+  }
+
+  applyColorSet(theme: string) {
+    this.closeMenus();
+    this.activeColorSet = theme;
+    const pageEl = document.querySelector('.page') as HTMLElement;
+    if (pageEl) {
+      if (theme === 'bold') {
+        pageEl.style.color = '#333';
+      } else if (theme === 'Treasury') {
+        pageEl.style.color = '#3e1f1f';
+      } else if (theme === 'Brushstrokes') {
+        pageEl.style.color = '#5a4325';
+      } else if (theme === 'Pinstripes') {
+        pageEl.style.color = '#5a4342';
+      } else {
+        pageEl.style.color = '#000';
+      }
+    }
+  }
+
+  setPageSize(size: string) {
+    this.closeMenus();
+    this.activePageSize = size;
+    const pageEl = document.querySelector('.page') as HTMLElement;
+    if (pageEl) {
+      if (size === 'A4') {
+        pageEl.style.width = '210mm';
+        pageEl.style.minHeight = '297mm';
+      } else if (size === 'Letter') {
+        pageEl.style.width = '8.5in';
+        pageEl.style.minHeight = '11in';
+      } else if (size === 'Legal') {
+        pageEl.style.width = '8.5in';
+        pageEl.style.minHeight = '14in';
+      }
+    }
+  }
+
+  setPageOrientation(orientation: string) {
+    this.closeMenus();
+    this.activeOrientation = orientation;
+    const pageEl = document.querySelector('.page') as HTMLElement;
+    if (pageEl) {
+       const currentWidth = pageEl.style.width || '8.5in';
+       const currentHeight = pageEl.style.minHeight || '11in';
+       if (orientation === 'Landscape' && !currentWidth.includes('11in')) {
+          pageEl.style.width = '11in';
+          pageEl.style.minHeight = '8.5in';
+       } else if (orientation === 'Portrait') {
+          pageEl.style.width = '8.5in';
+          pageEl.style.minHeight = '11in';
+       }
+    }
+  }
+
+  applyDesign(designName: string) {
+    this.closeMenus();
+    this.activeCurrentDesign = designName;
+    const pageEl = document.querySelector('.page') as HTMLElement;
+    if (pageEl) {
+      if (designName === 'The Writer') {
+        this.applyFontSet('Roboto');
+        this.applyColorSet('Default');
+      } else if (designName === 'Modern Report') {
+        this.applyFontSet('Istok Web');
+        this.applyColorSet('Treasury');
+      } else if (designName === 'Newsletter') {
+        this.applyFontSet('Quicksand');
+        this.applyColorSet('Brushstrokes');
+      } else if (designName === 'Academic Paper') {
+        this.applyFontSet('PT Sans');
+        this.applyColorSet('bold');
+      } else if (designName === 'Business Letter') {
+        this.applyFontSet('Work Sans');
+        this.applyColorSet('Pinstripes');
+      } else if (designName === 'Creative Story') {
+        this.applyFontSet('Cabin');
+        this.applyColorSet('Default');
+      }
+      this.showToast(`Applied ${designName} design`);
+    }
+  }
+
+  setPageColumns(columns: string) {
+    this.closeMenus();
+    this.activeColumns = columns;
+    const pageEl = document.querySelector('.page') as HTMLElement;
+    if (pageEl) {
+      if (columns === 'One') {
+        pageEl.style.columnCount = '1';
+      } else if (columns === 'Two') {
+        pageEl.style.columnCount = '2';
+      } else if (columns === 'Three') {
+        pageEl.style.columnCount = '3';
+      } else if (columns === 'Left' || columns === 'Right') {
+        pageEl.style.columnCount = '2';
+        pageEl.style.columnRule = '1px solid #dadce0';
+      }
+    }
+  }
+
+  setPageMargins(margins: string) {
+    this.closeMenus();
+    this.activeMargins = margins;
+    const pageEl = document.querySelector('.page') as HTMLElement;
+    if (pageEl) {
+      if (margins === 'Normal') {
+        pageEl.style.padding = '1in';
+      } else if (margins === 'Narrow') {
+        pageEl.style.padding = '0.5in';
+      } else if (margins === 'Moderate') {
+        pageEl.style.padding = '1in 0.75in';
+      } else if (margins === 'Wide') {
+        pageEl.style.padding = '1in 2.28in';
+      } else if (margins === 'None') {
+        pageEl.style.padding = '0in';
+      }
+    }
+  }
+
+  setAdvancedSetup(setup: string) {
+    this.closeMenus();
+    this.activeAdvancedSetup = setup;
+    this.showToast(`Switched to ${setup}`);
+  }
+
+  setTrackChanges(state: string) {
+    this.closeMenus();
+    this.activeTrackChanges = state;
+    if (state === 'On') {
+      const el = document.querySelector('.page') as HTMLElement;
+      if (el) el.focus();
+      document.execCommand('foreColor', false, this.activeMarkupColor);
+      document.execCommand('underline', false, 'true');
+    } else {
+      const el = document.querySelector('.page') as HTMLElement;
+      if (el) el.focus();
+      document.execCommand('foreColor', false, '#000000');
+      document.execCommand('underline', false, 'false');
+    }
+    this.showToast(`Track Changes ${state}`);
+  }
+
+  setMarkupColor(color: string) {
+    this.closeMenus();
+    this.activeMarkupColor = color;
+    if (this.activeTrackChanges === 'On') {
+      const el = document.querySelector('.page') as HTMLElement;
+      if (el) el.focus();
+      document.execCommand('foreColor', false, color);
+    }
+    this.showToast('Markup Color updated');
+  }
+
+  toggleMarkupDefault() {
+    this.markupDefault = !this.markupDefault;
+  }
+
+  toggleSpellSetting(setting: string) {
+    this.closeMenus();
+    if (setting === 'Spelling Errors') this.activeSpellErrors = !this.activeSpellErrors;
+    if (setting === 'Grammar') this.activeGrammar = !this.activeGrammar;
+    if (setting === 'Writing Quality') this.activeWritingQuality = !this.activeWritingQuality;
+  }
+
+  async setTransliteration(lang: string) {
+    this.closeMenus();
+    this.activeTransliteration = lang;
+    
+    if (lang === 'None') return;
+
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && sel.toString().trim() !== '') {
+      const word = sel.toString().trim();
+      const savedRange = sel.getRangeAt(0).cloneRange();
+      
+      const translateMap: any = {
+        'Bengali': 'bn',
+        'Gujarati': 'gu',
+        'Hindi': 'hi',
+        'Kannada': 'kn',
+        'Malayalam': 'ml',
+        'Marathi': 'mr',
+        'Odia': 'or',
+        'Punjabi': 'pa',
+        'Spanish': 'es',
+        'French': 'fr',
+        'Tamil': 'ta',
+        'Telugu': 'te'
+      };
+      const code = translateMap[lang];
+      if (code) {
+        try {
+          const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${code}&dt=t&q=${encodeURIComponent(word)}`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data && data[0]) {
+             const translatedText = data[0].map((item: any) => item[0]).join('');
+             savedRange.deleteContents();
+             const textNode = document.createTextNode(translatedText);
+             savedRange.insertNode(textNode);
+             
+             const newRange = document.createRange();
+             newRange.setStartAfter(textNode);
+             newRange.collapse(true);
+             sel.removeAllRanges();
+             sel.addRange(newRange);
+          }
+        } catch (err) {
+          console.error('Translation of selected text failed:', err);
+        }
+      }
+    }
+  }
+
+  async insertCode() {
+    this.closeMenus();
+    const sel = window.getSelection();
+    let savedRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    
+    const el = document.querySelector('.page') as HTMLElement;
+    if (el) el.focus();
+    
+    if (savedRange) {
+      sel?.removeAllRanges();
+      sel?.addRange(savedRange);
+
+      const div = document.createElement('div');
+      div.contentEditable = 'false';
+      div.style.background = '#f1f3f4';
+      div.style.border = '1px solid #dadce0';
+      div.style.borderRadius = '6px';
+      div.style.padding = '12px';
+      div.style.margin = '16px 0';
+      div.style.fontFamily = "'Courier New', Courier, monospace";
+      div.style.fontSize = '13px';
+      div.style.color = '#202124';
+      div.style.position = 'relative';
+      
+      const header = document.createElement('div');
+      header.style.fontSize = '11px';
+      header.style.color = '#5f6368';
+      header.style.marginBottom = '8px';
+      header.style.textTransform = 'uppercase';
+      header.style.fontFamily = "'Inter', sans-serif";
+      header.innerText = 'Code Block';
+      
+      const code = document.createElement('div');
+      code.contentEditable = 'true';
+      code.style.outline = 'none';
+      code.style.minHeight = '20px';
+      code.style.whiteSpace = 'pre-wrap';
+      code.innerText = '// Write your code here...';
+      
+      div.appendChild(header);
+      div.appendChild(code);
+      
+      savedRange.insertNode(div);
+      
+      // Insert a br after to allow typing outside the block
+      const br = document.createElement('br');
+      if (div.parentNode) {
+        div.parentNode.insertBefore(br, div.nextSibling);
+      }
+      
+      // Move caret into the code block so they can start typing immediately
+      const newRange = document.createRange();
+      newRange.selectNodeContents(code);
+      newRange.collapse(false);
+      sel?.removeAllRanges();
+      sel?.addRange(newRange);
+      code.focus();
+    }
+  }
+
+  async insertComment() {
+    this.closeMenus();
+    const sel = window.getSelection();
+    let savedRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    if (!savedRange || savedRange.collapsed) {
+      this.showToast('Please select some text to comment on.');
+      return;
+    }
+    const comment = await this.showPrompt('Enter your comment:');
+    if (comment && savedRange) {
+      sel?.removeAllRanges();
+      sel?.addRange(savedRange);
+      const selectedText = savedRange.toString();
+      const html = `<span class="doc-comment-span" data-comment="${comment.replace(/"/g, '&quot;')}" style="background-color: #fce8e6; border-bottom: 2px solid #ea4335; cursor: pointer;" title="Click to view comment">${selectedText}</span>`;
+      document.execCommand('insertHTML', false, html);
+    }
+  }
+
+  async lockUnlockContent() {
+    this.closeMenus();
+    const sel = window.getSelection();
+    let savedRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    if (savedRange && !savedRange.collapsed) {
+      const div = document.createElement('div');
+      div.appendChild(savedRange.cloneContents());
+      
+      if (div.querySelector('.locked-content')) {
+        const page = document.querySelector('.page') as HTMLElement;
+        const lockedElements = page.querySelectorAll('.locked-content');
+        let unlockedCount = 0;
+        lockedElements.forEach(node => {
+          if (sel?.containsNode(node, true)) {
+            const textNode = document.createTextNode(node.textContent || '');
+            node.parentNode?.replaceChild(textNode, node);
+            unlockedCount++;
+          }
+        });
+        if (unlockedCount > 0) {
+          this.showToast(`Unlocked ${unlockedCount} section(s).`);
+          return;
+        }
+      }
+
+      const container = savedRange.commonAncestorContainer;
+      const el = container.nodeType === 3 ? container.parentElement : container as HTMLElement;
+      const lockedNode = el?.closest('.locked-content') as HTMLElement;
+      if (lockedNode) {
+         const text = document.createTextNode(lockedNode.textContent || '');
+         lockedNode.parentNode?.replaceChild(text, lockedNode);
+         this.showToast('Content Unlocked.');
+         return;
+      }
+
+      const html = `<span class="locked-content" contenteditable="false" style="background:#f1f3f4; border: 1px dashed #ccc;" title="Locked Content">${savedRange.toString()}</span>&#8203;`;
+      document.execCommand('insertHTML', false, html);
+    } else {
+      this.showToast('Please select some text to lock/unlock.');
+    }
+  }
+
+  async maskContent() {
+    this.closeMenus();
+    const sel = window.getSelection();
+    let savedRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    if (savedRange && !savedRange.collapsed) {
+      const div = document.createElement('div');
+      div.appendChild(savedRange.cloneContents());
+      
+      if (div.querySelector('.masked-content')) {
+        const page = document.querySelector('.page') as HTMLElement;
+        const maskedElements = page.querySelectorAll('.masked-content');
+        let unmaskedCount = 0;
+        maskedElements.forEach(node => {
+          if (sel?.containsNode(node, true)) {
+            const textNode = document.createTextNode(node.textContent || '');
+            node.parentNode?.replaceChild(textNode, node);
+            unmaskedCount++;
+          }
+        });
+        if (unmaskedCount > 0) {
+          this.showToast(`Unmasked ${unmaskedCount} section(s).`);
+          return;
+        }
+      }
+
+      const container = savedRange.commonAncestorContainer;
+      const el = container.nodeType === 3 ? container.parentElement : container as HTMLElement;
+      const maskedNode = el?.closest('.masked-content') as HTMLElement;
+      if (maskedNode) {
+         const text = document.createTextNode(maskedNode.textContent || '');
+         maskedNode.parentNode?.replaceChild(text, maskedNode);
+         this.showToast('Content Unmasked.');
+         return;
+      }
+
+      const html = `<span class="masked-content" contenteditable="false" style="background-color: black; color: black;" title="Masked Content">${savedRange.toString()}</span>&#8203;`;
+      document.execCommand('insertHTML', false, html);
+    } else {
+      this.showToast('Please select some text to mask/unmask.');
+    }
+  }
+
+  async compareVersions() {
+    this.closeMenus();
+    const ver = await this.showPrompt('Enter Document Version/ID to compare:', 'v1.0');
+    if (ver) {
+      this.showToast(`Comparing current document with version ${ver}...`);
+    }
+  }
+
+  async combineRevisions() {
+    this.closeMenus();
+    const rev = await this.showPrompt('Enter Document Version/ID to combine:', 'v1.0');
+    if (rev) {
+      this.showToast(`Combining revisions from version ${rev}...`);
+    }
+  }
+
+  toggleNotificationSettings() {
+    this.closeMenus();
+    this.activeNotifications = !this.activeNotifications;
+    this.showToast(this.activeNotifications ? 'Notifications Enabled' : 'Notifications Disabled');
+  }
+
+  async insertVideo() {
+    this.closeMenus();
+    const sel = window.getSelection();
+    let savedRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    const url = await this.showPrompt('Enter Video URL (YouTube, Vimeo, etc):', 'https://');
+    if (url && savedRange) {
+      sel?.removeAllRanges();
+      sel?.addRange(savedRange);
+      let embedUrl = url;
+      if (url.includes('youtube.com/watch?v=')) {
+        embedUrl = url.replace('watch?v=', 'embed/');
+      } else if (url.includes('youtu.be/')) {
+        embedUrl = url.replace('youtu.be/', 'youtube.com/embed/');
+      }
+      const html = `<div contenteditable="false" style="display: inline-block; margin: 10px 0;"><iframe width="560" height="315" src="${embedUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="max-width: 100%;"></iframe></div><br>`;
+      document.execCommand('insertHTML', false, html);
+    }
+  }
+
+  async insertAudio() {
+    this.closeMenus();
+    const sel = window.getSelection();
+    let savedRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    const url = await this.showPrompt('Enter Audio File URL (.mp3, .wav):', 'https://');
+    if (url && savedRange) {
+      sel?.removeAllRanges();
+      sel?.addRange(savedRange);
+      const html = `<div contenteditable="false" style="display: inline-block; margin: 10px 0;"><audio controls src="${url}" style="width: 100%; max-width: 300px;"></audio></div><br>`;
+      document.execCommand('insertHTML', false, html);
+    }
+  }
+
+  async insertQRCode() {
+    this.closeMenus();
+    const sel = window.getSelection();
+    let savedRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    const data = await this.showPrompt('Enter text or URL to encode as QR Code:');
+    if (data && savedRange) {
+      sel?.removeAllRanges();
+      sel?.addRange(savedRange);
+      const html = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(data)}" alt="QR Code" style="vertical-align: middle; margin: 8px;" /><br>`;
+      document.execCommand('insertHTML', false, html);
+    }
+  }
+
+  async insertBarcode() {
+    this.closeMenus();
+    const sel = window.getSelection();
+    let savedRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    const data = await this.showPrompt('Enter data to encode as Barcode:');
+    if (data && savedRange) {
+      sel?.removeAllRanges();
+      sel?.addRange(savedRange);
+      const html = `<img src="https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(data)}&code=Code128&translate-esc=true" alt="Barcode" style="vertical-align: middle; margin: 8px;" /><br>`;
+      document.execCommand('insertHTML', false, html);
+    }
+  }
+
+  insertHeader() {
+    this.closeMenus();
+    const html = `<div style="border-bottom: 1px solid #dadce0; padding-bottom: 8px; margin-bottom: 16px; color: #5f6368; font-size: 11px;">[Header Content]</div>`;
+    document.execCommand('insertHTML', false, html);
+  }
+
+  insertFooter() {
+    this.closeMenus();
+    const html = `<div style="border-top: 1px solid #dadce0; padding-top: 8px; margin-top: 16px; color: #5f6368; font-size: 11px;">[Footer Content]</div>`;
+    document.execCommand('insertHTML', false, html);
+  }
+
+  insertPageNumbers() {
+    this.closeMenus();
+    const html = `<div style="border-top: 1px solid #dadce0; padding-top: 8px; margin-top: 16px; color: #5f6368; font-size: 11px; text-align: right;">Page <span class="page-number-placeholder">1</span></div>`;
+    document.execCommand('insertHTML', false, html);
+  }
   activeBlockStyle = 'Normal text';
   fonts = ['Arial', 'Caveat', 'Comfortaa', 'Comic Sans MS', 'Courier New', 'EB Garamond', 'Georgia', 'Impact', 'Lexend', 'Lobster', 'Lora', 'Merriweather', 'Oswald', 'Pacifico', 'Playfair Display', 'Roboto', 'Times New Roman', 'Trebuchet MS', 'Verdana'];
 
@@ -1852,6 +2591,28 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   htmlContent = '';
   activeUsers = 1;
   activeMenu: string | null = null;
+  activeFontSet: string = 'Roboto';
+  activeColorSet: string = 'Default';
+  activePageSize: string = 'Letter';
+  activeOrientation: string = 'Portrait';
+  activeColumns: string = 'One';
+  activeMargins: string = 'Normal';
+  activeAdvancedSetup: string = 'Document-Level Setup';
+  activeCurrentDesign: string = 'The Writer';
+  
+  activeTrackChanges: string = 'Off';
+  activeMarkupColor: string = '#34a853';
+  markupColors: string[] = ['#34a853', '#9c27b0', '#a1887f', '#26a69a', '#689f38', '#039be5', '#d32f2f', '#003cff', '#fbc02d', '#bcaaa4', '#81d4fa', '#1a237e', '#8d6e63', '#e91e63', '#f48fb1', '#ce93d8', '#ff0000', '#ff6d00'];
+  markupDefault: boolean = false;
+  
+  activeSpellErrors: boolean = true;
+  activeGrammar: boolean = true;
+  activeWritingQuality: boolean = true;
+  activeLanguage: string = 'English (US)';
+  
+  activeTransliteration: string = 'None';
+  activeNotifications: boolean = true;
+  
   wordCount = 0;
   charCount = 0;
   currentPage = 1;
@@ -1882,7 +2643,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
   insertTextBox() {
     this.closeMenus();
-    const html = `<div style="border:1px solid #000; padding:8px; display:inline-block; min-width: 150px; min-height: 50px; resize:both; overflow:auto;">Text Box</div><br>`;
+    const html = `<div class="vmail-text-box" style="box-sizing: border-box; border:1px solid #000; padding:8px; display:inline-block; width: 150px; height: 50px; overflow:hidden;" contenteditable="true">Text Box</div>&nbsp;`;
     const el = document.querySelector('.page') as HTMLElement;
     if (el) el.focus();
     document.execCommand('insertHTML', false, html);
@@ -1897,9 +2658,19 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     document.execCommand('insertHTML', false, html);
   }
 
-  saveQuickPart() {
+  async saveQuickPart() {
     this.closeMenus();
-    const name = prompt('Enter a name for this Quick Part:');
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+      this.showToast('Please select some text or elements first.');
+      return;
+    }
+    const html = sel.getRangeAt(0).cloneContents();
+    const div = document.createElement('div');
+    div.appendChild(html);
+    const content = div.innerHTML;
+    
+    const name = await this.showPrompt('Enter a name for this Quick Part:');
     if (name) {
       this.showToast(`Saved selection as Quick Part: ${name}`);
     }
@@ -1938,6 +2709,10 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   viewMode: 'Editing' | 'Viewing' = 'Editing';
   showPrintLayout = true;
   showTextBoxOptions = false;
+  showAutomateSidebar = false;
+  automateTitle = '';
+  automateSubtitle = '';
+  automateDescription = '';
   showRuler = false;
   showEquationToolbar = false;
   showNonPrinting = false;
@@ -1988,8 +2763,14 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   pageCountArray: number[] = [0];
   toastVisible = false;
   toastMsg = '';
+  activeAutocorrect = true;
 
+  translateSavedRange: Range | null = null;
   dictModalOpen = false;
+  engagementModalOpen = false;
+  wordCountModalOpen = false;
+  wcWords = 0;
+  wcChars = 0;
   dictWord = '';
   dictLoading = false;
   dictError = '';
@@ -1997,12 +2778,129 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   private syncSub?: Subscription;
   private applyingRemote = false;
 
-  selectedImage: HTMLImageElement | null = null;
+  selectedObject: HTMLElement | null = null;
+
+  rgbToHex(rgb: string): string {
+    if (!rgb || rgb === 'transparent') return '#ffffff';
+    if (rgb.startsWith('#')) return rgb;
+    const result = /^rgba?\((\d+),\s*(\d+),\s*(\d+)/i.exec(rgb);
+    if (result) {
+      return '#' + (1 << 24 | parseInt(result[1]) << 16 | parseInt(result[2]) << 8 | parseInt(result[3])).toString(16).slice(1);
+    }
+    return '#ffffff';
+  }
+
+  get textBoxAlign(): string {
+    if (!this.selectedObject) return 'Top';
+    const jc = this.selectedObject.style.justifyContent;
+    return jc === 'center' ? 'Middle' : jc === 'flex-end' ? 'Bottom' : 'Top';
+  }
+  set textBoxAlign(val: string) {
+    if (this.selectedObject) {
+      this.selectedObject.style.display = 'inline-flex';
+      this.selectedObject.style.flexDirection = 'column';
+      this.selectedObject.style.justifyContent = val === 'Middle' ? 'center' : val === 'Bottom' ? 'flex-end' : 'flex-start';
+      this.save();
+    }
+  }
+
+  get textBoxOpacity(): number {
+    if (!this.selectedObject) return 100;
+    return Math.round(parseFloat(this.selectedObject.style.opacity || '1') * 100);
+  }
+  set textBoxOpacity(val: number) {
+    if (this.selectedObject) {
+      this.selectedObject.style.opacity = (val / 100).toString();
+      this.save();
+    }
+  }
+
+  get textBoxWidth(): number {
+    if (!this.selectedObject) return 150;
+    return this.selectedObject.offsetWidth || parseFloat(this.selectedObject.style.width || '150');
+  }
+  set textBoxWidth(val: number) {
+    if (this.selectedObject) {
+      this.selectedObject.style.width = val + 'px';
+      this.updateOverlay();
+      this.save();
+    }
+  }
+
+  get textBoxHeight(): number {
+    if (!this.selectedObject) return 50;
+    return this.selectedObject.offsetHeight || parseFloat(this.selectedObject.style.height || '50');
+  }
+  set textBoxHeight(val: number) {
+    if (this.selectedObject) {
+      this.selectedObject.style.height = val + 'px';
+      this.updateOverlay();
+      this.save();
+    }
+  }
+
+  get textBoxBgColor(): string {
+    if (!this.selectedObject) return '#ffffff';
+    return this.rgbToHex(this.selectedObject.style.backgroundColor) || '#ffffff';
+  }
+  set textBoxBgColor(val: string) {
+    if (this.selectedObject) {
+      this.selectedObject.style.backgroundColor = val;
+      this.save();
+    }
+  }
+
+  get textBoxBorderColor(): string {
+    if (!this.selectedObject) return '#000000';
+    return this.rgbToHex(this.selectedObject.style.borderColor) || '#000000';
+  }
+  set textBoxBorderColor(val: string) {
+    if (this.selectedObject) {
+      this.selectedObject.style.borderColor = val;
+      this.save();
+    }
+  }
+
+  get textBoxArrange(): string {
+    if (!this.selectedObject) return 'Inline';
+    if (this.selectedObject.style.position === 'absolute') {
+      return this.selectedObject.style.zIndex === '-1' ? 'Behind text' : 'In front of text';
+    }
+    return 'Inline';
+  }
+  set textBoxArrange(val: string) {
+    if (this.selectedObject) {
+      if (val === 'Inline') {
+        this.selectedObject.style.position = 'relative';
+        this.selectedObject.style.zIndex = 'auto';
+        this.selectedObject.style.left = 'auto';
+        this.selectedObject.style.top = 'auto';
+      } else {
+        if (this.selectedObject.style.position !== 'absolute') {
+          const pageEl = document.querySelector('.page') as HTMLElement;
+          if (pageEl) {
+            const pageRect = pageEl.getBoundingClientRect();
+            const imgRect = this.selectedObject.getBoundingClientRect();
+            this.selectedObject.style.position = 'absolute';
+            this.selectedObject.style.left = (imgRect.left - pageRect.left) + 'px';
+            this.selectedObject.style.top = (imgRect.top - pageRect.top) + 'px';
+          } else {
+            this.selectedObject.style.position = 'absolute';
+          }
+        }
+        this.selectedObject.style.zIndex = val === 'Behind text' ? '-1' : '1';
+      }
+      this.updateOverlay();
+      this.save();
+    }
+  }
   overlayRect = { top: 0, left: 0, width: 0, height: 0 };
   isResizing = false;
   resizeCorner = 'br';
   startX = 0;
+  startY = 0;
   startW = 0;
+  startH = 0;
 
   isDraggingImage = false;
   dragStartX = 0;
@@ -2022,6 +2920,13 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   chartModalVisible = false;
   chartTitle = 'Quarterly Revenue';
   chartValues = '40, 80, 60, 100';
+  chartConfig = {
+    type: 'Bar',
+    xAxisLabels: 'Q1, Q2, Q3, Q4',
+    zAxisValues: '',
+    color: '#1a73e8',
+    showZ: false
+  };
   imageModalVisible = false;
   imageModalType = '';
   imageUrlInput = '';
@@ -2039,9 +2944,20 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     public auth: AuthService
   ) { }
 
+  private globalClickHandler = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target && target.classList.contains('doc-comment-span')) {
+      const comment = target.getAttribute('data-comment');
+      if (comment) {
+        this.showToast(`Comment: ${comment}`);
+      }
+    }
+  };
+
   ngOnInit() {
     this.docId = this.route.snapshot.paramMap.get('id') ?? '';
     document.execCommand('defaultParagraphSeparator', false, 'div');
+    document.addEventListener('click', this.globalClickHandler);
     
     this.api.listDocuments().subscribe(docs => {
       this.recentDocs = docs.filter((d: any) => d.doc_type === 'writer' && d.id !== this.docId).slice(0, 5);
@@ -2127,6 +3043,14 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     
     submenu.style.left = `${leftPos}px`;
     submenu.style.top = `${parentRect.top - 6}px`; // Shift up slightly to align text
+    
+    requestAnimationFrame(() => {
+       const subRect = submenu.getBoundingClientRect();
+       if (subRect.bottom > window.innerHeight) {
+         let newTop = window.innerHeight - subRect.height - 10;
+         submenu.style.top = `${Math.max(10, newTop)}px`;
+       }
+    });
   }
 
   onSelectionChange() {
@@ -2178,12 +3102,78 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
   toggleMenu(menu: string, event: Event) {
     event.stopPropagation();
+    const target = event.target as HTMLElement;
+    if (target && (target.closest('.dropdown') || target.closest('.sub-dropdown'))) {
+      return;
+    }
     this.activeMenu = this.activeMenu === menu ? null : menu;
   }
 
   closeMenus(event?: Event) {
     this.activeMenu = null;
     this.showFontSizeMenu = false;
+    this.showContextMenu = false;
+  }
+
+  async onContextMenu(e: MouseEvent) {
+    if (!this.activeSpellErrors) return;
+    
+    e.preventDefault();
+    this.closeMenus();
+    
+    let word = '';
+    let range: Range | null = null;
+    if (document.caretRangeFromPoint) {
+      range = document.caretRangeFromPoint(e.clientX, e.clientY);
+      if (range && range.startContainer.nodeType === 3) {
+         const text = range.startContainer.nodeValue || '';
+         let start = range.startOffset;
+         let end = range.startOffset;
+         while (start > 0 && /\w/.test(text[start - 1])) start--;
+         while (end < text.length && /\w/.test(text[end])) end++;
+         word = text.substring(start, end);
+         range.setStart(range.startContainer, start);
+         range.setEnd(range.startContainer, end);
+      }
+    }
+
+    this.contextMenuX = e.clientX;
+    this.contextMenuY = e.clientY;
+    this.showContextMenu = true;
+    this.contextMenuSuggestions = [];
+    this.contextMenuRange = range;
+
+    if (word.trim().length > 1) {
+       this.isFetchingSuggestions = true;
+       try {
+         const formData = new URLSearchParams();
+         formData.append('language', 'en-US');
+         formData.append('text', word);
+         const res = await fetch('https://api.languagetool.org/v2/check', {
+           method: 'POST',
+           body: formData,
+           headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+         });
+         const data = await res.json();
+         if (data.matches && data.matches.length > 0 && data.matches[0].replacements) {
+            this.contextMenuSuggestions = data.matches[0].replacements.slice(0, 5).map((r: any) => r.value);
+         }
+       } catch (err) {
+         console.error('Spellcheck error:', err);
+       } finally {
+         this.isFetchingSuggestions = false;
+       }
+    }
+  }
+
+  applySuggestion(suggestion: string) {
+    if (this.contextMenuRange) {
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(this.contextMenuRange);
+      document.execCommand('insertText', false, suggestion);
+    }
+    this.showContextMenu = false;
   }
 
   newDoc() {
@@ -2525,6 +3515,40 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     (event.target as HTMLInputElement).value = '';
   }
 
+  onVideoUpload(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      const html = `<div contenteditable="false" style="display: inline-block; margin: 10px 0;"><video controls src="${url}" style="width: 100%; max-width: 500px;"></video></div><br>`;
+      document.execCommand('insertHTML', false, html);
+    }
+    (event.target as HTMLInputElement).value = '';
+  }
+
+  onAudioUpload(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      const html = `<div contenteditable="false" style="display: inline-block; margin: 10px 0;"><audio controls src="${url}" style="width: 100%; max-width: 300px;"></audio></div><br>`;
+      document.execCommand('insertHTML', false, html);
+    }
+    (event.target as HTMLInputElement).value = '';
+  }
+
+  onSignatureUpload(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        const html = `<div contenteditable="false" style="display: inline-block; border-bottom: 2px solid #202124; padding: 0 16px; margin: 16px 0;"><img src="${dataUrl}" style="max-height: 50px; vertical-align: middle;" /></div><br>`;
+        document.execCommand('insertHTML', false, html);
+      };
+      reader.readAsDataURL(file);
+    }
+    (event.target as HTMLInputElement).value = '';
+  }
+
   onDocOpen(event: Event) {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (file) {
@@ -2581,9 +3605,9 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     const el = document.querySelector('.page') as HTMLElement;
     if (el) {
       const text = el.innerText || '';
-      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-      const chars = text.length;
-      alert(`Word count\n\nWords: ${words}\nCharacters: ${chars}`);
+      this.wcWords = text.trim() ? text.trim().split(/\s+/).length : 0;
+      this.wcChars = text.length;
+      this.wordCountModalOpen = true;
     }
   }
 
@@ -2593,10 +3617,27 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     window.print();
   }
 
-  insertLink() {
+  getTodayDate(): string {
+    const d = new Date();
+    return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+  }
+
+  insertField(text: string) {
     this.closeMenus();
-    const url = prompt('Enter link URL:', 'https://');
-    if (url) {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      document.execCommand('insertText', false, text);
+    }
+  }
+
+  async insertLink() {
+    this.closeMenus();
+    const sel = window.getSelection();
+    let savedRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    const url = await this.showPrompt('Enter link URL:', 'https://');
+    if (url && savedRange) {
+      sel?.removeAllRanges();
+      sel?.addRange(savedRange);
       document.execCommand('createLink', false, url);
     }
   }
@@ -2728,14 +3769,82 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
   applyDropCap(style: string) {
     this.closeMenus();
-    this.showToast('Drop cap ' + style + ' applied');
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    
+    let node: any = sel.anchorNode;
+    const page = document.querySelector('.page');
+    while (node && node.parentNode !== page && node !== page) {
+      node = node.parentNode;
+    }
+    if (!node || node === page) return;
+
+    let dropCap = (node as HTMLElement).querySelector ? (node as HTMLElement).querySelector('.drop-cap') as HTMLElement : null;
+    
+    if (style === 'none') {
+        if (dropCap) {
+           const text = document.createTextNode(dropCap.innerText);
+           dropCap.parentNode?.replaceChild(text, dropCap);
+        }
+        return;
+    }
+    
+    if (!dropCap) {
+       const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null);
+       const firstText = walker.nextNode();
+       if (firstText && firstText.nodeValue && firstText.nodeValue.trim().length > 0) {
+           const val = firstText.nodeValue;
+           let i = 0;
+           while (i < val.length && val[i].trim() === '') i++;
+           if (i < val.length) {
+               const char = val[i];
+               const span = document.createElement('span');
+               span.className = 'drop-cap';
+               span.innerText = char;
+               const afterText = document.createTextNode(val.substring(i + 1));
+               const beforeText = document.createTextNode(val.substring(0, i));
+               const parent = firstText.parentNode;
+               parent?.insertBefore(beforeText, firstText);
+               parent?.insertBefore(span, firstText);
+               parent?.insertBefore(afterText, firstText);
+               parent?.removeChild(firstText);
+               dropCap = span;
+           }
+       }
+    }
+    
+    if (dropCap) {
+       let css = 'float: left; font-size: 3em; line-height: 0.8; margin-right: 8px; font-weight: bold; padding: 4px;';
+       if (style === 'style2') css += ' background: #8ab4f8; color: white; border-radius: 4px;';
+       if (style === 'style3') css += ' background: #81c995; color: white; border-radius: 12px;';
+       if (style === 'style4') css += ' border-bottom: 3px solid #8ab4f8;';
+       if (style === 'style5') css += ' background: #f48fb1; color: white; border-radius: 4px 24px 24px 4px;';
+       dropCap.style.cssText = css;
+    }
   }
 
   applyBlockQuote(style: string) {
     this.closeMenus();
-    this.showToast('Block quote ' + style + ' applied');
+    document.execCommand('formatBlock', false, 'blockquote');
+    
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    let node: any = sel.anchorNode;
+    while (node && node !== document.querySelector('.page') && node.nodeName !== 'BLOCKQUOTE') {
+      node = node.parentNode;
+    }
+    
+    if (node && node.nodeName === 'BLOCKQUOTE') {
+       let css = '';
+       if (style === 'style1') css = 'border-left: 4px solid #1a73e8; background: #e8f0fe; padding: 12px; margin: 16px 0; border-radius: 4px;';
+       if (style === 'style2') css = 'border-radius: 4px; background: #fce8e6; padding: 12px; margin: 16px 0;';
+       if (style === 'style3') css = 'border-radius: 4px; background: #fef7e0; padding: 12px; margin: 16px 0;';
+       if (style === 'style4') css = 'border-radius: 4px; background: #f3f3f3; padding: 12px; margin: 16px 0;';
+       if (style === 'style5') css = 'border-radius: 4px; background: #3c4043; color: white; padding: 12px; margin: 16px 0;';
+       if (style === 'style6') css = 'border-left: 4px solid #00bcd4; background: #e0f7fa; padding: 12px; margin: 16px 0; border-radius: 4px;';
+       (node as HTMLElement).style.cssText = css;
+    }
   }
-
   changeFont(font: string) {
     this.activeFontFamily = font;
     document.execCommand('fontName', false, font);
@@ -2831,31 +3940,30 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     this.closeMenus();
   }
 
-  insertTable() {
+  async insertTable() {
     this.closeMenus();
-    const input = prompt('Enter table dimensions (Rows x Columns), e.g., "3x4":', '3x3');
-    if (!input) return;
+    const sel = window.getSelection();
+    let savedRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    const input = await this.showPrompt('Enter table dimensions (Rows x Columns), e.g., "3x4":', '3x3');
+    if (!input || !savedRange) return;
+    sel?.removeAllRanges();
+    sel?.addRange(savedRange);
     
     const parts = input.toLowerCase().split('x');
-    const rows = parseInt(parts[0]?.trim() || '3', 10);
-    const cols = parseInt(parts[1]?.trim() || '3', 10);
+    const rows = parseInt(parts[0], 10) || 3;
+    const cols = parseInt(parts[1], 10) || 3;
     
-    if (isNaN(rows) || isNaN(cols) || rows <= 0 || cols <= 0) {
-      alert('Invalid dimensions. Please enter in format "Rows x Columns", like "3x4".');
-      return;
-    }
-    
-    let html = '<table border="1" style="border-collapse: collapse; width: 100%; margin: 10px 0;"><tbody>';
-    for (let r = 0; r < Math.min(rows, 20); r++) {
-      html += '<tr>';
-      for (let c = 0; c < Math.min(cols, 20); c++) {
-        html += '<td><br></td>';
+    let html = `<table style="width: 100%; border-collapse: collapse; margin-bottom: 1rem;">`;
+    for (let r = 0; r < rows; r++) {
+      html += `<tr>`;
+      for (let c = 0; c < cols; c++) {
+        html += `<td style="border: 1px solid #dadce0; padding: 8px; min-width: 50px;"></td>`;
       }
-      html += '</tr>';
+      html += `</tr>`;
     }
-    html += '</tbody></table><br>';
+    html += `</table><br>`;
     
-    this.insertHTML(html);
+    document.execCommand('insertHTML', false, html);
   }
 
   insertBreak() {
@@ -2911,23 +4019,31 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     this.insertHTML('<strong>Meeting Notes</strong><br><em>Date:</em><br><em>Attendees:</em><br><em>Action Items:</em><br><ul><li><br></li></ul><br>');
   }
 
-  insertSmartChip() {
+  async insertSmartChip() {
     this.closeMenus();
-    const name = prompt('Enter user name for Smart Chip:');
-    if (name) {
+    const sel = window.getSelection();
+    let savedRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    const name = await this.showPrompt('Enter user name for Smart Chip:');
+    if (name && savedRange) {
+      sel?.removeAllRanges();
+      sel?.addRange(savedRange);
       const el = document.querySelector('.page') as HTMLElement;
-      if (el) el.focus();
-      document.execCommand('insertHTML', false, `<span contenteditable="false" style="background: #e8f0fe; color: #1a73e8; padding: 2px 8px; border-radius: 12px; font-weight: 500; margin: 0 4px;">@${name}</span>&nbsp;`);
+      const html = `<span contenteditable="false" style="background:#e8f0fe; color:#1a73e8; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:500; cursor:pointer;" onclick="alert('Profile: ${name}')">@${name}</span> `;
+      document.execCommand('insertHTML', false, html);
     }
   }
 
-  insertSignature() {
+  async insertSignature() {
     this.closeMenus();
-    const name = prompt('Enter your name for eSignature:');
-    if (name) {
+    const sel = window.getSelection();
+    let savedRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    const name = await this.showPrompt('Enter your name for eSignature:');
+    if (name && savedRange) {
+      sel?.removeAllRanges();
+      sel?.addRange(savedRange);
       const el = document.querySelector('.page') as HTMLElement;
-      if (el) el.focus();
-      document.execCommand('insertHTML', false, `<span contenteditable="false" style="font-family: cursive, 'Brush Script MT'; font-size: 1.5em; color: #000080; margin: 0 4px;">${name}</span>&nbsp;`);
+      const html = `<div contenteditable="false" style="display:inline-block; border-bottom: 2px solid #202124; padding:0 16px; margin: 16px 0; font-family: 'Caveat', cursive; font-size: 24px; color: #1a73e8;">${name}</div><br>`;
+      document.execCommand('insertHTML', false, html);
     }
   }
 
@@ -2991,33 +4107,143 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     this.chartModalVisible = true;
   }
 
+  openChartModal(type: string = 'Bar') {
+    this.closeMenus();
+    this.chartConfig.type = type.replace(' Chart', '').replace('Stacked ', '');
+    this.chartModalVisible = true;
+  }
+
+  triggerExcelImport() {
+    this.showToast('Importing from Excel...');
+    setTimeout(() => {
+      this.chartTitle = 'Excel Imported Data';
+      this.chartConfig.xAxisLabels = 'Jan, Feb, Mar, Apr, May';
+      this.chartValues = '15, 45, 30, 90, 60';
+      if (this.chartConfig.showZ) {
+        this.chartConfig.zAxisValues = '5, 20, 10, 40, 25';
+      }
+      this.showToast('Excel Data Imported Successfully');
+    }, 1000);
+  }
+
   generateAndInsertChart() {
-    const vals = this.chartValues.split(',').map(v => parseInt(v.trim(), 10)).filter(v => !isNaN(v));
-    if (vals.length === 0) {
-      alert('Please enter valid numbers separated by commas.');
+    const yVals = this.chartValues.split(',').map(v => parseInt(v.trim(), 10)).filter(v => !isNaN(v));
+    const labels = this.chartConfig.xAxisLabels.split(',').map(v => v.trim());
+    const zVals = this.chartConfig.showZ ? this.chartConfig.zAxisValues.split(',').map(v => parseInt(v.trim(), 10)).filter(v => !isNaN(v)) : [];
+    
+    if (yVals.length === 0) {
+      alert('Please enter valid numbers for Y-Axis.');
       return;
     }
     
-    const max = Math.max(...vals, 1);
-    const width = 400;
-    const height = 250;
-    const barWidth = (width - 40) / vals.length;
-    const colors = ['#4285f4', '#ea4335', '#fbbc04', '#34a853', '#673ab7', '#ff9800'];
-    
-    let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="background:#fff; border:1px solid #ccc; border-radius: 4px;">`;
+    const width = 500;
+    const height = 300;
+    const baseColor = this.chartConfig.color;
+    let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="background:#fff; border:1px solid #ccc; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">`;
     svg += `<text x="${width / 2}" y="30" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="#202124">${this.chartTitle}</text>`;
     
-    vals.forEach((v, i) => {
-      const h = (v / max) * (height - 80);
-      const x = 20 + i * barWidth + 10;
-      const y = height - 30 - h;
-      const color = colors[i % colors.length];
-      svg += `<rect x="${x}" y="${y}" width="${barWidth - 20}" height="${h}" fill="${color}" rx="2" />`;
-      svg += `<text x="${x + (barWidth - 20) / 2}" y="${y - 8}" font-family="Arial" font-size="12" font-weight="bold" text-anchor="middle" fill="#5f6368">${v}</text>`;
-    });
+    const maxVal = Math.max(...yVals, ...zVals, 1);
+    const plotH = height - 80;
+    const plotW = width - 80;
+    const originX = 40;
+    const originY = height - 40;
     
+    if (this.chartConfig.type !== 'Pie' && this.chartConfig.type !== 'Donut') {
+      svg += `<line x1="${originX}" y1="${originY}" x2="${originX + plotW}" y2="${originY}" stroke="#e0e0e0" stroke-width="2"/>`;
+      svg += `<line x1="${originX}" y1="${originY}" x2="${originX}" y2="${originY - plotH}" stroke="#e0e0e0" stroke-width="2"/>`;
+      
+      // Draw Y-axis ticks and horizontal grid lines
+      const numTicks = 5;
+      for (let i = 0; i <= numTicks; i++) {
+        const tickVal = Math.round((maxVal / numTicks) * i);
+        const yPos = originY - (tickVal / maxVal) * plotH;
+        svg += `<text x="${originX - 10}" y="${yPos + 4}" font-family="Arial" font-size="11" text-anchor="end" fill="#5f6368">${tickVal}</text>`;
+        if (i > 0) {
+          svg += `<line x1="${originX}" y1="${yPos}" x2="${originX + plotW}" y2="${yPos}" stroke="#f1f3f4" stroke-width="1"/>`;
+        }
+      }
+    }
+
+    const stepX = plotW / Math.max(yVals.length, 1);
+
+    if (this.chartConfig.type === 'Pie' || this.chartConfig.type === 'Donut') {
+      const cx = width / 2;
+      const cy = height / 2 + 10;
+      const r = Math.min(plotW, plotH) / 2;
+      const total = yVals.reduce((a, b) => a + b, 0);
+      let currentAngle = -Math.PI / 2;
+      const pieColors = [baseColor, '#ea4335', '#fbbc04', '#34a853', '#673ab7', '#ff9800'];
+      
+      if (total === 0) {
+        svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#e0e0e0" />`;
+      } else {
+        yVals.forEach((val, i) => {
+          const sliceAngle = (val / total) * 2 * Math.PI;
+          const x1 = cx + r * Math.cos(currentAngle);
+          const y1 = cy + r * Math.sin(currentAngle);
+          currentAngle += sliceAngle;
+          const x2 = cx + r * Math.cos(currentAngle);
+          const y2 = cy + r * Math.sin(currentAngle);
+          const largeArc = sliceAngle > Math.PI ? 1 : 0;
+          
+          if (val === total) {
+            svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${pieColors[i % pieColors.length]}" />`;
+          } else {
+            svg += `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z" fill="${pieColors[i % pieColors.length]}" stroke="#fff" stroke-width="1"/>`;
+          }
+          
+          const lblAngle = currentAngle - sliceAngle / 2;
+          const lblX = cx + (r * 0.7) * Math.cos(lblAngle);
+          const lblY = cy + (r * 0.7) * Math.sin(lblAngle);
+          svg += `<text x="${lblX}" y="${lblY}" font-family="Arial" font-size="12" font-weight="bold" text-anchor="middle" fill="#fff">${labels[i] || val}</text>`;
+        });
+      }
+      if (this.chartConfig.type === 'Donut') {
+        svg += `<circle cx="${cx}" cy="${cy}" r="${r * 0.5}" fill="#fff" />`;
+      }
+    } else if (this.chartConfig.type === 'Line') {
+      let pathD = '';
+      yVals.forEach((v, i) => {
+        const x = originX + i * stepX + stepX / 2;
+        const y = originY - (v / maxVal) * plotH;
+        pathD += `${i === 0 ? 'M' : 'L'} ${x} ${y} `;
+        svg += `<circle cx="${x}" cy="${y}" r="4" fill="${baseColor}" />`;
+        svg += `<text x="${x}" y="${originY + 20}" font-family="Arial" font-size="11" text-anchor="middle" fill="#5f6368">${labels[i] || ''}</text>`;
+      });
+      if (pathD) svg += `<path d="${pathD}" fill="none" stroke="${baseColor}" stroke-width="3" />`;
+      
+      if (this.chartConfig.showZ && zVals.length) {
+        let zPath = '';
+        const zColor = '#ea4335';
+        zVals.forEach((v, i) => {
+          const x = originX + i * stepX + stepX / 2;
+          const y = originY - (v / maxVal) * plotH;
+          zPath += `${i === 0 ? 'M' : 'L'} ${x} ${y} `;
+          svg += `<circle cx="${x}" cy="${y}" r="4" fill="${zColor}" />`;
+        });
+        if (zPath) svg += `<path d="${zPath}" fill="none" stroke="${zColor}" stroke-width="3" />`;
+      }
+    } else {
+      const barW = (stepX * 0.6) / (this.chartConfig.showZ ? 2 : 1);
+      yVals.forEach((v, i) => {
+        const h = (v / maxVal) * plotH;
+        const x = originX + i * stepX + stepX / 2 - (this.chartConfig.showZ ? barW : barW / 2);
+        const y = originY - h;
+        svg += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${baseColor}" rx="2" />`;
+        svg += `<text x="${originX + i * stepX + stepX / 2}" y="${originY + 20}" font-family="Arial" font-size="11" text-anchor="middle" fill="#5f6368">${labels[i] || ''}</text>`;
+      });
+      if (this.chartConfig.showZ && zVals.length) {
+        const zColor = '#ea4335';
+        zVals.forEach((v, i) => {
+          const h = (v / maxVal) * plotH;
+          const x = originX + i * stepX + stepX / 2;
+          const y = originY - h;
+          svg += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${zColor}" rx="2" />`;
+        });
+      }
+    }
+
     svg += `</svg>`;
-    
     const svg64 = btoa(unescape(encodeURIComponent(svg)));
     const image64 = 'data:image/svg+xml;base64,' + svg64;
 
@@ -3138,9 +4364,9 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  deletePage(index: number, event: Event) {
+  async deletePage(index: number, event: Event) {
     event.stopPropagation();
-    if (!confirm(`Are you sure you want to delete Page ${index + 1}?`)) return;
+    if (!await this.showConfirm(`Are you sure you want to delete Page ${index + 1}?`)) return;
 
     const pageEl = document.querySelector('.page') as HTMLElement;
     if (!pageEl) return;
@@ -3192,21 +4418,195 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   @HostListener('window:resize') 
   onWindowResize() { this.updateOverlay(); }
 
+  toggleTextBoxSidebar(show: boolean) {
+    this.showTextBoxOptions = show;
+    setTimeout(() => this.updateOverlay(), 50);
+  }
+
+  toggleAutomateSidebar(type: string) {
+    if (!type) {
+      this.showAutomateSidebar = false;
+      return;
+    }
+    
+    this.closeMenus();
+    this.showAutomateSidebar = true;
+    this.automateTitle = type;
+    
+    if (type === 'Merge Template') {
+       this.automateSubtitle = 'Generate documents in bulk';
+       this.automateDescription = 'Connect a data source such as a CSV file or Vmail Sheet to automatically populate merge fields in this document.';
+    } else if (type === 'Fillable Template') {
+       this.automateSubtitle = 'Create interactive forms';
+       this.automateDescription = 'Drag and drop fillable form fields onto the document canvas to collect information from recipients.';
+    } else if (type === 'Sign Template') {
+       this.automateSubtitle = 'Collect digital signatures';
+       this.automateDescription = 'Add signer roles, drag signature fields into the document, and set up automated delivery workflows.';
+    }
+  }
+
+  @HostListener('document:dblclick', ['$event'])
+  onDoubleClick(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('vmail-text-box') || target.closest('.vmail-text-box')) {
+      this.toggleTextBoxSidebar(true);
+    }
+  }
+
   @HostListener('document:keydown', ['$event'])
-  onKeyDown(e: KeyboardEvent) {
+  async onKeyDown(e: KeyboardEvent) {
+    if (e.key === ' ' && this.activeAutocorrect) {
+      const sel = window.getSelection();
+      if (sel && sel.focusNode && sel.focusNode.nodeType === 3) {
+         const focusNode = sel.focusNode;
+         let el: any = focusNode.parentNode;
+         let inEditor = false;
+         while (el) {
+           if (el.classList && el.classList.contains('page')) { inEditor = true; break; }
+           el = el.parentNode;
+         }
+         if (inEditor) {
+            const text = focusNode.nodeValue || '';
+            const offset = sel.focusOffset;
+            let start = offset;
+            while (start > 0 && /\S/.test(text[start - 1])) start--;
+            const word = text.substring(start, offset);
+            
+            const corrections: any = {
+              'teh': 'the',
+              'hte': 'the',
+              'te': 'the',
+              'dont': "don't",
+              'cant': "can't",
+              'im': "I'm",
+              'thats': "that's",
+              'thn': 'then',
+              'taht': 'that',
+              'tht': 'that',
+              'watn': 'want',
+              'jsut': 'just',
+              'woudl': 'would',
+              'becuase': 'because',
+              'definately': 'definitely',
+              'seperate': 'separate',
+              'occured': 'occurred',
+              'alot': 'a lot',
+              'recieve': 'receive',
+              'untill': 'until',
+              'ur': 'your',
+              '(c)': '©',
+              '(r)': '®',
+              '(tm)': '™',
+              '->': '→',
+              '<-': '←'
+            };
+            
+            if (corrections[word.toLowerCase()]) {
+               e.preventDefault();
+               const corrected = corrections[word.toLowerCase()];
+               const isCapitalized = word[0] === word[0].toUpperCase();
+               const finalWord = isCapitalized ? corrected.charAt(0).toUpperCase() + corrected.slice(1) : corrected;
+               
+               const range = document.createRange();
+               range.setStart(focusNode, start);
+               range.setEnd(focusNode, offset);
+               range.deleteContents();
+               
+               const textNode = document.createTextNode(finalWord + ' ');
+               range.insertNode(textNode);
+               
+               const newRange = document.createRange();
+               newRange.setStartAfter(textNode);
+               newRange.collapse(true);
+               sel.removeAllRanges();
+               sel.addRange(newRange);
+               return;
+            } else if (word.length >= 3) {
+               fetch('https://api.languagetool.org/v2/check', {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                 body: `language=en-US&text=${encodeURIComponent(word)}`
+               })
+               .then(r => r.json())
+               .then(data => {
+                  if (data.matches && data.matches.length > 0 && data.matches[0].replacements && data.matches[0].replacements.length > 0) {
+                     if (data.matches[0].rule && data.matches[0].rule.issueType === 'misspelling') {
+                         const corrected = data.matches[0].replacements[0].value;
+                         if (corrected.toLowerCase() === word.toLowerCase()) return;
+                         
+                         const isCapitalized = word[0] === word[0].toUpperCase();
+                         const finalWord = isCapitalized ? corrected.charAt(0).toUpperCase() + corrected.slice(1) : corrected;
+                         
+                         if (focusNode.nodeValue) {
+                            const val = focusNode.nodeValue;
+                            if (val.substring(start, offset) === word) {
+                                const s = window.getSelection();
+                                let savedRange = s && s.rangeCount > 0 ? s.getRangeAt(0).cloneRange() : null;
+                                const diff = finalWord.length - word.length;
+                                
+                                focusNode.nodeValue = val.substring(0, start) + finalWord + val.substring(offset);
+                                
+                                if (savedRange && savedRange.startContainer === focusNode) {
+                                    try {
+                                        const newStart = savedRange.startOffset > offset ? savedRange.startOffset + diff : savedRange.startOffset;
+                                        const newEnd = savedRange.endOffset > offset ? savedRange.endOffset + diff : savedRange.endOffset;
+                                        const r = document.createRange();
+                                        r.setStart(focusNode, newStart);
+                                        r.setEnd(focusNode, newEnd);
+                                        s?.removeAllRanges();
+                                        s?.addRange(r);
+                                    } catch(e) {}
+                                }
+                            }
+                         }
+                     }
+                  }
+               }).catch(err => console.log('Autocorrect API error', err));
+            }
+         }
+      }
+    }
+
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
       e.preventDefault();
       this.save();
       return;
     }
 
-    if (this.selectedImage && (e.key === 'Backspace' || e.key === 'Delete')) {
-      this.selectedImage.remove();
-      this.selectedImage = null;
-      this.updateOverlay();
-      this.save();
-      e.preventDefault();
-      e.stopPropagation();
+
+
+    if (this.selectedObject && (e.key === 'Backspace' || e.key === 'Delete')) {
+      if (this.selectedObject.tagName === 'IMG') {
+        this.selectedObject.remove();
+        this.selectedObject = null;
+        this.updateOverlay();
+        this.save();
+        e.preventDefault();
+        e.stopPropagation();
+      } else if (this.selectedObject.classList.contains('vmail-text-box')) {
+        if (e.key === 'Delete') {
+          const sel = window.getSelection();
+          if (sel && sel.focusNode === this.selectedObject.parentNode) {
+            this.selectedObject.remove();
+            this.selectedObject = null;
+            this.toggleTextBoxSidebar(false);
+            this.updateOverlay();
+            this.save();
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }
+      }
+    }
+
+    if (e.key === 'Backspace') {
+      const target = e.target as HTMLElement;
+      const textBox = target.classList?.contains('vmail-text-box') ? target : target.closest('.vmail-text-box');
+      if (textBox) {
+        if (textBox.innerHTML === '' || textBox.innerHTML === '<br>' || textBox.childNodes.length === 0) {
+          e.preventDefault(); // Prevent native browser from deleting the empty text box div
+        }
+      }
     }
   }
 
@@ -3218,28 +4618,30 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       return; 
     }
 
-    if (target.tagName === 'IMG') {
-      e.preventDefault(); // Prevent native drag-and-drop ghosting
-      this.selectedImage = target as HTMLImageElement;
-      
+    if (target.tagName === 'IMG' || target.classList.contains('vmail-text-box') || target.closest('.vmail-text-box')) {
+      const actualTarget = target.classList.contains('vmail-text-box') ? target : target.closest('.vmail-text-box') as HTMLElement || target;
+      if (actualTarget.tagName === 'IMG') {
+        e.preventDefault(); // Prevent native drag-and-drop ghosting
+      }
+      this.selectedObject = actualTarget as HTMLElement;
       const sel = window.getSelection();
       if (sel) {
         const range = document.createRange();
-        range.selectNode(target);
+        range.selectNode(actualTarget);
         sel.removeAllRanges();
         sel.addRange(range);
       }
 
       // Convert to absolute positioning for free dragging if not already
       const pageEl = document.querySelector('.page') as HTMLElement;
-      if (this.selectedImage.style.position !== 'absolute' && pageEl) {
+      if (this.selectedObject.style.position !== 'absolute' && pageEl) {
         const pageRect = pageEl.getBoundingClientRect();
-        const imgRect = this.selectedImage.getBoundingClientRect();
+        const imgRect = this.selectedObject.getBoundingClientRect();
         
-        this.selectedImage.style.position = 'absolute';
-        this.selectedImage.style.left = (imgRect.left - pageRect.left) + 'px';
-        this.selectedImage.style.top = (imgRect.top - pageRect.top) + 'px';
-        this.selectedImage.style.margin = '0';
+        this.selectedObject.style.position = 'absolute';
+        this.selectedObject.style.left = (imgRect.left - pageRect.left) + 'px';
+        this.selectedObject.style.top = (imgRect.top - pageRect.top) + 'px';
+        this.selectedObject.style.margin = '0';
       }
       
       this.updateOverlay();
@@ -3248,19 +4650,19 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       this.isDraggingImage = true;
       this.dragStartX = e.clientX;
       this.dragStartY = e.clientY;
-      this.imgStartX = parseFloat(this.selectedImage.style.left || '0');
-      this.imgStartY = parseFloat(this.selectedImage.style.top || '0');
+      this.imgStartX = parseFloat(this.selectedObject.style.left || '0');
+      this.imgStartY = parseFloat(this.selectedObject.style.top || '0');
     } else {
-      if (this.selectedImage) {
-        this.selectedImage = null;
+      if (this.selectedObject) {
+        this.selectedObject = null;
         this.updateOverlay();
       }
     }
   }
 
   updateOverlay() {
-    if (!this.selectedImage) return;
-    const rect = this.selectedImage.getBoundingClientRect();
+    if (!this.selectedObject) return;
+    const rect = this.selectedObject.getBoundingClientRect();
     this.overlayRect = {
       top: rect.top,
       left: rect.left,
@@ -3275,40 +4677,71 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     this.isResizing = true;
     this.resizeCorner = corner;
     this.startX = e.clientX;
-    this.startW = this.selectedImage!.offsetWidth;
-    this.imgStartX = parseFloat(this.selectedImage!.style.left || '0');
+    this.startY = e.clientY;
+    this.startW = this.selectedObject!.offsetWidth;
+    this.startH = this.selectedObject!.offsetHeight;
+    this.imgStartX = parseFloat(this.selectedObject!.style.left || '0');
+    this.imgStartY = parseFloat(this.selectedObject!.style.top || '0');
   }
 
   @HostListener('document:mousemove', ['$event'])
   onMouseMove(e: MouseEvent) {
-    if (this.isResizing && this.selectedImage) {
+    if (this.isResizing && this.selectedObject) {
       const dx = e.clientX - this.startX;
       let newW = this.startW;
       
-      if (this.resizeCorner === 'br' || this.resizeCorner === 'tr') {
-        newW = Math.max(50, this.startW + dx);
-      } else {
-        newW = Math.max(50, this.startW - dx);
+      const dy = e.clientY - this.startY;
+      let newH = this.startH;
+      let newLeft = this.imgStartX;
+      let newTop = this.imgStartY;
+
+      if (this.resizeCorner === 'br') {
+        newW = Math.max(10, this.startW + dx);
+        newH = Math.max(10, this.startH + dy);
+      } else if (this.resizeCorner === 'tr') {
+        newW = Math.max(10, this.startW + dx);
+        newH = Math.max(10, this.startH - dy);
+        newTop = this.imgStartY + (this.startH - newH);
+      } else if (this.resizeCorner === 'bl') {
+        newW = Math.max(10, this.startW - dx);
+        newH = Math.max(10, this.startH + dy);
+        newLeft = this.imgStartX + (this.startW - newW);
+      } else if (this.resizeCorner === 'tl') {
+        newW = Math.max(10, this.startW - dx);
+        newH = Math.max(10, this.startH - dy);
+        newLeft = this.imgStartX + (this.startW - newW);
+        newTop = this.imgStartY + (this.startH - newH);
       }
 
-      this.selectedImage.style.width = newW + 'px';
-      this.selectedImage.style.height = 'auto'; 
+      this.selectedObject.style.width = newW + 'px';
+      
+      if (this.selectedObject.tagName === 'IMG') {
+        this.selectedObject.style.height = 'auto'; 
+      } else {
+        this.selectedObject.style.height = newH + 'px';
+      }
+
+      if (this.selectedObject.style.position === 'absolute') {
+        this.selectedObject.style.left = newLeft + 'px';
+        this.selectedObject.style.top = newTop + 'px';
+      }
+
       this.updateOverlay();
-    } else if (this.isDraggingImage && this.selectedImage) {
+    } else if (this.isDraggingImage && this.selectedObject) {
       let newLeft = this.imgStartX + (e.clientX - this.dragStartX);
       let newTop = this.imgStartY + (e.clientY - this.dragStartY);
       
       // Constrain to physical page boundaries
       const pageEl = document.querySelector('.page') as HTMLElement;
       if (pageEl) {
-        const maxLeft = pageEl.offsetWidth - this.selectedImage.offsetWidth;
-        const maxTop = pageEl.offsetHeight - this.selectedImage.offsetHeight;
+        const maxLeft = pageEl.offsetWidth - this.selectedObject.offsetWidth;
+        const maxTop = pageEl.offsetHeight - this.selectedObject.offsetHeight;
         newLeft = Math.max(0, Math.min(newLeft, maxLeft));
         newTop = Math.max(0, Math.min(newTop, maxTop));
       }
 
-      this.selectedImage.style.left = newLeft + 'px';
-      this.selectedImage.style.top = newTop + 'px';
+      this.selectedObject.style.left = newLeft + 'px';
+      this.selectedObject.style.top = newTop + 'px';
       this.updateOverlay();
     }
   }
@@ -3493,6 +4926,8 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     }
   }
 
+
+
   searchDictionary() {
     if (!this.dictWord.trim()) return;
     this.dictLoading = true;
@@ -3548,6 +4983,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     document.removeEventListener('selectionchange', this.onSelectionChange.bind(this));
+    document.removeEventListener('click', this.globalClickHandler);
     this.syncSub?.unsubscribe();
     this.api.disconnectSync();
   }

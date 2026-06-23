@@ -78,6 +78,7 @@ async def login(body: LoginBody, db: AsyncSession = Depends(get_db)):
             "id":           user.id,
             "name":         user.name,
             "email":        user.email,
+            "phone":        user.phone,
             "avatar_color": user.avatar_color,
             "avatar_url":   user.avatar_url,
             "is_admin":     bool(user.is_admin),
@@ -92,6 +93,7 @@ async def me(authorization: str = Header(None), db: AsyncSession = Depends(get_d
         "id":           user.id,
         "name":         user.name,
         "email":        user.email,
+        "phone":        user.phone,
         "avatar_color": user.avatar_color,
         "avatar_url":   user.avatar_url,
     }
