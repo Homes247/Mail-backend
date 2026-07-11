@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ChatWidgetComponent } from '../../components/chat-widget/chat-widget.component';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
-
+import { filter, take } from 'rxjs/operators';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -574,7 +574,7 @@ export class DashboardComponent implements OnInit {
   docs: any[] = [];
   toastVisible = false;
   toastMsg = '';
-  
+
   menus: { [key: string]: boolean } = {
     launcher: false,
     newMenu: false,
@@ -597,7 +597,7 @@ export class DashboardComponent implements OnInit {
   filterDate: Date | null = null;
   calMonth = new Date().getMonth();
   calYear = new Date().getFullYear();
-  
+
   get currentMonthName() { return new Date(this.calYear, this.calMonth).toLocaleString('default', { month: 'long' }); }
   get calendarDays() {
     const days: (Date | null)[] = [];
@@ -635,16 +635,34 @@ export class DashboardComponent implements OnInit {
     return (this.auth.user?.name ?? 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   }
 
+  private _lastDocs: any[] = [];
+  private _lastFilterDate: Date | null = null;
+  private _lastSearchQuery = '';
+  private _lastCurrentApp = '';
+  private _lastCurrentTab = '';
+  private _lastUserId: string | undefined = undefined;
+  private _cachedFilteredDocs: any[] = [];
+
   get filteredDocs() {
+    const currentUserId = this.auth.user?.id;
+    if (this.docs === this._lastDocs &&
+        this.filterDate === this._lastFilterDate &&
+        this.searchQuery === this._lastSearchQuery &&
+        this.currentApp === this._lastCurrentApp &&
+        this.currentTab === this._lastCurrentTab &&
+        currentUserId === this._lastUserId) {
+      return this._cachedFilteredDocs;
+    }
+
     let list = this.docs;
-    
+
     if (this.filterDate) {
       list = list.filter(d => {
         const docDate = new Date(d.updated_at);
         return this.isSameDate(docDate, this.filterDate);
       });
     }
-    
+
     // Filter by Search Query First
     if (this.searchQuery) {
       const q = this.searchQuery.toLowerCase();
@@ -675,13 +693,38 @@ export class DashboardComponent implements OnInit {
         list = list.filter(d => new Date(d.updated_at) >= twoDaysAgo).slice(0, 10);
       }
     }
+    
+    this._lastDocs = this.docs;
+    this._lastFilterDate = this.filterDate;
+    this._lastSearchQuery = this.searchQuery;
+    this._lastCurrentApp = this.currentApp;
+    this._lastCurrentTab = this.currentTab;
+    this._lastUserId = currentUserId;
+    this._cachedFilteredDocs = list;
+    
     return list;
   }
 
+  private _lastDocsForResults: any[] = [];
+  private _lastSearchQueryForResults = '';
+  private _cachedSearchResults: any[] = [];
+
   get searchResults() {
-    if (!this.searchQuery) return this.docs.filter(d => !d.is_trashed).slice(0, 5);
-    const q = this.searchQuery.toLowerCase();
-    return this.docs.filter(d => d.title.toLowerCase().includes(q) && !d.is_trashed).slice(0, 5);
+    if (this.docs === this._lastDocsForResults && this.searchQuery === this._lastSearchQueryForResults) {
+      return this._cachedSearchResults;
+    }
+    
+    let res: any[] = [];
+    if (!this.searchQuery) res = this.docs.filter(d => !d.is_trashed).slice(0, 5);
+    else {
+      const q = this.searchQuery.toLowerCase();
+      res = this.docs.filter(d => d.title.toLowerCase().includes(q) && !d.is_trashed).slice(0, 5);
+    }
+    
+    this._lastDocsForResults = this.docs;
+    this._lastSearchQueryForResults = this.searchQuery;
+    this._cachedSearchResults = res;
+    return res;
   }
 
   isOwner(doc: any): boolean {
@@ -689,14 +732,14 @@ export class DashboardComponent implements OnInit {
     return String(doc.owner_id) === String(this.auth.user.id);
   }
 
-  constructor(public auth: AuthService, private api: ApiService, private router: Router) {}
+  constructor(public auth: AuthService, private api: ApiService, private router: Router) { }
 
-  ngOnInit() { 
+  ngOnInit() {
     this.detectSubdomain();
-    // Wait for auth to be ready before loading docs
-    this.auth.ready$.subscribe(ready => {
-      if (ready) this.load();
-    });
+    this.auth.ready$.pipe(
+      filter(ready => ready),
+      take(1)
+    ).subscribe(() => this.load());
   }
 
   detectSubdomain() {
@@ -712,11 +755,11 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  load() { 
+  load() {
     this.api.listDocuments().subscribe(d => {
       let favs = JSON.parse(localStorage.getItem('vsnap_favs') || '{}');
-      this.docs = d.map(doc => ({...doc, _favorite: !!favs[doc.id]}));
-    }); 
+      this.docs = d.map(doc => ({ ...doc, _favorite: !!favs[doc.id] }));
+    });
   }
 
   setApp(app: string, event: Event) {
@@ -744,7 +787,7 @@ export class DashboardComponent implements OnInit {
   toggleFavorite(doc: any, event: Event) {
     event.stopPropagation();
     doc._favorite = !doc._favorite;
-    
+
     let favs = JSON.parse(localStorage.getItem('vsnap_favs') || '{}');
     favs[doc.id] = doc._favorite;
     localStorage.setItem('vsnap_favs', JSON.stringify(favs));
@@ -762,12 +805,31 @@ export class DashboardComponent implements OnInit {
       let type = 'doc';
       if (file.name.endsWith('.xlsx') || file.name.endsWith('.csv')) type = 'sheet';
       if (file.name.endsWith('.pptx')) type = 'slide';
-      
+
       this.showToast(`Uploading ${file.name}...`);
-      this.api.createDocument(file.name.split('.')[0], type).subscribe((doc: any) => {
-        this.showToast(`${file.name} uploaded successfully.`);
-        this.load();
-      });
+      if (type === 'sheet') {
+        this.api.importFile(file).subscribe({
+          next: (doc: any) => {
+            this.showToast(`${file.name} uploaded successfully.`);
+            this.load();
+          },
+          error: (err: any) => {
+            this.showToast(`Error uploading ${file.name}.`);
+            console.error('Import failed:', err);
+          }
+        });
+      } else {
+        this.api.createDocument(file.name.split('.')[0], type).subscribe({
+          next: (doc: any) => {
+            this.showToast(`${file.name} uploaded successfully.`);
+            this.load();
+          },
+          error: (err: any) => {
+            this.showToast(`Error uploading ${file.name}.`);
+            console.error('Upload failed:', err);
+          }
+        });
+      }
     }
   }
 
@@ -778,12 +840,12 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  open(doc: any) { 
+  open(doc: any) {
     this.closeAllMenus();
-    this.router.navigate([`/${doc.doc_type}/${doc.id}`]); 
+    this.router.navigate([`/${doc.doc_type}/${doc.id}`]);
   }
 
-  isDeleting: {[key: string]: boolean} = {};
+  isDeleting: { [key: string]: boolean } = {};
   deleteConfirmDoc: any = null;
   deleteConfirmPermanent = false;
 
@@ -796,7 +858,7 @@ export class DashboardComponent implements OnInit {
     if (!this.deleteConfirmDoc) return;
     const doc = this.deleteConfirmDoc;
     const isPermanent = this.deleteConfirmPermanent;
-    
+
     if (this.isDeleting[doc.id]) return;
     this.isDeleting[doc.id] = true;
     this.api.deleteDocument(doc.id).subscribe({

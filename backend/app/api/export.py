@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from app.database import get_db
 from app.models.document import Document
+from app.lib.document_storage import DocumentStorage
 
 router = APIRouter()
 
@@ -27,7 +28,20 @@ async def process_export(doc_id: str, format: str, db: AsyncSession, password: s
     if not doc:
         raise HTTPException(404, "Not found")
 
-    content = json.loads(doc.content or "{}")
+    content_str = "{}"
+    if doc.file_path:
+        try:
+            content_str = DocumentStorage.load(
+                doc.owner_id, doc.id,
+                doc_type=doc.doc_type,
+                file_path=doc.file_path,
+            )
+        except FileNotFoundError:
+            content_str = "{}"
+    elif hasattr(doc, 'content') and doc.content:
+        content_str = doc.content
+
+    content = json.loads(content_str)
 
     if format in ["csv", "tsv"]:
         return _export_csv(doc.title, content, delimiter='\t' if format == 'tsv' else ',')

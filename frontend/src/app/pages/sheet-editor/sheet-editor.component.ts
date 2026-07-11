@@ -1,16 +1,24 @@
-import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subscription, Subject } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
 import { ChatWidgetComponent } from '../../components/chat-widget/chat-widget.component';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
-
-const COLS = 26;
-const ROWS = 50;
-const colName = (i: number) => String.fromCharCode(65 + i);
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+const colName = (i: number) => {
+  let name = '';
+  let temp = i;
+  while (temp >= 0) {
+    name = String.fromCharCode(65 + (temp % 26)) + name;
+    temp = Math.floor(temp / 26) - 1;
+  }
+  return name;
+};
 
 export interface CellFormat {
   bold?: boolean;
@@ -56,6 +64,7 @@ export interface CellValidation {
 @Component({
   selector: 'app-sheet-editor',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, FormsModule, ChatWidgetComponent],
   template: `
     <div class="shell" [ngClass]="'theme-' + currentTheme" (mousedown)="$event.target===$event.currentTarget?closeMenus():null">
@@ -91,9 +100,21 @@ export interface CellValidation {
           </div>
         </div>
         <div class="tr">
-          <div class="top-search-box">
-            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input placeholder="Search in this sheet" (keydown.enter)="openFind()">
+          <div class="top-search-box" [class.has-query]="inlineSearchQuery">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0; opacity:0.7;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input placeholder="Search in this sheet" [(ngModel)]="inlineSearchQuery" (ngModelChange)="onInlineSearch()" (keydown.enter)="inlineFindNext()" class="inline-search-input">
+            
+            <ng-container *ngIf="inlineSearchQuery">
+              <button (click)="clearInlineSearch()" class="inline-search-clear" title="Clear search">
+                <span class="material-symbols-outlined" style="font-size:14px;">close</span>
+              </button>
+              <div class="inline-search-divider"></div>
+              <span class="inline-search-count">{{ inlineSearchMatches.length ? inlineSearchIdx + 1 : 0 }} / {{ inlineSearchMatches.length }}</span>
+              <div class="inline-search-nav">
+                <button (click)="inlineFindPrev()" title="Previous match"><span class="material-symbols-outlined" style="font-size:16px;">chevron_left</span></button>
+                <button (click)="inlineFindNext()" title="Next match"><span class="material-symbols-outlined" style="font-size:16px;">chevron_right</span></button>
+              </div>
+            </ng-container>
           </div>
           <div class="online-badge" *ngIf="showUserPresence && activeUsers>1" title="{{activeUsers}} users editing">
             <span class="material-symbols-outlined" style="font-size:16px;">group</span>
@@ -103,6 +124,11 @@ export interface CellValidation {
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             Share
           </button>
+          
+          <button class="properties-btn" (click)="propertiesPanelOpen = true" title="Properties">
+            <span class="material-symbols-outlined" style="font-size:20px;">info</span>
+          </button>
+          
           <div class="av" (click)="profileOpen=!profileOpen;$event.stopPropagation()" title="Account">{{initials}}
             <div class="profile-dd" *ngIf="profileOpen" (click)="$event.stopPropagation()">
               <div class="pd-head">
@@ -143,11 +169,7 @@ export interface CellValidation {
             </div>
             <div class="mds"></div>
             <div class="mdi" (click)="triggerCopy()"><span class="mdi-icon material-symbols-outlined">content_copy</span>Make a Copy...</div>
-            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">save</span>Save as<span class="mdi-arrow material-symbols-outlined">chevron_right</span>
-               <div class="mdi-sub">
-                 <div class="mdi" (click)="save()"><span class="mdi-icon material-symbols-outlined">save</span>Save now<span class="mh">Ctrl+S</span></div>
-               </div>
-            </div>
+            <div class="mdi" (click)="save(); closeMenus()"><span class="mdi-icon material-symbols-outlined">save</span>Save<span class="mh">Ctrl+S</span></div>
                         <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">download</span>Download as<span class="mdi-arrow material-symbols-outlined">chevron_right</span>
                <div class="mdi-sub">
                  <div class="mdi" (click)="exportFile('xlsx')">MS Excel Workbook<span class="mh">.xlsx</span></div>
@@ -883,12 +905,12 @@ export interface CellValidation {
                          <span class="material-symbols-outlined" style="font-size:14px; color:#a0aec0;">arrow_drop_down</span>
                      </div>
                      <div class="mdd" *ngIf="activeBorderSubmenu==='style'" (click)="$event.stopPropagation()" style="position:absolute; top:100%; right:0; z-index:1000; margin-top:4px; width:120px;">
-                        <div class="mdi" (click)="currentBorderStyle='solid'; currentBorderWidth='1px'; activeBorderSubmenu=null"><div style="width:100%; border-top:1px solid #fff;"></div></div>
-                        <div class="mdi" (click)="currentBorderStyle='solid'; currentBorderWidth='2px'; activeBorderSubmenu=null"><div style="width:100%; border-top:2px solid #fff;"></div></div>
-                        <div class="mdi" (click)="currentBorderStyle='solid'; currentBorderWidth='3px'; activeBorderSubmenu=null"><div style="width:100%; border-top:3px solid #fff;"></div></div>
-                        <div class="mdi" (click)="currentBorderStyle='dashed'; currentBorderWidth='1px'; activeBorderSubmenu=null"><div style="width:100%; border-top:1px dashed #fff;"></div></div>
-                        <div class="mdi" (click)="currentBorderStyle='dotted'; currentBorderWidth='1px'; activeBorderSubmenu=null"><div style="width:100%; border-top:1px dotted #fff;"></div></div>
-                        <div class="mdi" (click)="currentBorderStyle='double'; currentBorderWidth='3px'; activeBorderSubmenu=null"><div style="width:100%; border-top:3px double #fff;"></div></div>
+                        <div class="mdi" (click)="currentBorderStyle='solid'; currentBorderWidth='1px'; activeBorderSubmenu=null"><div style="width:100%; border-top:1px solid currentColor;"></div></div>
+                        <div class="mdi" (click)="currentBorderStyle='solid'; currentBorderWidth='2px'; activeBorderSubmenu=null"><div style="width:100%; border-top:2px solid currentColor;"></div></div>
+                        <div class="mdi" (click)="currentBorderStyle='solid'; currentBorderWidth='3px'; activeBorderSubmenu=null"><div style="width:100%; border-top:3px solid currentColor;"></div></div>
+                        <div class="mdi" (click)="currentBorderStyle='dashed'; currentBorderWidth='1px'; activeBorderSubmenu=null"><div style="width:100%; border-top:1px dashed currentColor;"></div></div>
+                        <div class="mdi" (click)="currentBorderStyle='dotted'; currentBorderWidth='1px'; activeBorderSubmenu=null"><div style="width:100%; border-top:1px dotted currentColor;"></div></div>
+                        <div class="mdi" (click)="currentBorderStyle='double'; currentBorderWidth='3px'; activeBorderSubmenu=null"><div style="width:100%; border-top:3px double currentColor;"></div></div>
                      </div>
                    </div>
                 </div>
@@ -960,12 +982,22 @@ export interface CellValidation {
         <span class="tb-sep"></span>
         <div class="tb-group">
           <div class="tb-font-dd" (click)="toggleMenu('numfmt',$event)" [class.active]="activeMenu==='numfmt'" style="min-width:90px;">
-            <span>{{getFormat('numFormat')||'General'}}</span>
+            <span>{{getFormatName(getFormat('numFormat'))}}</span>
             <span class="material-symbols-outlined" style="font-size:14px;margin-left:auto;">arrow_drop_down</span>
             <div class="mdd" *ngIf="activeMenu==='numfmt'">
               <div class="mdi" (click)="setNumFormat('general')">General</div>
               <div class="mdi" (click)="setNumFormat('number')">Number <span class="mh">Ctrl+Shift+1</span></div>
-              <div class="mdi has-sub">Accounting <span class="mdi-arrow material-symbols-outlined">chevron_right</span></div>
+              <div class="mdi has-sub">Accounting <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+                <div class="mdi-sub sub-left">
+                  <div class="mdi" (click)="setNumFormat('accounting_inr')">₹ Indian Rupee</div>
+                  <div class="mdi" (click)="setNumFormat('accounting_usd')">$ United States Dollar</div>
+                  <div class="mdi" (click)="setNumFormat('accounting_eur')">€ Euro</div>
+                  <div class="mdi" (click)="setNumFormat('accounting_gbp')">£ British Pound Sterling</div>
+                  <div class="mdi" (click)="setNumFormat('accounting_cny')">¥ Chinese Yuan</div>
+                  <div class="mds"></div>
+                  <div class="mdi">More Accounting Formats...</div>
+                </div>
+              </div>
               <div class="mdi has-sub">Currency <span class="mh">Ctrl+Shift+4</span> <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
                 <div class="mdi-sub sub-left">
                   <div class="mdi" (click)="setNumFormat('currency_inr')">₹ Indian Rupee</div>
@@ -1626,21 +1658,9 @@ export interface CellValidation {
       <input #imgInput type="file" accept="image/*" style="display:none" (change)="onImageFileSelected($event)">
 
     <div class="main-content" style="display:flex; flex:1; overflow:hidden; position:relative;">
-      <div class="grid-wrap" #gridWrap style="flex:1; overflow:auto; position:relative; background:#fff;">
+      <div class="grid-wrap" #gridWrap style="flex:1; overflow:auto; position:relative; background:#fff;" (scroll)="onGridScroll($event)">
         <div class="resize-line-col" *ngIf="resizingCol !== null" [style.left.px]="resizeLineX"></div>
         <div class="resize-line-row" *ngIf="resizingRow !== null" [style.top.px]="resizeLineY"></div>
-
-        <!-- Floating Editor -->
-        <textarea *ngIf="isEditingCell" #floatingEditor class="floating-editor"
-           [style.left.px]="getColOffset(selectedCol)"
-           [style.top.px]="getRowOffset(selectedRow)"
-           [style.min-width.px]="getColWidth(selectedCol)"
-           [style.min-height.px]="getRowHeight(selectedRow)"
-           [ngStyle]="getContentStyle(selectedRow, selectedCol)"
-           [(ngModel)]="editValue"
-           (input)="autoResizeEditor($event)"
-           (keydown)="onEditorKeydown($event)"
-           (blur)="commitEdit()"></textarea>
 
         <!-- Shapes Rendering -->
         <ng-container *ngIf="sheets[currentSheetIdx].shapes">
@@ -1738,9 +1758,9 @@ export interface CellValidation {
             <tr *ngIf="hasColGroups">
               <th class="corner" *ngIf="hasRowGroups" style="height: 24px; min-height: 24px; background: #f8f9fa; border-bottom: 1px solid #e2e8f0; position: sticky; left: 0; z-index: 6;"></th>
               <th class="corner" style="height: 24px; min-height: 24px; background: #f8f9fa; border-bottom: 1px solid #e2e8f0; position: sticky; left: 0; z-index: 6;" [style.left.px]="groupMarginWidth"></th>
-              <th *ngFor="let c of colRange" class="col-head group-margin-col-cell"
+              <th *ngFor="let c of colRange; trackBy: trackByCol" class="col-head group-margin-col-cell"
                 [style.display]="hiddenCols.has(c) ? 'none' : ''"
-                [style.min-width.px]="getColWidth(c)" [style.width.px]="getColWidth(c)" [style.max-width.px]="getColWidth(c)"
+                [style.width.px]="getColWidth(c)" [style.max-width.px]="getColWidth(c)"
                 [style.position]="c < frozenColsCount ? 'sticky' : 'relative'"
                 [style.left]="gridDirection==='ltr' && c < frozenColsCount ? getFrozenColOffset(c) + 'px' : ''"
                 [style.right]="gridDirection==='rtl' && c < frozenColsCount ? getFrozenColOffset(c) + 'px' : ''"
@@ -1758,7 +1778,7 @@ export interface CellValidation {
             <tr>
               <th class="corner" *ngIf="hasRowGroups" style="width: 24px; min-width: 24px; max-width: 24px; background: #f8f9fa; border-right: 1px solid #e2e8f0; position: sticky; left: 0; z-index: 6;" [style.top.px]="colGroupMarginHeight"></th>
               <th class="corner" (click)="selectAll()" [style.z-index]="frozenRowsCount > 0 && frozenColsCount > 0 ? 5 : ''" [style.left.px]="groupMarginWidth" [style.top.px]="colGroupMarginHeight"></th>
-              <th *ngFor="let c of colRange" class="col-head"
+              <th *ngFor="let c of colRange; trackBy: trackByCol" class="col-head"
                 [style.display]="hiddenCols.has(c) ? 'none' : ''"
                 [style.min-width.px]="getColWidth(c)" [style.width.px]="getColWidth(c)" [style.max-width.px]="getColWidth(c)"
                 [style.position]="c < frozenColsCount ? 'sticky' : 'sticky'"
@@ -1776,7 +1796,10 @@ export interface CellValidation {
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let r of rowRange" [style.display]="hiddenRows.has(r) ? 'none' : ''" [style.height.px]="getRowHeight(r)">
+            
+            <ng-container *ngFor="let r of visibleRowRange; trackBy: trackByRow">
+              <tr *ngIf="r === firstUnfrozenRow && topSpacerHeight > 0" [style.height.px]="topSpacerHeight"><td [attr.colspan]="30" style="border:none;padding:0;pointer-events:none;"></td></tr>
+              <tr [style.display]="hiddenRows.has(r) ? 'none' : ''" [style.height.px]="getRowHeight(r)">
               <td class="group-margin-cell" *ngIf="hasRowGroups" [style.display]="showHeaders ? '' : 'none'" style="width: 24px; min-width: 24px; max-width: 24px; position: sticky; left: 0; z-index: 5; background: #f8f9fa; border-right: 1px solid #e2e8f0; vertical-align: top; position: relative;">
                 <ng-container *ngFor="let g of getRowGroupsFor(r); let i = index">
                   <div *ngIf="r >= g.start && r <= g.end && !g.collapsed" style="position: absolute; width: 1px; background: #64748b; bottom: 0;" [style.top]="r === g.start ? '50%' : '0'" [style.left.px]="i * 10 + 10"></div>
@@ -1795,7 +1818,7 @@ export interface CellValidation {
                 {{ r + 1 }}
                 <div class="row-resizer" (mousedown)="startRowResize($event, r)"></div>
               </td>
-              <ng-container *ngFor="let c of colRange">
+              <ng-container *ngFor="let c of colRange; trackBy: trackByCol">
                 <td *ngIf="!isMergedSlave(r, c)" class="cell"
                   [style.display]="hiddenCols.has(c) ? 'none' : ''"
                   [style.min-width.px]="getColWidth(c)" [style.width.px]="getColWidth(c)" [style.max-width.px]="getColWidth(c)"
@@ -1811,20 +1834,34 @@ export interface CellValidation {
                   [class.remote-selected]="isRemoteSelected(r, c)"
                   [class.fill-preview]="isCellInFillPreview(r, c)"
                   [class.has-content]="cellHasContent(r, c)"
+                  [class.search-match]="isCellInInlineSearch(r, c)"
+                  [class.search-match-active]="isCellActiveInlineSearch(r, c)"
                   [ngStyle]="getCellStyle(r, c)"
                   (mousedown)="onCellMouseDown($event, r, c)"
                   (mouseenter)="onCellMouseEnter(r, c)"
                   (contextmenu)="onCellRightClick($event, r, c)"
                   (click)="onCellClickWithPicker(r, c)"
                   (dblclick)="startEditing()">
+                  <textarea *ngIf="isEditingCell && selectedRow === r && selectedCol === c" #floatingEditor class="floating-editor"
+                     [style.left.px]="-2"
+                     [style.top.px]="-2"
+                     [style.min-width.px]="getColWidth(selectedCol) + 3"
+                     [ngStyle]="getContentStyle(selectedRow, selectedCol)"
+                     [(ngModel)]="editValue"
+                     (input)="autoResizeEditor($event)"
+                     (keydown)="onEditorKeydown($event)"
+                     (blur)="commitEdit()"
+                     (click)="$event.stopPropagation()"
+                     (dblclick)="$event.stopPropagation()"
+                     (mousedown)="$event.stopPropagation()"></textarea>
                                   <ng-container *ngIf="isImageCell(r, c); else textCell">
-                    <img [src]="cells[r][c]" style="max-width:100%;max-height:80px;object-fit:contain;display:block;cursor:zoom-in;" 
-(click)="selectCell(r,c)" (dblclick)="previewImageUrl = cells[r][c]">
+                    <img [src]="cells[r][c]" style="max-width:100%;max-height:80px;object-fit:contain;display:inline-block;cursor:zoom-in;" 
+(click)="selectCell(r,c); previewImageUrl = cells[r][c]">
                   </ng-container>
                 <ng-template #textCell>
                   <ng-container *ngIf="hasCellDropdown(r, c); else plainInput">
                     <!-- Custom Picklist rendering -->
-                    <div class="cell-dropdown-ui" (click)="openCustomDropdown($event, r, c)" [style.background]="getDropdownColor(r, c, cells[r][c]) || '#fff'" [style.color]="getDropdownColor(r, c, cells[r][c]) ? '#fff' : '#000'" style="cursor:pointer; padding: 2px 6px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; width: 100%; height: 100%; font-size: 13px; box-sizing: border-box; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; user-select: none;">
+                    <div class="cell-dropdown-ui" (click)="openCustomDropdown($event, r, c)" [style.background]="getDropdownColor(r, c, cells[r][c]) || '#fff'" [style.color]="getDropdownColor(r, c, cells[r][c]) ? '#fff' : '#000'" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; cursor:pointer; padding: 0 6px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; box-sizing: border-box; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; user-select: none;">
                       <span style="overflow: hidden; text-overflow: ellipsis;">{{ cells[r][c] }}</span>
                       <span class="material-symbols-outlined" style="font-size: 16px;">arrow_drop_down</span>
                     </div>
@@ -1839,7 +1876,8 @@ export interface CellValidation {
                     </ng-container>
                     <ng-template #dateInput>
                       <div class="cell-display" [ngStyle]="getContentStyle(r, c)" [class.wrap-text]="getFormatWrap(r, c)" [style.opacity]="isEditingCell && selectedRow===r && selectedCol===c ? '0' : '1'">
-                        {{ getDisplayValue(r, c) }}
+                        <a *ngIf="isUrl(cells[r][c]); else normalText" [href]="cells[r][c]" target="_blank" style="color: #1155cc; text-decoration: underline; pointer-events: auto; cursor: pointer;">{{ getDisplayValue(r, c) }}</a>
+                        <ng-template #normalText>{{ getDisplayValue(r, c) }}</ng-template>
                       </div>
                     </ng-template>
                   </ng-template>
@@ -1852,6 +1890,8 @@ export interface CellValidation {
                 </td>
               </ng-container>
             </tr>
+            </ng-container>
+          <tr *ngIf="bottomSpacerHeight > 0" [style.height.px]="bottomSpacerHeight"><td [attr.colspan]="30" style="border:none;padding:0;pointer-events:none;"></td></tr>
           </tbody>
         </table>
       </div>
@@ -2004,18 +2044,27 @@ export interface CellValidation {
             <!-- Image Preview Modal -->
       <div *ngIf="previewImageUrl" class="modal-overlay" (click)="previewImageUrl = null" style="z-index: 10000; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center;">
         <div style="position: relative; max-width: 90vw; max-height: 90vh; background: #fff; padding: 12px; padding-top: 48px; border-radius: 8px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); display: inline-flex; flex-direction: column;" (click)="$event.stopPropagation()">
-          <button style="position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.05); border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #5f6368; transition: background 0.2s;" (click)="previewImageUrl = null" onmouseover="this.style.background='rgba(0,0,0,0.1)'" onmouseout="this.style.background='rgba(0,0,0,0.05)'">
+          <button style="position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.05); border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #5f6368; transition: background 0.2s;" (click)="previewImageUrl = null" onmouseover="this.style.background='rgba(0,0,0,0.1)'" onmouseout="this.style.background='rgba(0,0,0,0.05)'" title="Close">
             <span class="material-symbols-outlined" style="font-size: 20px;">close</span>
           </button>
+          <a [href]="previewImageUrl" download="sheet_image.png" style="position: absolute; top: 12px; right: 52px; background: rgba(0,0,0,0.05); border: none; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #5f6368; transition: background 0.2s; text-decoration: none;" onmouseover="this.style.background='rgba(0,0,0,0.1)'" onmouseout="this.style.background='rgba(0,0,0,0.05)'" title="Download">
+            <span class="material-symbols-outlined" style="font-size: 20px;">download</span>
+          </a>
           <img [src]="previewImageUrl" style="max-width: 100%; max-height: calc(90vh - 60px); object-fit: contain; border-radius: 4px; display: block;">
         </div>
       </div>
 
       <!-- Right-click Context Menu -->
-      <div class="ctx-menu" *ngIf="ctxVisible" [style.left.px]="ctxX" [style.top.px]="ctxY" [style.maxHeight.px]="ctxMaxHeight" (click)="$event.stopPropagation()">
+      <div class="ctx-menu" *ngIf="ctxVisible" [style.left.px]="ctxX" [style.top.px]="ctxTop" [style.bottom.px]="ctxBottom" [style.maxHeight.px]="ctxMaxHeight" (click)="$event.stopPropagation()">
         <div class="ctx-item" (click)="cutCell(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_cut</span> Cut <span class="ctx-hint">Ctrl+X</span></div>
         <div class="ctx-item" (click)="copyCell(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_copy</span> Copy <span class="ctx-hint">Ctrl+C</span></div>
         <div class="ctx-item" (click)="pasteCell(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_paste</span> Paste <span class="ctx-hint">Ctrl+V</span></div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item" (click)="openValidationModal(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">arrow_drop_down_circle</span> Set dropdown list...</div>
+        <div class="ctx-item danger" (click)="removeValidation(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">close</span> Remove dropdown</div>
+        <div class="ctx-sep"></div>
+        <div class="ctx-item" (click)="sortColAZ(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort A to Z</div>
+        <div class="ctx-item" (click)="sortColZA(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort Z to A</div>
         <div class="ctx-sep"></div>
         <div class="ctx-item" (click)="insertRowAbove(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert row above</div>
         <div class="ctx-item" (click)="insertRowBelow(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert row below</div>
@@ -2025,12 +2074,6 @@ export interface CellValidation {
         <div class="ctx-item danger" (click)="deleteRow(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">delete</span> Delete row</div>
         <div class="ctx-item danger" (click)="deleteCol(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">delete</span> Delete column</div>
         <div class="ctx-item danger" (click)="clearRangeData(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">backspace</span> Clear selection</div>
-        <div class="ctx-sep"></div>
-        <div class="ctx-item" (click)="openValidationModal(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">arrow_drop_down_circle</span> Set dropdown list...</div>
-        <div class="ctx-item danger" (click)="removeValidation(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">close</span> Remove dropdown</div>
-        <div class="ctx-sep"></div>
-        <div class="ctx-item" (click)="sortColAZ(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort A to Z</div>
-        <div class="ctx-item" (click)="sortColZA(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort Z to A</div>
       </div>
 
       <!-- Validation / Dropdown Modal (Zoho Picklist Style) -->
@@ -2573,7 +2616,7 @@ export interface CellValidation {
                 <span class="material-symbols-outlined" style="color:#1a73e8;font-size:24px;">grid_view</span>
                 <h3 style="margin:0;font-size:18px;font-weight:600;">Choose Template</h3>
               </div>
-              <div *ngFor="let item of dummyList" (click)="handleModalAction()" style="padding:12px 16px;background:#f8f9fa;margin-bottom:8px;border-radius:6px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:10px;border:1px solid #e2e8f0;">
+              <div *ngFor="let item of dummyList" (click)="handleModalAction(item)" style="padding:12px 16px;background:#f8f9fa;margin-bottom:8px;border-radius:6px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:10px;border:1px solid #e2e8f0;">
                 <span class="material-symbols-outlined" style="color:#1a73e8;">description</span> {{ item }}
               </div>
             </div>
@@ -2674,8 +2717,13 @@ export interface CellValidation {
                 <span class="material-symbols-outlined" style="color:#1a73e8;font-size:24px;">folder_open</span>
                 <h3 style="margin:0;font-size:18px;font-weight:600;">Open Document</h3>
               </div>
-              <div *ngFor="let item of dummyList" (click)="handleModalAction()" style="padding:12px 16px;background:#f8f9fa;margin-bottom:8px;border-radius:6px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:10px;border:1px solid #e2e8f0;">
-                <span class="material-symbols-outlined" style="color:#0f9d58;">table_chart</span> {{ item }}
+              <div *ngIf="myDocs.length === 0" style="padding:20px;text-align:center;color:#666;">
+                No spreadsheets found.
+              </div>
+              <div *ngFor="let doc of myDocs" (click)="handleModalAction(doc)" style="padding:12px 16px;background:#f8f9fa;margin-bottom:8px;border-radius:6px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:space-between;border:1px solid #e2e8f0;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                   <span class="material-symbols-outlined" style="color:#0f9d58;">table_chart</span> {{ doc.title || 'Untitled' }}
+                </div>
               </div>
             </div>
 
@@ -2685,7 +2733,7 @@ export interface CellValidation {
                 <h3 style="margin:0;font-size:18px;font-weight:600;">Import File</h3>
               </div>
               <p style="color:#5f6368;font-size:13px;margin-bottom:16px;">Select a CSV, TSV, or XLSX file from your computer to import into the current sheet.</p>
-              <input type="file" accept=".csv,.tsv,.xlsx,.xls" style="width:100%;padding:10px;background:#f8f9fa;border:1px solid #e2e8f0;border-radius:6px;color:#333;margin-bottom:16px;box-sizing:border-box;">
+              <input type="file" (change)="onFileSelected($event)" accept=".csv,.tsv,.xlsx,.xls" style="width:100%;padding:10px;background:#f8f9fa;border:1px solid #e2e8f0;border-radius:6px;color:#333;margin-bottom:16px;box-sizing:border-box;">
               <button class="btn" (click)="handleModalAction()" style="width:100%;background:#10b981;color:#fff;border:none;padding:10px;border-radius:4px;font-weight:600;cursor:pointer;">Import Now</button>
             </div>
 
@@ -2710,6 +2758,79 @@ export interface CellValidation {
             </div>
           </div>
         </div>
+        
+        <!-- Properties Panel -->
+        <div class="properties-panel" [class.open]="propertiesPanelOpen" (click)="$event.stopPropagation()">
+          <div class="pp-header">
+            <h2 class="pp-title">
+              <span class="material-symbols-outlined" style="color:#26a96c;font-size:24px;">description</span>
+              Details
+            </h2>
+            <button class="pp-close" (click)="propertiesPanelOpen = false">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+          
+          <div class="pp-content" *ngIf="docDetails">
+            <div class="pp-section">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div class="pp-av">{{ docDetails.owner_name ? docDetails.owner_name[0] : 'U' }}</div>
+                <div>
+                  <div style="font-size:12px;color:#5f6368;">Created by</div>
+                  <div style="font-weight:500;">{{ docDetails.owner_name || 'Unknown' }}</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="pp-section">
+              <div class="pp-label">Shared with</div>
+              <div class="pp-value">
+                <span class="material-symbols-outlined" style="font-size:18px;">{{ docDetails.is_public ? 'public' : 'lock' }}</span>
+                {{ docDetails.is_public ? 'Public' : 'Private' }}
+              </div>
+            </div>
+            
+            <hr class="pp-divider">
+            
+            <div class="pp-section">
+              <div class="pp-label">Permalink</div>
+              <a [href]="window.location.href" target="_blank" class="pp-link">{{ window.location.href }}</a>
+            </div>
+            
+            <hr class="pp-divider">
+            
+            <div class="pp-section">
+              <div class="pp-label">Time Created</div>
+              <div class="pp-value">{{ docDetails.created_at | date:'medium' }}</div>
+            </div>
+            
+            <div class="pp-section">
+              <div class="pp-label">Last Modified</div>
+              <div class="pp-value">{{ docDetails.updated_at | date:'medium' }}</div>
+            </div>
+            
+            <div class="pp-section">
+              <div class="pp-label">Current Version</div>
+              <div class="pp-value">{{ docDetails.content_version || 1 }}.0</div>
+            </div>
+            
+            <hr class="pp-divider">
+            
+            <div class="pp-section">
+              <div class="pp-label">Spreadsheet Statistics</div>
+              <div class="pp-stats">
+                <div class="pp-stat-item">
+                  <div class="pp-stat-num">{{ getActiveSheetCount() }}</div>
+                  <div class="pp-stat-lbl">Sheets</div>
+                </div>
+                <div class="pp-stat-item">
+                  <div class="pp-stat-num">{{ getUsedCellsCount() }}</div>
+                  <div class="pp-stat-lbl">Used cells</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Share Modal -->
         <div class="modal-overlay" *ngIf="shareModalOpen" (click)="shareModalOpen = false">
@@ -2728,7 +2849,7 @@ export interface CellValidation {
             <div style="position:relative; margin-bottom:32px;">
               <div style="display:flex; align-items:center; gap:12px; position:relative;">
                 <div class="sm-input-box">
-                  <input type="text" class="sm-input" [(ngModel)]="shareQuery" (ngModelChange)="onShareSearch()" placeholder="Add people and groups">
+                  <input type="text" class="sm-input" [(ngModel)]="shareQuery" (ngModelChange)="onShareSearch()" (keydown.enter)="addShareEmail($event)" placeholder="Add people and groups (press Enter)">
                   <div class="sm-dropdown-txt" (click)="shareRoleDropdownOpen = !shareRoleDropdownOpen" style="position:relative;">
                     {{ shareRole }} <span class="material-symbols-outlined" style="font-size:18px; color:inherit; opacity: 0.8;">arrow_drop_down</span>
                     
@@ -2739,6 +2860,12 @@ export interface CellValidation {
                   </div>
                 </div>
                 <button (click)="performShare()" style="background:#0f9d58; color:#fff; border:none; border-radius:24px; font-weight:500; font-size:14px; padding:0 24px; height:44px; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#0b8043'" onmouseout="this.style.background='#0f9d58'">Share</button>
+              </div>
+              <div *ngIf="selectedShareEmails.length > 0" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">
+                <div *ngFor="let email of selectedShareEmails" style="background:#e8eaed; border-radius:16px; padding:4px 12px; display:flex; align-items:center; gap:8px; font-size:13px; color:#3c4043; border:1px solid #dadce0;">
+                  {{ email }}
+                  <span class="material-symbols-outlined" style="font-size:16px; cursor:pointer;" (click)="removeShareEmail(email)">close</span>
+                </div>
               </div>
               <div *ngIf="userSearchResults.length > 0" class="sm-list">
                 <div *ngFor="let u of userSearchResults" (click)="selectShareUser(u)" class="sm-list-item">
@@ -2787,17 +2914,6 @@ export interface CellValidation {
           <span class="tab-menu-icon material-symbols-outlined" (click)="openSheetMenu(i, $event)" style="font-size: 16px; margin-left: 4px; border-radius: 4px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.1)'" onmouseout="this.style.background='transparent'">arrow_drop_down</span>
         </div>
         <button class="tab-add" (click)="addSheet()" title="Add sheet">＋</button>
-        <button class="tab-add" (click)="toggleMenu('allSheets', $event)" style="margin-left:auto; position:relative;" title="All sheets">
-          <span class="material-symbols-outlined" style="font-size: 18px;">menu</span>
-          <div class="ctx-menu" *ngIf="activeMenu==='allSheets'" style="position:absolute; bottom:100%; right:0; margin-bottom:10px; width:220px; text-align:left;" (click)="$event.stopPropagation()">
-             <div class="ctx-item" *ngFor="let s of sheets; let idx = index" (click)="unhideSheet(idx); switchSheet(idx); closeMenus()">
-               <span class="material-symbols-outlined" style="font-size:16px; width:16px; color:#5f6368;" [style.opacity]="s.hidden ? '0.5' : '1'">
-                 {{ currentSheetIdx === idx ? 'check' : '' }}
-               </span>
-               <span [style.opacity]="s.hidden ? '0.5' : '1'">{{ s.name }}</span>
-             </div>
-          </div>
-        </button>
       </div>
 
       <!-- Sheet Context Menu -->
@@ -2992,11 +3108,42 @@ export interface CellValidation {
     .doc-title:focus { border-color:rgba(255,255,255,.6); background:rgba(255,255,255,.1); }
     .doc-icons { color: rgba(255,255,255,0.6); }
     .tr { display:flex; align-items:center; gap:8px; }
-    .top-search-box { display:flex; align-items:center; gap:6px; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.18); border-radius:20px; padding:5px 12px; color:rgba(255,255,255,.65); }
-    .top-search-box input { background:transparent; border:none; outline:none; color:rgba(255,255,255,.8); font-size:13px; width:160px; }
+    .top-search-box { display:flex; align-items:center; gap:6px; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.18); border-radius:24px; padding:4px 12px; color:rgba(255,255,255,.8); transition: all 0.2s ease; height:32px; box-sizing:border-box; }
+    .top-search-box.has-query { background: rgba(15, 157, 88, 0.15); border-color: #0f9d58; color: #fff; }
+    .top-search-box input.inline-search-input { background:transparent; border:none; outline:none; color:inherit; font-size:13px; width:140px; }
+    .top-search-box input.inline-search-input::placeholder { color: rgba(255,255,255, 0.5); }
+    .top-search-box .inline-search-clear { background:rgba(255,255,255,0.15); border:none; border-radius:50%; width:16px; height:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:inherit; padding:0; flex-shrink:0; }
+    .top-search-box .inline-search-clear:hover { background:rgba(255,255,255,0.3); }
+    .top-search-box .inline-search-divider { width:1px; height:14px; background:rgba(255,255,255,0.2); margin:0 4px; }
+    .top-search-box .inline-search-count { font-size:12px; font-weight:500; opacity:0.8; white-space:nowrap; margin-right:4px; font-variant-numeric: tabular-nums; }
+    .top-search-box .inline-search-nav { display:flex; gap:2px; }
+    .top-search-box .inline-search-nav button { background:none; border:none; border-radius:4px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:inherit; padding:2px; opacity:0.8; transition:all 0.2s; }
+    .top-search-box .inline-search-nav button:hover { opacity:1; background:rgba(255,255,255,0.15); }
     .online-badge { display:flex; align-items:center; font-size:13px; font-weight:500; color:rgba(255,255,255,.9); background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2); border-radius:18px; padding:4px 10px; margin-right:8px; cursor:default; }
     .share-btn { display:flex; align-items:center; gap:6px; background:#26a96c; border:none; border-radius:20px; color:#fff; cursor:pointer; font-size:13px; font-weight:600; padding:7px 16px; flex-shrink:0; }
     .share-btn:hover { background:#1f8a57; }
+    .properties-btn { display:flex; align-items:center; justify-content:center; background:transparent; border:none; border-radius:50%; color:#5f6368; cursor:pointer; width:40px; height:40px; flex-shrink:0; margin-left:8px; margin-right:12px; transition: background 0.2s ease, color 0.2s ease; }
+    .properties-btn:hover { background:#f1f3f4; color:#202124; }
+    
+    .properties-panel { position:fixed; right:0; top:0; width:340px; height:100vh; background:#fff; z-index:9999; box-shadow:-4px 0 24px rgba(0,0,0,.15); overflow-y:auto; transform:translateX(100%); transition:transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column; font-family:"Roboto", sans-serif; color:#202124; }
+    .properties-panel.open { transform:translateX(0); }
+    .pp-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid #e0e0e0; background:#f8f9fa; }
+    .pp-title { font-size:18px; font-weight:500; margin:0; display:flex; align-items:center; gap:8px; }
+    .pp-close { background:transparent; border:none; cursor:pointer; color:#5f6368; display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; transition:background 0.2s; }
+    .pp-close:hover { background:#e8eaed; color:#202124; }
+    .pp-content { padding:24px 20px; display:flex; flex-direction:column; gap:24px; }
+    .pp-section { display:flex; flex-direction:column; gap:6px; }
+    .pp-label { font-size:12px; font-weight:600; color:#5f6368; text-transform:uppercase; letter-spacing:0.8px; }
+    .pp-value { font-size:14px; color:#202124; display:flex; align-items:center; gap:12px; }
+    .pp-av { width:36px; height:36px; border-radius:50%; background:#ea4335; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:14px; text-transform:uppercase; flex-shrink:0; }
+    .pp-link { color:#1a73e8; cursor:pointer; font-weight:500; word-break:break-all; text-decoration:none; line-height:1.4; }
+    .pp-link:hover { text-decoration:underline; }
+    .pp-stats { display:grid; grid-template-columns:1fr 1fr; gap:16px; background:#f8f9fa; padding:16px; border-radius:8px; border:1px solid #e0e0e0; margin-top:8px; }
+    .pp-stat-item { display:flex; flex-direction:column; gap:4px; }
+    .pp-stat-num { font-size:18px; font-weight:600; color:#202124; }
+    .pp-stat-lbl { font-size:12px; color:#5f6368; }
+    .pp-divider { height:1px; background:#e0e0e0; border:none; margin:0; }
+
     .av { position:relative; width:34px; height:34px; border-radius:50%; background:#ea4335; color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
         .profile-dd { position:fixed; top:54px; right:16px; width:240px; background:#2d3748; border-radius:10px; box-shadow:0 6px 24px rgba(0,0,0,.5); z-index:9999; overflow:hidden; border:1px solid #4a5568; }
     .pd-head { padding:14px 16px; border-bottom:1px solid #4a5568; display:flex; align-items:center; gap:10px; background:#1a202c; color: #fff; }
@@ -3050,8 +3197,8 @@ export interface CellValidation {
     .zoom-pct { min-width:38px; text-align:center; }
     .tb-clr { display:flex; align-items:center; gap:2px; background:transparent; border:none; border-radius:3px; color:rgba(255,255,255,.85); cursor:pointer; font-size:12px; height:26px; padding:0 5px; position:relative; }
     .tb-clr:hover { background:rgba(255,255,255,.15); }
-    .clr-ico { display:flex; flex-direction:column; align-items:center; gap:1px; }
-    .clr-bar { width:14px; height:3px; border-radius:1px; }
+    .clr-ico { position:relative; width:16px; height:16px; display:flex; align-items:center; justify-content:center; }
+    .clr-bar { position:absolute; bottom:1px; left:1px; right:1px; height:3px; border-radius:1px; z-index:2; }
     .clr-pop { position:absolute; top:calc(100% + 4px); left:0; background:#fff; border:1px solid #ddd; border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,.2); padding:8px; z-index:1000; }
     .cp-grid { display:grid; grid-template-columns:repeat(10, 1fr); gap:4px; margin-bottom:8px; }
     .cp-sw { width:16px; height:16px; border-radius:2px; cursor:pointer; border:1px solid rgba(0,0,0,.1); }
@@ -3072,7 +3219,7 @@ export interface CellValidation {
 
     /* ── GRID ─────────────────────────────────────────────────────────── */
     .main-content { display:flex; flex:1; overflow:hidden; position:relative; }
-    .grid-wrap { flex:1; overflow:auto; position:relative; background:#fff; }
+    .grid-wrap { flex:1; overflow:auto; position:relative; background:#fff; overflow-anchor: none; }
     
     /* ── SIDE PANEL ─────────────────────────────────────────────────── */
     .side-panel {
@@ -3294,6 +3441,8 @@ export interface CellValidation {
     .cell.selected { outline:2px solid #34a853; outline-offset:-2px; z-index:20; }
     .cell.in-range { box-shadow:inset 0 0 0 1000px rgba(52,168,83,0.15) !important; }
     .cell.fill-preview { box-shadow:inset 0 0 0 1000px rgba(52,168,83,0.2) !important; border:1px dashed #34a853 !important; }
+    .cell.search-match { box-shadow:inset 0 0 0 1000px rgba(255,193,7,0.35) !important; }
+    .cell.search-match-active { box-shadow:inset 0 0 0 1000px rgba(255,152,0,0.6) !important; outline: 2px solid #ff9800; outline-offset: -2px; z-index: 21; }
 
     .no-gridlines th, .no-gridlines td { border-color: transparent !important; }
     .col-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 60; }
@@ -3309,7 +3458,7 @@ export interface CellValidation {
     .visually-hidden { opacity:0; position:absolute; left:0; top:0; z-index:2; }
     .cell-display { position:relative; z-index:1; pointer-events:none; align-items:center; display:flex; min-height:100%; padding:0 4px; color:inherit; font-size:inherit; font-weight:inherit; font-style:inherit; text-align:inherit; white-space:inherit; overflow:inherit; text-overflow:inherit; word-break:inherit; }
     .cell-display.wrap-text { white-space: pre-wrap !important; word-wrap: break-word !important; }
-    .floating-editor { position: absolute; z-index: 200; background: #fff; border: 2px solid #1a73e8; outline: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2); resize: none; overflow: hidden; font-family: inherit; font-size: inherit; padding: 2px 4px; box-sizing: border-box; white-space: pre-wrap; word-wrap: break-word; }
+    .floating-editor { position: absolute; z-index: 9999; background: #fff; border: 2px solid #00b050; outline: none; box-shadow: 0 2px 5px rgba(0,0,0,0.2); resize: none; overflow: hidden; font-family: inherit; font-size: inherit; padding: 1px 3px; box-sizing: border-box; white-space: pre;     }
     .shape-panel { position: absolute; top: 100%; left: 0; background: #fff; border: 1px solid #dadce0; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 300; width: 450px; display: flex; flex-direction: column; cursor: default; }
     .shape-tabs { display: flex; border-bottom: 1px solid #eee; background: #fff; }
     .s-tab { flex: 1; text-align: center; padding: 10px 0; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; color: #5f6368; }
@@ -3367,9 +3516,9 @@ export interface CellValidation {
     .ctx-sep { background:#e2e8f0; height:1px; margin:3px 0; }
 
     /* ── CUSTOM DROPDOWN ─────────────────────────────────────────────────── */
-    .custom-dropdown-overlay { position: fixed; background: #fff; border: 1px solid #cbd5e1; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; display: flex; flex-direction: column; min-width: 150px; padding: 4px 0; max-height: 300px; overflow-y: auto; }
-    .custom-dropdown-item { padding: 8px 12px; cursor: pointer; font-size: 13px; display: flex; align-items: center; transition: background 0.2s; }
-    .custom-dropdown-item:hover { filter: brightness(0.95); }
+    ::ng-deep .custom-dropdown-overlay { position: fixed; background: #fff; border: 1px solid #cbd5e1; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100000; display: flex; flex-direction: column; min-width: 150px; padding: 4px 0; max-height: 300px; overflow-y: auto; }
+    ::ng-deep .custom-dropdown-item { padding: 8px 12px; cursor: pointer; font-size: 13px; display: flex; align-items: center; transition: background 0.2s; }
+    ::ng-deep .custom-dropdown-item:hover { filter: brightness(0.95); }
 
     /* ── SHEET TABS ─────────────────────────────────────────────────────── */
     .sheet-tabs { display:flex; align-items:center; gap:2px; padding:0 14px; background:#f1f3f4; border-top:2px solid #dadce0; min-height:34px; overflow-x:auto; flex-shrink:0; }
@@ -3465,7 +3614,13 @@ export interface CellValidation {
     .theme-light .doc-sub { color: #5f6368; }
     .theme-light .back-btn, .theme-light .top-search-box { color: #5f6368; }
     .theme-light .top-search-box { background: #f1f3f4; border-color: transparent; }
-    .theme-light .top-search-box input { color: #202124; }
+    .theme-light .top-search-box.has-query { background: #e6f4ea; border-color: #0f9d58; color: #137333; }
+    .theme-light .top-search-box input.inline-search-input { color: #202124; }
+    .theme-light .top-search-box input.inline-search-input::placeholder { color: #5f6368; }
+    .theme-light .top-search-box .inline-search-clear { background: rgba(0,0,0,0.05); }
+    .theme-light .top-search-box .inline-search-clear:hover { background: rgba(0,0,0,0.1); }
+    .theme-light .top-search-box .inline-search-divider { background: rgba(0,0,0,0.1); }
+    .theme-light .top-search-box .inline-search-nav button:hover { background: rgba(0,0,0,0.08); }
       .theme-light .online-badge { background:#fff; color:#5f6368; border-color:#dadce0; }
     .theme-light .menu-row { background: #ffffff; }
     .theme-light .mi { color: #202124; }
@@ -3494,8 +3649,10 @@ export interface CellValidation {
     .theme-light .sm-done-btn { background:#f1f3f4; color:#1a73e8; }
     .theme-light .sm-done-btn:hover { background:#e8eaed; }
     .theme-light .mdd, .theme-light .mdi-sub, .theme-light .tb-dd, .theme-light .tb-chart-dd, .theme-light .profile-dd { background: #ffffff; border-color: #dadce0; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
-    .theme-light .mdi, .theme-light .dd-item, .theme-light .pd-item { color: #202124; }
-    .theme-light .mdi:hover, .theme-light .dd-item:hover, .theme-light .pd-item:hover { background: #f1f3f4; }
+    .theme-light .bp-btn { color: #5f6368; }
+    .theme-light .bp-btn:hover { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.1); color: #202124; }
+    .theme-light .mdi, .theme-light .dd-item, .theme-light .pd-item, .theme-light .bo-item { color: #202124; }
+    .theme-light .mdi:hover, .theme-light .dd-item:hover, .theme-light .pd-item:hover, .theme-light .bo-item:hover, .theme-light .bo-item.active-bo { background: #f1f3f4; border-color: transparent; }
     .theme-light .mds, .theme-light .pd-sep { background: #dadce0; }
     .theme-light .mdi-title, .theme-light .mh, .theme-light .mdi-icon, .theme-light .mdi-arrow { color: #5f6368; }
     .theme-light .mdi:hover .mdi-icon, .theme-light .mdi:hover .mdi-arrow { color: #202124; }
@@ -3548,6 +3705,88 @@ export interface CellValidation {
   `]
 })
 export class SheetEditorComponent implements OnInit, OnDestroy {
+  COLS = 30;
+  ROWS = 1000;
+  visibleRowRange: number[] = [];
+  firstUnfrozenRow: number = 0;
+  topSpacerHeight: number = 0;
+  bottomSpacerHeight: number = 0;
+
+  onGridScroll(event: Event) {
+    const el = event.target as HTMLElement;
+    const scrollTop = el.scrollTop;
+    this.updateVisibleRows(scrollTop);
+
+    const scrollLeft = el.scrollLeft;
+    if (scrollLeft + el.clientWidth >= el.scrollWidth - 150) {
+      this.addColumns(10);
+    }
+  }
+
+  addColumns(count: number) {
+    for (let i = 0; i < count; i++) {
+      this.colRange.push(this.COLS);
+      for (let r = 0; r < this.ROWS; r++) {
+        if (!this.cells[r]) this.cells[r] = [];
+        this.cells[r].push('');
+      }
+      this.COLS++;
+    }
+    if (this.sheets[this.currentSheetIdx]) {
+      this.sheets[this.currentSheetIdx].cells = this.cells;
+    }
+  }
+
+
+
+  updateVisibleRows(scrollTop: number) {
+    let currentHeight = 0;
+    let startRow = 0;
+    const defaultRowHeight = 24;
+    const viewportHeight = 1000;
+    while (currentHeight < scrollTop && startRow < this.ROWS) {
+      currentHeight += this.getRowHeight(startRow) || defaultRowHeight;
+      startRow++;
+    }
+    let endRow = startRow;
+    let viewportAcc = 0;
+    while (viewportAcc < viewportHeight && endRow < this.ROWS) {
+      viewportAcc += this.getRowHeight(endRow) || defaultRowHeight;
+      endRow++;
+    }
+    const buffer = 15;
+    startRow = Math.max(0, startRow - buffer);
+    endRow = Math.min(this.ROWS - 1, endRow + buffer);
+
+    let actualStartRow = Math.max(this.frozenRowsCount, startRow);
+    this.visibleRowRange = [];
+
+    for (let i = 0; i < this.frozenRowsCount; i++) {
+      this.visibleRowRange.push(i);
+    }
+    for (let i = actualStartRow; i <= endRow; i++) {
+      this.visibleRowRange.push(i);
+    }
+
+    this.firstUnfrozenRow = actualStartRow;
+
+    let calcTopSpacer = 0;
+    for (let i = this.frozenRowsCount; i < actualStartRow; i++) {
+      calcTopSpacer += this.getRowHeight(i) || defaultRowHeight;
+    }
+    this.topSpacerHeight = calcTopSpacer;
+
+    let calcBottomSpacer = 0;
+    for (let i = endRow + 1; i < this.ROWS; i++) {
+      calcBottomSpacer += this.getRowHeight(i) || defaultRowHeight;
+    }
+    this.bottomSpacerHeight = calcBottomSpacer;
+    if (this.cdr) this.cdr.markForCheck();
+  }
+
+  trackByRow(index: number, r: number) { return r; }
+  trackByCol(index: number, c: number) { return c; }
+
   activeWidget: string | null = null;
   toggleWidget(w: string) {
     if (this.activeWidget === w) this.activeWidget = null;
@@ -3557,7 +3796,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   @ViewChild('imgInput') imgInputRef!: ElementRef<HTMLInputElement>;
 
   docId = '';
-  title = 'Untitled spreadsheet';
+  title = '';
   activeUsers = 1;
 
   currentBorderColor: string = '#000000';
@@ -3566,15 +3805,17 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   activeBorderSubmenu: 'color' | 'style' | null = null;
 
   getBorderStyleCss(style: string, width: string = '1px') {
-    return { 'border-top': `${width} ${style} #fff`, 'width': '100%' };
+    return { 'border-top': `${width} ${style} currentColor`, 'width': '100%' };
   }
 
   displayCache: { [key: string]: string } = {};
 
   updateDisplayCache() {
+    if (this.cdr) this.cdr.markForCheck();
+
     this.displayCache = {};
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < this.ROWS; r++) {
+      for (let c = 0; c < this.COLS; c++) {
         const raw = this.cells[r][c];
         if (raw && typeof raw === 'string' && raw.startsWith('=')) {
           this.displayCache[`${r},${c}`] = this.evalCell(r, c);
@@ -3616,15 +3857,21 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (format === 'scientific') return isNum ? num.toExponential(2) : val;
     if (format === 'text') return String(val);
 
-    // Currencies
-    if (format.startsWith('currency')) {
+    // Currencies & Accounting
+    if (format.startsWith('currency') || format.startsWith('accounting')) {
       if (!isNum) return val;
       let symbol = '$';
-      if (format === 'currency_inr') symbol = '₹';
-      if (format === 'currency_eur') symbol = '€';
-      if (format === 'currency_gbp') symbol = '£';
-      if (format === 'currency_cny') symbol = '¥';
-      return symbol + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (format.endsWith('_inr')) symbol = '₹';
+      if (format.endsWith('_eur')) symbol = '€';
+      if (format.endsWith('_gbp')) symbol = '£';
+      if (format.endsWith('_cny')) symbol = '¥';
+      
+      const formattedNum = num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (format.startsWith('accounting')) {
+         return num === 0 ? `${symbol}   -  ` : `${symbol}  ${formattedNum}`;
+      } else {
+         return symbol + formattedNum;
+      }
     }
 
     // Fractions
@@ -3700,8 +3947,32 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   @ViewChild('floatingEditor') floatingEditor?: ElementRef<HTMLTextAreaElement>;
 
   shareModalOpen = false;
+  propertiesPanelOpen = false;
+  docDetails: any = null;
+  window = window;
+
+  getActiveSheetCount(): number {
+    return this.sheets.length;
+  }
+
+  getUsedCellsCount(): number {
+    let count = 0;
+    this.sheets.forEach(sheet => {
+      if (sheet.cells) {
+        Object.keys(sheet.cells).forEach(r => {
+          Object.keys(sheet.cells[r as any]).forEach(c => {
+            if (sheet.cells[r as any][c as any] !== '') {
+              count++;
+            }
+          });
+        });
+      }
+    });
+    return count;
+  }
   isPublic = false;
   shareQuery = '';
+  selectedShareEmails: string[] = [];
   shareRole: 'View' | 'Edit' = 'View';
   shareRoleDropdownOpen = false;
   userSearchResults: any[] = [];
@@ -3765,6 +4036,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   ctxVisible = false;
   ctxX = 0;
   ctxY = 0;
+  ctxTop: number | null = null;
+  ctxBottom: number | null = null;
   ctxMaxHeight = 800;
 
   // Data validation / dropdown
@@ -3804,7 +4077,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   // Multiple sheets
   sheets: Array<{ name: string, cells: string[][], formats: Record<string, CellFormat>, validations: Record<string, CellValidation>, colWidths?: Record<number, number>, rowHeights?: Record<number, number>, hideGridlines?: boolean, locked?: boolean, hidden?: boolean, tabColor?: string, shapes?: any[], rowGroups?: Array<{ start: number, end: number, collapsed: boolean }>, colGroups?: Array<{ start: number, end: number, collapsed: boolean }> }> = [
-    { name: 'Sheet1', cells: Array.from({ length: ROWS }, () => Array(COLS).fill('')), formats: {}, validations: {}, shapes: [] }
+    { name: 'Sheet1', cells: Array.from({ length: this.ROWS }, () => Array(this.COLS).fill('')), formats: {}, validations: {}, shapes: [] }
   ];
   currentSheetIdx = 0;
   activeSheetMenuIdx: number | null = null;
@@ -3844,9 +4117,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     '#c00000', '#ff0000', '#ffc000', '#ffff00', '#92d050', '#00b050', '#00b0f0', '#0070c0', '#002060', '#7030a0'
   ];
 
-  colRange = Array.from({ length: COLS }, (_, i) => i);
-  rowRange = Array.from({ length: ROWS }, (_, i) => i);
-  cells: string[][] = Array.from({ length: ROWS }, () => Array(COLS).fill(''));
+  colRange = Array.from({ length: this.COLS }, (_, i) => i);
+  rowRange = Array.from({ length: this.ROWS }, (_, i) => i);
+  cells: string[][] = Array.from({ length: this.ROWS }, () => Array(this.COLS).fill(''));
   formats: Record<string, CellFormat> = {};
 
   selectedRow = 0;
@@ -3899,17 +4172,25 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     private router: Router,
     private api: ApiService,
     public auth: AuthService
-  ) { }
+    , private cdr: ChangeDetectorRef) { }
 
   ngOnInit() {
+    this.updateVisibleRows(0);
+
+    this.saveSubscription = this.saveSubject.pipe(
+      debounceTime(2000)
+    ).subscribe(() => {
+      this.executeSave();
+    });
     this.docId = this.route.snapshot.paramMap.get('id') ?? '';
     this.api.getDocument(this.docId).subscribe((doc: any) => {
+      this.docDetails = doc;
       this.title = doc.title;
       try {
         const p = JSON.parse(doc.content || '{}');
         if (p.cells) {
-          for (let r = 0; r < ROWS; r++)
-            for (let c = 0; c < COLS; c++)
+          for (let r = 0; r < this.ROWS; r++)
+            for (let c = 0; c < this.COLS; c++)
               this.cells[r][c] = p.cells[r]?.[c] ?? '';
         }
         if (p.formats) {
@@ -3917,6 +4198,34 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         }
         if (p.validations) {
           this.validations = p.validations;
+        }
+        if (p.colWidths) this.sheets[this.currentSheetIdx].colWidths = p.colWidths;
+        if (p.rowHeights) this.sheets[this.currentSheetIdx].rowHeights = p.rowHeights;
+        if (p._importedSheets) {
+          // Normalize sheets: cells may be sparse {r:{c:val}} or 2D array — convert both to 2D array for live editing
+          this.sheets = p._importedSheets.map((sheet: any) => {
+            let cells2d: string[][];
+            if (Array.isArray(sheet.cells)) {
+              // Legacy 2D array — pad/clone to this.ROWS×this.COLS
+              cells2d = Array.from({ length: Math.max(this.ROWS, sheet.cells.length) }, (_, r) =>
+                Array.from({ length: Math.max(this.COLS, sheet.cells[r]?.length ?? 0) }, (_, c) =>
+                  sheet.cells[r]?.[c] ?? ''));
+            } else {
+              // Sparse object {r:{c:val}} — expand to 2D
+              const sp = sheet.cells || {};
+              const maxR = Math.max(this.ROWS, ...Object.keys(sp).map(Number).filter(n => !isNaN(n))) + 1;
+              cells2d = Array.from({ length: maxR }, (_, r) =>
+                Array.from({ length: this.COLS }, (_, c) => sp[r]?.[c] ?? ''));
+            }
+            return { ...sheet, cells: cells2d };
+          });
+          this.currentSheetIdx = 0;
+          const s0 = this.sheets[0];
+          for (let r = 0; r < this.ROWS; r++)
+            for (let c = 0; c < this.COLS; c++)
+              this.cells[r][c] = s0.cells[r]?.[c] ?? '';
+          this.formats = { ...(s0.formats || {}) };
+          this.validations = { ...(s0.validations || {}) };
         }
         if (p.calendarNotes) this.calendarNotes = p.calendarNotes;
         if (p.globalNotes) this.globalNotes = p.globalNotes;
@@ -3935,25 +4244,50 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         if (msg.content !== undefined) {
           try {
             const p = JSON.parse(msg.content!);
-            if (p.cells) {
-              for (let r = 0; r < ROWS; r++)
-                for (let c = 0; c < COLS; c++)
-                  this.cells[r][c] = p.cells[r]?.[c] ?? '';
-            }
-            if (p.formats) {
-              this.formats = p.formats;
-            }
-            if (p.validations) {
-              this.validations = p.validations;
+            // Handle array of sheets (from server's doc_states) or single object
+            const sheets = Array.isArray(p) ? p : [p];
+            if (sheets[this.currentSheetIdx]) {
+              const active = sheets[this.currentSheetIdx];
+              if (active.cells) {
+                for (let r = 0; r < this.ROWS; r++)
+                  for (let c = 0; c < this.COLS; c++)
+                    this.cells[r][c] = active.cells[r]?.[c] ?? '';
+              }
+              if (active.formats) this.formats = active.formats;
+              if (active.validations) this.validations = active.validations;
             }
           } catch { }
           this.updateDisplayCache();
         }
         setTimeout(() => this.applyingRemote = false, 50);
+      } else if (msg.type === 'cell_update' && msg.r !== undefined && msg.c !== undefined && msg.sheetIdx !== undefined) {
+        if (msg.sheetIdx === this.currentSheetIdx) {
+          this.cells[msg.r][msg.c] = msg.value ?? '';
+          if (msg.formatting) {
+            this.formats[`${msg.r},${msg.c}`] = msg.formatting;
+          } else {
+            delete this.formats[`${msg.r},${msg.c}`];
+          }
+          this.updateDisplayCache();
+          if (this.cdr) this.cdr.markForCheck();
+        } else {
+          const sheet = this.sheets[msg.sheetIdx];
+          if (sheet) {
+            if (!sheet.cells) sheet.cells = [];
+            if (!sheet.cells[msg.r]) sheet.cells[msg.r] = [];
+            sheet.cells[msg.r][msg.c] = msg.value ?? '';
+            if (!sheet.formats) sheet.formats = {};
+            if (msg.formatting) {
+              sheet.formats[`${msg.r},${msg.c}`] = msg.formatting;
+            } else {
+              delete sheet.formats[`${msg.r},${msg.c}`];
+            }
+          }
+        }
       } else if (msg.type === 'cursor' && msg.client_id && msg.r !== undefined && msg.c !== undefined) {
-        this.remoteCursors[msg.client_id] = { r: msg.r, c: msg.c };
+        this.remoteCursors[msg.client_id] = { r: msg.r, c: msg.c }; if (this.cdr) this.cdr.markForCheck();
       } else if (msg.type === 'cursor_remove' && msg.client_id) {
-        delete this.remoteCursors[msg.client_id];
+        delete this.remoteCursors[msg.client_id]; if (this.cdr) this.cdr.markForCheck();
       }
     });
   }
@@ -4100,6 +4434,28 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const clipboardData = e.clipboardData || (window as any).clipboardData;
     if (!clipboardData) return;
 
+    if (clipboardData.items) {
+      for (let i = 0; i < clipboardData.items.length; i++) {
+        if (clipboardData.items[i].type.indexOf('image') !== -1) {
+          const file = clipboardData.items[i].getAsFile();
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              this.pushHistory();
+              this.cells[this.selectedRow][this.selectedCol] = ev.target!.result as string;
+              this.formulaBarValue = '[IMAGE]';
+              this.onCellChange();
+              this.save();
+              this.showToast('Image pasted into cell.');
+              if (this.cdr) this.cdr.detectChanges();
+            };
+            reader.readAsDataURL(file);
+            return;
+          }
+        }
+      }
+    }
+
     const pastedHtml = clipboardData.getData('text/html');
     const pastedText = clipboardData.getData('Text');
 
@@ -4118,6 +4474,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       const parser = new DOMParser();
       const doc = parser.parseFromString(pastedHtml, 'text/html');
       const table = doc.querySelector('table');
+      const img = doc.querySelector('img');
 
       if (table) {
         parsedFromHtml = true;
@@ -4131,9 +4488,16 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
             const targetR = startRow + r;
             const targetC = startCol + c;
 
-            if (targetR < ROWS && targetC < COLS) {
+            if (targetR < this.ROWS && targetC < this.COLS) {
               const cell = cells[c];
-              this.cells[targetR][targetC] = cell.innerText.trim();
+
+              // If the cell contains an image
+              const cellImg = cell.querySelector('img');
+              if (cellImg && cellImg.src) {
+                this.cells[targetR][targetC] = cellImg.src;
+              } else {
+                this.cells[targetR][targetC] = cell.innerText.trim();
+              }
 
               let formats: any = {};
 
@@ -4174,6 +4538,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
             }
           }
         }
+      } else if (img && img.src) {
+        parsedFromHtml = true;
+        this.cells[startRow][startCol] = img.src;
+        this.formulaBarValue = '[IMAGE]';
       }
     }
 
@@ -4190,7 +4558,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         for (let c = 0; c < cols.length; c++) {
           const targetR = startRow + r;
           const targetC = startCol + c;
-          if (targetR < ROWS && targetC < COLS) {
+          if (targetR < this.ROWS && targetC < this.COLS) {
             this.cells[targetR][targetC] = cols[c];
           }
         }
@@ -4199,8 +4567,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
     this.rangeStart = { r: startRow, c: startCol };
     this.rangeEnd = {
-      r: Math.min(startRow + maxRows - 1, ROWS - 1),
-      c: Math.min(startCol + maxCols - 1, COLS - 1)
+      r: Math.min(startRow + maxRows - 1, this.ROWS - 1),
+      c: Math.min(startCol + maxCols - 1, this.COLS - 1)
     };
 
     this.onCellChange();
@@ -4243,6 +4611,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   isCheckboxCell(r: number, c: number): boolean {
     const f = this.formats[`${r},${c}`];
     return !!(f && (f as any)['checkbox']);
+  }
+
+  isUrl(val: string): boolean {
+    if (!val || typeof val !== 'string') return false;
+    return /^(https?:\/\/[^\s]+)$/i.test(val.trim());
   }
 
   toggleCheckbox(r: number, c: number) {
@@ -4496,7 +4869,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
         if (colIdx < 0) colIdx = 0;
         if (rowIdx < 0) rowIdx = 0;
-        return `${String.fromCharCode(65 + colIdx)}${rowIdx + 1}`;
+        return `${colName(colIdx)}${rowIdx + 1}`;
       });
     }
 
@@ -4508,7 +4881,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.selectedColHeader = c;
     this.selectedRowHeader = null;
     this.rangeStart = { r: 0, c };
-    this.rangeEnd = { r: ROWS - 1, c };
+    this.rangeEnd = { r: this.ROWS - 1, c };
     this.selectedRow = 0;
     this.selectedCol = c;
     this.formulaBarValue = '';
@@ -4518,7 +4891,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.selectedRowHeader = r;
     this.selectedColHeader = null;
     this.rangeStart = { r, c: 0 };
-    this.rangeEnd = { r, c: COLS - 1 };
+    this.rangeEnd = { r, c: this.COLS - 1 };
     this.selectedRow = r;
     this.selectedCol = 0;
     this.formulaBarValue = '';
@@ -4528,7 +4901,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.selectedColHeader = null;
     this.selectedRowHeader = null;
     this.rangeStart = { r: 0, c: 0 };
-    this.rangeEnd = { r: ROWS - 1, c: COLS - 1 };
+    this.rangeEnd = { r: this.ROWS - 1, c: this.COLS - 1 };
     this.selectedRow = 0;
     this.selectedCol = 0;
     this.formulaBarValue = this.isImageCell(0, 0) ? '[IMAGE]' : this.cells[0][0] || '';
@@ -4543,52 +4916,41 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (type === 'col') this.selectEntireCol(idx);
     else this.selectEntireRow(idx);
 
-    const menuWidth = 220;
-    const fullMenuHeight = 540;
-    let x = e.clientX;
-    let y = e.clientY;
-
-    if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth;
-
-    // Always open downwards from the cursor unless it's way at the bottom
-    let maxHeight = window.innerHeight - y - 20;
-
-    if (maxHeight < 200 && y > window.innerHeight / 2) {
-      // If we are near the bottom of the screen, open upwards
-      y = Math.max(10, y - fullMenuHeight);
-      maxHeight = e.clientY - y;
-    } else {
-      maxHeight = Math.max(200, maxHeight);
-    }
-
-    this.ctxX = x;
-    this.ctxY = y;
-    this.ctxMaxHeight = maxHeight;
-    this.ctxVisible = true;
+    this.showContextMenu(e);
   }
 
   onCellRightClick(e: MouseEvent, r: number, c: number) {
     e.preventDefault();
     this.selectCell(r, c);
+    
+    this.showContextMenu(e);
+  }
 
+  showContextMenu(e: MouseEvent) {
     const menuWidth = 220;
-    const fullMenuHeight = 540;
+    const estimatedMenuHeight = 430;
     let x = e.clientX;
     let y = e.clientY;
 
     if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth;
 
-    let maxHeight = window.innerHeight - y - 20;
-    if (maxHeight < 200 && y > window.innerHeight / 2) {
-      y = Math.max(10, y - fullMenuHeight);
-      maxHeight = e.clientY - y;
-    } else {
-      maxHeight = Math.max(200, maxHeight);
-    }
+    let spaceBelow = window.innerHeight - y - 10;
+    let spaceAbove = y - 10;
 
     this.ctxX = x;
-    this.ctxY = y;
-    this.ctxMaxHeight = maxHeight;
+
+    if (estimatedMenuHeight > spaceBelow && spaceAbove > spaceBelow) {
+      // More space above, and it doesn't fit below. Open upwards.
+      this.ctxTop = null;
+      this.ctxBottom = window.innerHeight - y;
+      this.ctxMaxHeight = spaceAbove;
+    } else {
+      // Open downwards
+      this.ctxBottom = null;
+      this.ctxTop = y;
+      this.ctxMaxHeight = spaceBelow;
+    }
+
     this.ctxVisible = true;
   }
 
@@ -4650,7 +5012,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   getCellRef(r: number, c: number): string {
-    return String.fromCharCode(65 + c) + (r + 1);
+    return colName(c) + (r + 1);
   }
 
   getRangeRef(): string {
@@ -4860,7 +5222,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
     // Clear previous pivot table area
     for (let r = 0; r < 20; r++) for (let c = 0; c < 5; c++) {
-      if (startR + r < ROWS && startC + c < COLS) {
+      if (startR + r < this.ROWS && startC + c < this.COLS) {
         this.cells[startR + r][startC + c] = '';
         delete this.formats[`${startR + r},${startC + c}`];
       }
@@ -4875,7 +5237,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     let allVals: number[] = [];
 
     for (const [k, arr] of map.entries()) {
-      if (currR < ROWS) {
+      if (currR < this.ROWS) {
         let v = 0;
         if (this.pivotConfig.agg === 'SUM') v = arr.reduce((a, b) => a + b, 0);
         else if (this.pivotConfig.agg === 'COUNT') v = arr.length;
@@ -4890,7 +5252,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       }
     }
 
-    if (currR < ROWS) {
+    if (currR < this.ROWS) {
       let grandTotal = 0;
       if (this.pivotConfig.agg === 'SUM') grandTotal = allVals.reduce((a, b) => a + b, 0);
       else if (this.pivotConfig.agg === 'COUNT') grandTotal = allVals.length;
@@ -5019,13 +5381,13 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.closeMenus();
     // Find data bounds
     let maxRow = 4, maxCol = 4;
-    for (let r = 0; r < ROWS; r++)
-      for (let c = 0; c < COLS; c++)
+    for (let r = 0; r < this.ROWS; r++)
+      for (let c = 0; c < this.COLS; c++)
         if ((this.cells[r][c] || '').trim()) { maxRow = Math.max(maxRow, r); maxCol = Math.max(maxCol, c); }
-    maxRow = Math.min(maxRow + 2, ROWS - 1);
-    maxCol = Math.min(maxCol + 2, COLS - 1);
+    maxRow = Math.min(maxRow + 2, this.ROWS - 1);
+    maxCol = Math.min(maxCol + 2, this.COLS - 1);
 
-    const colName = (i: number) => String.fromCharCode(65 + i);
+    // using global colName
     let thead = '<tr><th style="width:36px;"></th>';
     for (let c = 0; c <= maxCol; c++) thead += `<th>${colName(c)}</th>`;
     thead += '</tr>';
@@ -5211,8 +5573,22 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   autoResizeEditor(e?: Event) {
     if (!this.floatingEditor) return;
     const el = this.floatingEditor.nativeElement;
+    const td = el.parentElement;
+
+    // Height resize
     el.style.height = 'auto';
-    el.style.height = (el.scrollHeight + 2) + 'px';
+    const minHeight = td ? td.offsetHeight + 1 : (this.getRowHeight(this.selectedRow) + 3);
+    el.style.height = Math.max(minHeight, el.scrollHeight) + 'px';
+
+    // Width resize
+    const minWidth = td ? td.offsetWidth + 1 : (this.getColWidth(this.selectedCol) + 3);
+    el.style.width = minWidth + 'px';
+
+    // If scrollWidth is larger than minWidth, we need to expand.
+    // The +2 buffer avoids horizontal scrollbar flickering
+    if (el.scrollWidth > minWidth) {
+      el.style.width = (el.scrollWidth + 2) + 'px';
+    }
   }
 
   onEditorKeydown(e: KeyboardEvent) {
@@ -5249,24 +5625,39 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   onTab(e: KeyboardEvent, r: number, c: number) {
     e.preventDefault();
-    const nc = c + 1 < COLS ? c + 1 : c;
+    const nc = c + 1 < this.COLS ? c + 1 : c;
     this.selectCell(r, nc); this.focusCell(r, nc);
   }
 
   onEnter(e: KeyboardEvent, r: number, c: number) {
     e.preventDefault();
-    const nr = r + 1 < ROWS ? r + 1 : r;
+    const nr = r + 1 < this.ROWS ? r + 1 : r;
     this.selectCell(nr, c); this.focusCell(nr, c);
   }
 
   private focusCell(r: number, c: number) {
     setTimeout(() => {
       const inputs = document.querySelectorAll<HTMLInputElement>('.cell-input');
-      inputs[r * COLS + c]?.focus();
+      inputs[r * this.COLS + c]?.focus();
     });
   }
 
   // --- Formatting Engine ---
+  getFormatName(fmt: string): string {
+    if (!fmt) return 'General';
+    if (fmt === 'general') return 'General';
+    if (fmt === 'number') return 'Number';
+    if (fmt === 'percent') return 'Percentage';
+    if (fmt.startsWith('currency')) return 'Currency';
+    if (fmt.startsWith('accounting')) return 'Accounting';
+    if (fmt.startsWith('date')) return 'Date';
+    if (fmt.startsWith('time')) return 'Time';
+    if (fmt.startsWith('fraction')) return 'Fraction';
+    if (fmt === 'scientific') return 'Scientific';
+    if (fmt === 'text') return 'Text';
+    return 'General';
+  }
+
   getFormat(key: keyof CellFormat): any {
     const ref = `${this.selectedRow},${this.selectedCol}`;
     return this.formats[ref]?.[key];
@@ -5453,7 +5844,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
       if (seen.has(signature)) {
         this.cells.splice(r, 1);
-        this.cells.push(Array(COLS).fill('')); // Maintain row count
+        this.cells.push(Array(this.COLS).fill('')); // Maintain row count
         r--;
         maxR--;
         removed++;
@@ -5476,7 +5867,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (!this.history.length) { this.showToast('Nothing to undo.'); return; }
     this.future.push(JSON.stringify({ cells: this.cells, formats: this.formats }));
     const prev = JSON.parse(this.history.pop()!);
-    if (prev.cells) for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) this.cells[r][c] = prev.cells[r]?.[c] ?? '';
+    if (prev.cells) for (let r = 0; r < this.ROWS; r++) for (let c = 0; c < this.COLS; c++) this.cells[r][c] = prev.cells[r]?.[c] ?? '';
     if (prev.formats) this.formats = { ...prev.formats };
     this.closeMenus();
     this.showToast('Undo.');
@@ -5486,7 +5877,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (!this.future.length) { this.showToast('Nothing to redo.'); return; }
     this.history.push(JSON.stringify({ cells: this.cells, formats: this.formats }));
     const next = JSON.parse(this.future.pop()!);
-    if (next.cells) for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) this.cells[r][c] = next.cells[r]?.[c] ?? '';
+    if (next.cells) for (let r = 0; r < this.ROWS; r++) for (let c = 0; c < this.COLS; c++) this.cells[r][c] = next.cells[r]?.[c] ?? '';
     if (next.formats) this.formats = { ...next.formats };
     this.closeMenus();
     this.showToast('Redo.');
@@ -5660,8 +6051,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   insertRowAbove() {
     this.pushHistory();
     const r = this.selectedRow;
-    this.cells.splice(r, 0, Array(COLS).fill(''));
-    if (this.cells.length > ROWS) this.cells.pop();
+    this.cells.splice(r, 0, Array(this.COLS).fill(''));
+    if (this.cells.length > this.ROWS) this.cells.pop();
     this.onCellChange(); this.closeMenus();
     this.showToast('Row inserted above.');
   }
@@ -5669,8 +6060,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   insertRowBelow() {
     this.pushHistory();
     const r = this.selectedRow + 1;
-    this.cells.splice(r, 0, Array(COLS).fill(''));
-    if (this.cells.length > ROWS) this.cells.pop();
+    this.cells.splice(r, 0, Array(this.COLS).fill(''));
+    if (this.cells.length > this.ROWS) this.cells.pop();
     this.onCellChange(); this.closeMenus();
     this.showToast('Row inserted below.');
   }
@@ -5678,7 +6069,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   insertColLeft() {
     this.pushHistory();
     const c = this.selectedCol;
-    for (const row of this.cells) { row.splice(c, 0, ''); if (row.length > COLS) row.pop(); }
+    for (const row of this.cells) { row.splice(c, 0, ''); if (row.length > this.COLS) row.pop(); }
     this.onCellChange(); this.closeMenus();
     this.showToast('Column inserted.');
   }
@@ -5686,7 +6077,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   insertColRight() {
     this.pushHistory();
     const c = this.selectedCol + 1;
-    for (const row of this.cells) { row.splice(c, 0, ''); if (row.length > COLS) row.pop(); }
+    for (const row of this.cells) { row.splice(c, 0, ''); if (row.length > this.COLS) row.pop(); }
     this.onCellChange(); this.closeMenus();
     this.showToast('Column inserted.');
   }
@@ -5695,7 +6086,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.pushHistory();
     const r = this.selectedRow;
     this.cells.splice(r, 1);
-    this.cells.push(Array(COLS).fill('')); // Maintain row count
+    this.cells.push(Array(this.COLS).fill('')); // Maintain row count
     this.onCellChange(); this.closeMenus();
     this.showToast('Row deleted.');
   }
@@ -5715,7 +6106,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.pushHistory();
     const r = this.selectedRow;
     const c = this.selectedCol;
-    for (let i = ROWS - 1; i > r; i--) {
+    for (let i = this.ROWS - 1; i > r; i--) {
       this.cells[i][c] = this.cells[i - 1][c];
       const prevFmt = this.formats[`${i - 1},${c}`];
       if (prevFmt) {
@@ -5735,7 +6126,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.pushHistory();
     const r = this.selectedRow;
     const c = this.selectedCol;
-    for (let i = COLS - 1; i > c; i--) {
+    for (let i = this.COLS - 1; i > c; i--) {
       this.cells[r][i] = this.cells[r][i - 1];
       const prevFmt = this.formats[`${r},${i - 1}`];
       if (prevFmt) {
@@ -5892,10 +6283,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.pushHistory();
     const r = this.selectedRow;
     const c = this.selectedCol;
-    for (let i = r; i < ROWS - 1; i++) {
+    for (let i = r; i < this.ROWS - 1; i++) {
       this.cells[i][c] = this.cells[i + 1][c];
     }
-    this.cells[ROWS - 1][c] = '';
+    this.cells[this.ROWS - 1][c] = '';
     this.onCellChange(); this.closeMenus();
     this.showToast('Shifted cells up.');
   }
@@ -6373,6 +6764,19 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (fmt.font) style['font-family'] = fmt.font;
     if (fmt.size) style['font-size'] = fmt.size;
 
+    if (fmt.align) {
+      style['text-align'] = fmt.align;
+      if (fmt.align === 'center') style['justify-content'] = 'center';
+      else if (fmt.align === 'right') style['justify-content'] = 'flex-end';
+      else if (fmt.align === 'left') style['justify-content'] = 'flex-start';
+    }
+
+    if (fmt.vertAlign) {
+      if (fmt.vertAlign === 'top') style['align-items'] = 'flex-start';
+      else if (fmt.vertAlign === 'middle') style['align-items'] = 'center';
+      else if (fmt.vertAlign === 'bottom') style['align-items'] = 'flex-end';
+    }
+
     let textW = 0;
     if (fmt.wrap === 'shrink' || (fmt.rotation && fmt.rotation !== 'custom')) {
       const text = this.cells[r] && this.cells[r][c] ? String(this.cells[r][c]) : '';
@@ -6426,6 +6830,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   // ── Number formatting ─────────────────────────────────────────────────────
   setNumFormat(fmt: string) {
     this.setFormat('numFormat', fmt);
+    this.activeMenu = null;
   }
 
   increaseDecimals() {
@@ -6448,8 +6853,24 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   private applyNumFormat(val: string, fmt: CellFormat): string {
     const num = parseFloat(val);
     if (isNaN(num)) return val;
-    const dec = fmt.decimals ?? (fmt.numFormat === 'currency' ? 2 : fmt.numFormat === 'percent' ? 1 : 0);
-    if (fmt.numFormat === 'currency') return '$' + num.toFixed(dec);
+    const dec = fmt.decimals ?? (fmt.numFormat?.includes('currency') || fmt.numFormat?.includes('accounting') ? 2 : fmt.numFormat === 'percent' ? 1 : 0);
+    
+    if (fmt.numFormat?.startsWith('currency_') || fmt.numFormat?.startsWith('accounting_') || fmt.numFormat === 'currency') {
+      let symbol = '$';
+      if (fmt.numFormat.endsWith('_inr')) symbol = '₹';
+      else if (fmt.numFormat.endsWith('_eur')) symbol = '€';
+      else if (fmt.numFormat.endsWith('_gbp')) symbol = '£';
+      else if (fmt.numFormat.endsWith('_cny')) symbol = '¥';
+      
+      const isAccounting = fmt.numFormat.startsWith('accounting');
+      if (isAccounting) {
+        // Simple accounting format representation (symbol on left, number on right, with some spaces)
+        return num === 0 ? `${symbol}   -  ` : `${symbol}  ${num.toFixed(dec)}`;
+      } else {
+        return `${symbol}${num.toFixed(dec)}`;
+      }
+    }
+    
     if (fmt.numFormat === 'percent') return (num * 100).toFixed(dec) + '%';
     if (fmt.numFormat === 'number') return num.toFixed(dec);
     return dec > 0 ? num.toFixed(dec) : val;
@@ -6736,7 +7157,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       if (parts.length <= 1) continue;
       this.cells[r][col] = parts[0];
       for (let i = 1; i < parts.length; i++) {
-        if (col + i < COLS) {
+        if (col + i < this.COLS) {
           this.cells[r][col + i] = parts[i].trim();
         }
       }
@@ -6983,7 +7404,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   // ── Tools menu ───────────────────────────────────────────────────────────
   createForm() {
     this.formHeaders = [];
-    for (let c = 0; c < COLS; c++) {
+    for (let c = 0; c < this.COLS; c++) {
       const h = this.cells[0][c];
       if (h && h.trim()) this.formHeaders.push(h);
       else break;
@@ -6998,7 +7419,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       emptyRow++;
     }
     if (emptyRow >= this.cells.length) {
-      this.cells.push(Array(COLS).fill(''));
+      this.cells.push(Array(this.COLS).fill(''));
     }
     for (let c = 0; c < this.formHeaders.length; c++) {
       this.cells[emptyRow][c] = this.formData[this.formHeaders[c]] || '';
@@ -7175,12 +7596,71 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   // ── Find & Replace ────────────────────────────────────────────────────────
   openFind() { this.findModalOpen = true; this.findQuery = ''; this.replaceQuery = ''; this.findStatus = ''; }
 
+  // ── Inline Search ────────────────────────────────────────────────────────
+  inlineSearchQuery = '';
+  inlineSearchMatches: { r: number, c: number }[] = [];
+  inlineSearchMatchMap = new Set<string>();
+  inlineSearchIdx = -1;
+
+  onInlineSearch() {
+    this.inlineSearchMatches = [];
+    this.inlineSearchMatchMap.clear();
+    this.inlineSearchIdx = -1;
+    if (!this.inlineSearchQuery) return;
+    const q = this.inlineSearchQuery.toLowerCase();
+    for (let r = 0; r < this.ROWS; r++) {
+      for (let c = 0; c < this.COLS; c++) {
+        if (this.cells[r][c].toLowerCase().includes(q)) {
+          this.inlineSearchMatches.push({ r, c });
+          this.inlineSearchMatchMap.add(`${r},${c}`);
+        }
+      }
+    }
+    if (this.inlineSearchMatches.length > 0) {
+      this.inlineSearchIdx = 0;
+      const m = this.inlineSearchMatches[0];
+      this.selectCell(m.r, m.c);
+    }
+  }
+
+  inlineFindNext() {
+    if (!this.inlineSearchMatches.length) return;
+    this.inlineSearchIdx = (this.inlineSearchIdx + 1) % this.inlineSearchMatches.length;
+    const m = this.inlineSearchMatches[this.inlineSearchIdx];
+    this.selectCell(m.r, m.c);
+  }
+
+  inlineFindPrev() {
+    if (!this.inlineSearchMatches.length) return;
+    this.inlineSearchIdx = (this.inlineSearchIdx - 1 + this.inlineSearchMatches.length) % this.inlineSearchMatches.length;
+    const m = this.inlineSearchMatches[this.inlineSearchIdx];
+    this.selectCell(m.r, m.c);
+  }
+
+  clearInlineSearch() {
+    this.inlineSearchQuery = '';
+    this.inlineSearchMatches = [];
+    this.inlineSearchMatchMap.clear();
+    this.inlineSearchIdx = -1;
+  }
+
+  isCellInInlineSearch(r: number, c: number): boolean {
+    return this.inlineSearchMatchMap.has(`${r},${c}`);
+  }
+
+  isCellActiveInlineSearch(r: number, c: number): boolean {
+    if (this.inlineSearchIdx < 0 || this.inlineSearchIdx >= this.inlineSearchMatches.length) return false;
+    const m = this.inlineSearchMatches[this.inlineSearchIdx];
+    return m.r === r && m.c === c;
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   private buildFindMatches() {
     this.findMatches = [];
     if (!this.findQuery) return;
     const q = this.findQuery.toLowerCase();
-    for (let r = 0; r < ROWS; r++)
-      for (let c = 0; c < COLS; c++)
+    for (let r = 0; r < this.ROWS; r++)
+      for (let c = 0; c < this.COLS; c++)
         if (this.cells[r][c].toLowerCase().includes(q))
           this.findMatches.push({ r, c });
   }
@@ -7233,11 +7713,12 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   // ── Multiple Sheets ───────────────────────────────────────────────────────
   private saveCurrentSheet() {
+    const existing = this.sheets[this.currentSheetIdx];
     this.sheets[this.currentSheetIdx] = {
-      name: this.sheets[this.currentSheetIdx].name,
+      ...existing,
       cells: this.cells.map(row => [...row]),
       formats: { ...this.formats },
-      validations: { ...this.validations }
+      validations: { ...this.validations },
     };
   }
 
@@ -7246,7 +7727,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.saveCurrentSheet();
     this.currentSheetIdx = idx;
     const s = this.sheets[idx];
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) this.cells[r][c] = s.cells[r]?.[c] ?? '';
+    for (let r = 0; r < this.ROWS; r++) for (let c = 0; c < this.COLS; c++) this.cells[r][c] = s.cells[r]?.[c] ?? '';
     this.formats = { ...s.formats };
     this.validations = { ...s.validations };
     this.rangeStart = null; this.rangeEnd = null;
@@ -7260,7 +7741,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const n = this.sheets.length + 1;
     this.sheets.push({
       name: `Sheet${n}`,
-      cells: Array.from({ length: ROWS }, () => Array(COLS).fill('')),
+      cells: Array.from({ length: this.ROWS }, () => Array(this.COLS).fill('')),
       formats: {}, validations: {}
     });
     this.switchSheet(this.sheets.length - 1);
@@ -7309,8 +7790,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   // ── Formula Engine ────────────────────────────────────────────────────────
   private evalCell(r: number, c: number, visited = new Set<string>()): string {
-    const raw = this.cells[r][c];
-    if (!raw || !raw.startsWith('=')) {
+    let raw = this.cells[r][c];
+    if (raw === undefined || raw === null) return '';
+    if (typeof raw !== 'string') raw = String(raw);
+    
+    if (!raw.startsWith('=')) {
       const fmt = this.formats[`${r},${c}`];
       if (fmt?.numFormat && raw !== '') return this.applyNumFormat(raw, fmt);
       return raw;
@@ -7326,7 +7810,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const m = ref.match(/^([A-Z]+)(\d+)$/);
     if (!m) return 0;
     const c = m[1].charCodeAt(0) - 65, r = parseInt(m[2]) - 1;
-    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return 0;
+    if (r < 0 || r >= this.ROWS || c < 0 || c >= this.COLS) return 0;
     const v = this.evalCell(r, c, new Set(visited));
     return v === '' ? 0 : (isNaN(Number(v)) ? v : Number(v));
   }
@@ -7339,7 +7823,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const vals: (number | string)[] = [];
     for (let r = Math.min(r1, r2); r <= Math.max(r1, r2); r++)
       for (let c = Math.min(c1, c2); c <= Math.max(c1, c2); c++)
-        vals.push(this.getCellVal(String.fromCharCode(65 + c) + (r + 1), visited));
+        vals.push(this.getCellVal(colName(c) + (r + 1), visited));
     return vals;
   }
 
@@ -7474,25 +7958,62 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   // --- Sync Engine ---
-  onCellChange() {
+  onCellChange(r: number = this.selectedRow, c: number = this.selectedCol, forceBulk: boolean = false) {
     this.updateDisplayCache();
     if (this.applyingRemote) return;
-    this.api.sendUpdate(JSON.stringify(this.getSparse()), this.title);
+    if (forceBulk) {
+      this.api.sendUpdate(JSON.stringify(this.getSparse()), this.title);
+    } else {
+      const value = this.cells[r]?.[c] ?? '';
+      const format = this.formats[`${r},${c}`];
+      this.api.sendCellUpdate(this.currentSheetIdx, r, c, value, format);
+    }
   }
 
   private getSparse() {
     const s: Record<number, Record<number, string>> = {};
-    for (let r = 0; r < ROWS; r++)
-      for (let c = 0; c < COLS; c++)
+    for (let r = 0; r < this.ROWS; r++)
+      for (let c = 0; c < this.COLS; c++)
         if (this.cells[r][c]) { if (!s[r]) s[r] = {}; s[r][c] = this.cells[r][c]; }
 
-    // Cleanup empty formats before saving
+    // Cleanup empty formats before saving — preserve all meaningful properties
     const cleanFormats: Record<string, CellFormat> = {};
     Object.keys(this.formats).forEach(k => {
       const f = this.formats[k];
-      if (f.bold || f.italic || f.strikethrough || f.color || f.bg || f.align || f.font || f.size) {
+      if (
+        f.bold || f.italic || f.strikethrough || f.underline ||
+        f.color || f.bg || f.align || f.vertAlign ||
+        f.font || f.size || f.wrap !== undefined ||
+        f.indent || f.rotation || f.numFormat || f.decimals !== undefined ||
+        f.borders ||
+        (f as any)._mergeSpan || (f as any)._mergedInto
+      ) {
         cleanFormats[k] = f;
       }
+    });
+
+    // Flush live state back into current sheet before serializing all sheets
+    const existing = this.sheets[this.currentSheetIdx];
+    this.sheets[this.currentSheetIdx] = {
+      ...existing,
+      cells: this.cells.map(row => [...row]),
+      formats: { ...cleanFormats },
+      validations: { ...this.validations },
+    };
+
+    // Convert every sheet's cells 2D array to sparse format to avoid huge payloads
+    const sparseSheets = this.sheets.map(sheet => {
+      const sparseC: Record<number, Record<number, string>> = {};
+      const sheetRows = sheet.cells || [];
+      for (let r = 0; r < sheetRows.length; r++) {
+        for (let c = 0; c < (sheetRows[r]?.length ?? 0); c++) {
+          if (sheetRows[r][c]) {
+            if (!sparseC[r]) sparseC[r] = {};
+            sparseC[r][c] = sheetRows[r][c];
+          }
+        }
+      }
+      return { ...sheet, cells: sparseC };
     });
 
     return {
@@ -7501,15 +8022,27 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       validations: this.validations,
       calendarNotes: this.calendarNotes,
       globalNotes: this.globalNotes,
-      tasks: this.tasks
+      tasks: this.tasks,
+      colWidths: this.sheets[this.currentSheetIdx].colWidths,
+      rowHeights: this.sheets[this.currentSheetIdx].rowHeights,
+      _importedSheets: sparseSheets
     };
   }
 
+
   save() {
     this.saveStatus = 'saving';
+    this.hasPendingChanges = true;
+    // Push to subject instead of hitting the backend immediately
+    this.saveSubject.next();
+  }
+
+  // The actual HTTP call to the backend
+  private executeSave() {
     this.api.saveDocument(this.docId, this.title, JSON.stringify(this.getSparse())).subscribe({
       next: () => {
         this.saveStatus = 'saved';
+        this.hasPendingChanges = false;
         this.lastSavedTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
       },
       error: () => { this.saveStatus = 'error'; }
@@ -7553,12 +8086,29 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       }
     });
   }
-
   selectShareUser(user: any) {
-    this.shareQuery = user.email;
+    if (!this.selectedShareEmails.includes(user.email)) {
+      this.selectedShareEmails.push(user.email);
+    }
+    this.shareQuery = '';
     this.userSearchResults = [];
   }
 
+  addShareEmail(event: Event) {
+    event.preventDefault();
+    if (this.shareQuery.trim()) {
+      const email = this.shareQuery.trim();
+      if (!this.selectedShareEmails.includes(email)) {
+        this.selectedShareEmails.push(email);
+      }
+      this.shareQuery = '';
+      this.userSearchResults = [];
+    }
+  }
+
+  removeShareEmail(email: string) {
+    this.selectedShareEmails = this.selectedShareEmails.filter(e => e !== email);
+  }
   submitShare() {
     if (this.shareQuery.trim()) {
       this.showToast(`Shared with ${this.shareQuery.trim()}`);
@@ -7600,7 +8150,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
       maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
     } else {
-      maxR = Math.min(ROWS - 1, minR + 9);
+      maxR = Math.min(this.ROWS - 1, minR + 9);
     }
 
     const numRows = maxR - minR + 1;
@@ -7770,19 +8320,126 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
 
   exportFile(format: string) {
+    this.closeMenus();
     this.save();
-    // Best practice: Direct browser navigation for file downloads prevents popup blockers
-    // and avoids large memory blobs in the frontend.
-    window.location.href = `${this.api.base}/export?doc_id=${this.docId}&format=${format}`;
+    this.showToast(`Exporting as ${format.toUpperCase()}...`);
+
+    setTimeout(() => {
+      try {
+        if (format === 'pdf') {
+          let maxRow = 0; let maxCol = 0;
+          for (let r = 0; r < this.ROWS; r++) {
+            for (let c = 0; c < this.COLS; c++) {
+              if (this.cells[r][c]) { maxRow = Math.max(maxRow, r); maxCol = Math.max(maxCol, c); }
+            }
+          }
+          
+          const doc = new jsPDF({ orientation: 'landscape' });
+          const body = [];
+          for (let r = 0; r <= maxRow; r++) {
+            const row = [];
+            for (let c = 0; c <= maxCol; c++) {
+              row.push((this.cells[r][c] || '').toString());
+            }
+            body.push(row);
+          }
+          
+          autoTable(doc, {
+            body: body,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2 },
+            margin: { top: 10 }
+          });
+          
+          doc.save(`${this.title || 'Spreadsheet'}.pdf`);
+          this.showToast('Download complete.');
+          return;
+        }
+
+        let content = '';
+        let mimeType = '';
+        let extension = format;
+
+        if (format === 'csv' || format === 'tsv') {
+          const delimiter = format === 'csv' ? ',' : '\t';
+          mimeType = format === 'csv' ? 'text/csv;charset=utf-8;' : 'text/tab-separated-values;charset=utf-8;';
+          const rows = [];
+          for (let r = 0; r < this.ROWS; r++) {
+            const rowData = [];
+            for (let c = 0; c < this.COLS; c++) {
+              let val = (this.cells[r][c] || '').toString();
+              if (val.includes(delimiter) || val.includes('\\n') || val.includes('"')) {
+                val = '"' + val.replace(/"/g, '""') + '"';
+              }
+              rowData.push(val);
+            }
+            // Skip empty rows at the bottom
+            if (rows.length > 0 || rowData.some(v => v !== '')) {
+              rows.push(rowData.join(delimiter));
+            }
+          }
+          // Trim empty trailing rows
+          while (rows.length > 0 && rows[rows.length - 1].replace(new RegExp(delimiter, 'g'), '') === '') {
+            rows.pop();
+          }
+          content = rows.join('\\n');
+        } else {
+          // For xlsx, xlsb, ods - use HTML table which Excel parses perfectly
+          mimeType = format === 'html' ? 'text/html;charset=utf-8;' : 'application/vnd.ms-excel;charset=utf-8;';
+          extension = format === 'html' ? 'html' : 'xls'; // Safe extension for HTML-in-Excel
+          
+          content = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1">';
+          let maxRow = 0;
+          let maxCol = 0;
+          
+          // Find bounds
+          for (let r = 0; r < this.ROWS; r++) {
+            for (let c = 0; c < this.COLS; c++) {
+              if (this.cells[r][c]) { maxRow = Math.max(maxRow, r); maxCol = Math.max(maxCol, c); }
+            }
+          }
+          
+          for (let r = 0; r <= maxRow; r++) {
+            content += '<tr>';
+            for (let c = 0; c <= maxCol; c++) {
+              content += `<td>${this.cells[r][c] || ''}</td>`;
+            }
+            content += '</tr>';
+          }
+          content += '</table></body></html>';
+        }
+
+        const blob = new Blob([content], { type: mimeType });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${this.title || 'Spreadsheet'}.${extension}`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        this.showToast('Download complete.');
+      } catch (err) {
+        console.error(err);
+        this.showToast('Export failed. Please try again.');
+      }
+    }, 100);
   }
 
   activeModal: 'template' | 'open' | 'import' | 'move' | 'audit' | 'version' | 'workflow' | 'password' | 'form' | 'view_form' | 'macro' | 'edit_macro' | 'functions' | 'merge' | null = null;
   previewImageUrl: string | null = null;
   saveStatus: 'saved' | 'saving' | 'error' = 'saved';
   lastSavedTime: string = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+  private saveSubject = new Subject<void>();
+  private saveSubscription!: Subscription;
+  private hasPendingChanges: boolean = false;
   dummyList: any[] = [];
+  myDocs: any[] = [];
+  selectedImportFile: File | null = null;
   modalInput = '';
   isStarred = false;
+
+  onFileSelected(event: any) {
+    this.selectedImportFile = event.target.files[0];
+  }
 
   toggleStar() {
     this.isStarred = !this.isStarred;
@@ -7793,17 +8450,84 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.closeMenus();
     this.activeModal = type;
     if (type === 'template') this.dummyList = ['Blank', 'Invoice', 'Budget', 'Schedule', 'To-Do List', 'Project Tracker'];
-    if (type === 'open') this.dummyList = ['Finance 2026.xlsx', 'Client Contacts.csv', 'Q3 Planning.ods'];
+    if (type === 'open') {
+      this.myDocs = [];
+      this.api.listDocuments().subscribe(res => {
+        this.myDocs = res.filter((d: any) => d.doc_type === 'sheet' && !d.is_trashed);
+      });
+    }
     if (type === 'version') this.dummyList = ['Today 2:30 PM (Current)', 'Yesterday 11:00 AM', 'Last Week (Initial)'];
     if (type === 'audit') this.dummyList = ['User modified cell C4 (1m ago)', 'You changed column width (5m ago)', 'User added new row (10m ago)'];
     if (type === 'workflow') this.dummyList = ['Highlight row if Status=Done', 'Send email if Due Date < Today'];
   }
 
-  handleModalAction() {
+  handleModalAction(payload?: any) {
     if (this.activeModal === 'template') {
-      this.showToast('Created new spreadsheet from template!');
+      const templateName = payload || 'Blank';
+      this.addSheet();
+      const idx = this.sheets.length - 1;
+      this.sheets[idx].name = templateName;
+
+      // Basic mock templates
+      if (templateName === 'Invoice') {
+        this.sheets[idx].cells[0][0] = 'INVOICE';
+        this.sheets[idx].formats['0,0'] = { bold: true, size: '24', align: 'left' };
+        this.sheets[idx].cells[2][0] = 'Bill To:';
+        this.sheets[idx].cells[3][0] = 'Name:';
+        this.sheets[idx].cells[4][0] = 'Address:';
+        this.sheets[idx].cells[6][0] = 'Item';
+        this.sheets[idx].cells[6][1] = 'Qty';
+        this.sheets[idx].cells[6][2] = 'Price';
+        this.sheets[idx].cells[6][3] = 'Total';
+        this.sheets[idx].formats['6,0'] = { bold: true };
+        this.sheets[idx].formats['6,1'] = { bold: true };
+        this.sheets[idx].formats['6,2'] = { bold: true };
+        this.sheets[idx].formats['6,3'] = { bold: true };
+      } else if (templateName === 'Budget') {
+        this.sheets[idx].cells[0][0] = 'MONTHLY BUDGET';
+        this.sheets[idx].formats['0,0'] = { bold: true, size: '18', color: '#10b981' };
+        this.sheets[idx].cells[2][0] = 'Income';
+        this.sheets[idx].cells[2][1] = 'Planned';
+        this.sheets[idx].cells[2][2] = 'Actual';
+        this.sheets[idx].formats['2,0'] = { bold: true };
+        this.sheets[idx].formats['2,1'] = { bold: true };
+        this.sheets[idx].formats['2,2'] = { bold: true };
+      } else if (templateName === 'To-Do List') {
+        this.sheets[idx].cells[0][0] = 'TO-DO LIST';
+        this.sheets[idx].formats['0,0'] = { bold: true, size: '18' };
+        this.sheets[idx].cells[1][0] = 'Status';
+        this.sheets[idx].cells[1][1] = 'Task';
+        this.sheets[idx].cells[1][2] = 'Due Date';
+        this.sheets[idx].formats['1,0'] = { bold: true };
+        this.sheets[idx].formats['1,1'] = { bold: true };
+        this.sheets[idx].formats['1,2'] = { bold: true };
+      }
+      this.activeModal = null;
+      this.showToast('Created ' + templateName + ' sheet!');
+      this.switchSheet(idx);
+    } else if (this.activeModal === 'open') {
+      const doc = payload;
+      if (doc && doc.id) {
+        this.showToast('Opening ' + doc.title + '...');
+        window.location.href = `/${doc.doc_type}/${doc.id}`;
+      }
+      this.activeModal = null;
     } else if (this.activeModal === 'import') {
-      this.showToast('File imported successfully!');
+      if (this.selectedImportFile) {
+        this.showToast(`Importing ${this.selectedImportFile.name}...`);
+        this.api.importFile(this.selectedImportFile, this.docId).subscribe({
+          next: (doc: any) => {
+            this.showToast(`${this.selectedImportFile!.name} imported successfully!`);
+            this.selectedImportFile = null;
+            this.activeModal = null;
+            // Reload the current page to fetch the newly imported data
+            window.location.reload();
+          },
+          error: () => this.showToast('Failed to import file.')
+        });
+      } else {
+        this.showToast('Please select a file first.');
+      }
     } else if (this.activeModal === 'password') {
       this.showToast('Password protection enabled!');
     } else if (this.activeModal === 'move') {
@@ -7816,15 +8540,40 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   performShare() {
-    if (!this.shareQuery) return;
-    this.api.shareDocument(this.docId, this.shareQuery, this.shareRole.toLowerCase()).subscribe({
-      next: () => {
-        this.showToast(`Shared with ${this.shareQuery} as ${this.shareRole}`);
-        this.shareQuery = '';
-        this.shareModalOpen = false;
-      },
-      error: () => this.showToast('Failed to share: User not found.')
+    const queryEmails = this.shareQuery ? this.shareQuery.split(/[,;\s]+/).map(e => e.trim()).filter(e => e.length > 0) : [];
+    const allEmails = Array.from(new Set([...this.selectedShareEmails, ...queryEmails]));
+    
+    if (allEmails.length === 0) return;
+
+    let successCount = 0;
+    let failCount = 0;
+    const total = allEmails.length;
+
+    allEmails.forEach(email => {
+      this.api.shareDocument(this.docId, email, this.shareRole.toLowerCase()).subscribe({
+        next: () => {
+          successCount++;
+          if (successCount + failCount === total) this.finishShare(successCount, failCount, total);
+        },
+        error: () => {
+          failCount++;
+          if (successCount + failCount === total) this.finishShare(successCount, failCount, total);
+        }
+      });
     });
+  }
+
+  finishShare(success: number, fail: number, total: number) {
+    if (success === total) {
+      this.showToast(`Shared successfully with ${success} user(s).`);
+      this.shareQuery = '';
+      this.selectedShareEmails = [];
+      this.shareModalOpen = false;
+    } else if (success > 0) {
+      this.showToast(`Shared with ${success} user(s). Failed for ${fail} user(s).`);
+    } else {
+      this.showToast(`Failed to share: User(s) not found.`);
+    }
   }
 
   triggerCopy() {
@@ -8060,7 +8809,12 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   back() { this.save(); this.router.navigate(['/']); }
-  ngOnDestroy() { this.syncSub?.unsubscribe(); this.api.disconnectSync(); }
+  ngOnDestroy() {
+    this.syncSub?.unsubscribe();
+    this.api.disconnectSync();
+    if (this.saveSubscription) this.saveSubscription.unsubscribe();
+    if (this.hasPendingChanges) this.executeSave();
+  }
 }
 
 

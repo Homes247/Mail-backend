@@ -1,6 +1,7 @@
-import jwt
+from jose import jwt, JWTError
 import os
 import logging
+import time as _time
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,10 @@ from pydantic import BaseModel, EmailStr
 from app.database import get_db
 from app.models.user import User
 from app.models.user_credential import UserCredential
+
+# ── In-memory user cache (avoids ~90ms DB round-trip per request) ──
+_USER_CACHE: dict[int, tuple[float, dict]] = {}   # uid -> (expiry_ts, user_dict)
+_CACHE_TTL = 60  # seconds
 
 try:
     import bcrypt
@@ -150,21 +155,28 @@ async def get_current_user(
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(401, "Invalid token")
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(401, "Token expired")
-    except jwt.PyJWTError:
-        raise HTTPException(401, "Invalid token")
+    except JWTError:
+        raise HTTPException(401, "Invalid or expired token")
 
     try:
         uid = int(user_id)
     except ValueError:
         raise HTTPException(401, "Invalid token format")
 
+    # Check in-memory cache first (saves ~90ms remote DB call)
+    now = _time.time()
+    cached = _USER_CACHE.get(uid)
+    if cached and cached[0] > now:
+        return cached[1]
+
     user = await db.get(User, uid)
     if not user:
         raise HTTPException(401, "User not found")
     if not user.is_active:
         raise HTTPException(403, "Account inactive")
+
+    # Cache the user object for subsequent requests
+    _USER_CACHE[uid] = (now + _CACHE_TTL, user)
     return user
 
 

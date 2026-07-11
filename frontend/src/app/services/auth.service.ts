@@ -21,8 +21,8 @@ export class AuthService {
     const cookieToken = this.getCookie('auth_token');
     const cookieUser = this.getCookie('auth_user');
 
-    if (cookieToken) localStorage.setItem('auth_token', cookieToken);
-    if (cookieUser) localStorage.setItem('auth_user', cookieUser);
+    if (cookieToken && !localStorage.getItem('auth_token')) localStorage.setItem('auth_token', cookieToken);
+    if (cookieUser && !localStorage.getItem('auth_user')) localStorage.setItem('auth_user', cookieUser);
 
     const storedToken = localStorage.getItem('auth_token');
     const storedUser = localStorage.getItem('auth_user');
@@ -30,15 +30,17 @@ export class AuthService {
     if (storedToken) {
       if (storedUser) {
         try {
-          const parsed = JSON.parse(decodeURIComponent(storedUser));
+          // storedUser from localStorage is plain JSON; from cookie it may be URI-encoded
+          const decoded = storedUser.startsWith('%') ? decodeURIComponent(storedUser) : storedUser;
+          const parsed = JSON.parse(decoded);
           if (parsed && parsed.id != null) {
             parsed.id = String(parsed.id);
             this._user = parsed;
-            this._ready$.next(true);
+            this._ready$.next(true);  // fires synchronously — dashboard loads immediately
           }
         } catch { }
       }
-      // Always fetch fresh user data to ensure consistency
+      // Fetch fresh in background — does NOT block the dashboard load
       this.fetchMe();
     } else {
       this._ready$.next(true);
@@ -55,14 +57,19 @@ export class AuthService {
         const userStr = JSON.stringify(user);
         localStorage.setItem('auth_user', userStr);
         this.setCookie('auth_user', encodeURIComponent(userStr));
-        this._ready$.next(true);
+        // Only emit ready if not already emitted (i.e. storedUser parse failed earlier)
+        if (!this._ready$.value) this._ready$.next(true);
       },
-      error: () => this.logout()
+      error: (err) => {
+        if (err.status === 401) {
+          this.logout();
+        }
+      }
     });
   }
 
   get token(): string | null { 
-    return this.getCookie('auth_token') || localStorage.getItem('auth_token'); 
+    return localStorage.getItem('auth_token'); 
   }
   
   get user(): AuthUser | null { return this._user; }
@@ -94,13 +101,20 @@ export class AuthService {
     if (res.user && res.user.id != null) {
       res.user.id = String(res.user.id);
     }
+    const token = res.token || res.access_token;
     const userStr = JSON.stringify(res.user);
-    localStorage.setItem('auth_token', res.token);
-    localStorage.setItem('auth_user', userStr);
     
-    this.setCookie('auth_token', res.token);
-    this.setCookie('auth_user', encodeURIComponent(userStr));
-    this._user = res.user;
+    if (token) {
+      localStorage.setItem('auth_token', token);
+      this.setCookie('auth_token', token);
+    }
+    
+    if (res.user) {
+      localStorage.setItem('auth_user', userStr);
+      this.setCookie('auth_user', encodeURIComponent(userStr));
+      this._user = res.user;
+    }
+    
     this._ready$.next(true);
   }
 
@@ -117,7 +131,7 @@ export class AuthService {
     if (hostname.includes('vsnaptechnology.com')) {
       domainStr = '; domain=.vsnaptechnology.com';
     }
-    document.cookie = `${name}=${value}; path=/${domainStr}; max-age=2592000`; // 30 days
+    document.cookie = `${name}=${value}; path=/${domainStr}; max-age=2592000; SameSite=None; Secure`; // 30 days
   }
 
   private deleteCookie(name: string) {
@@ -126,6 +140,6 @@ export class AuthService {
     if (hostname.includes('vsnaptechnology.com')) {
       domainStr = '; domain=.vsnaptechnology.com';
     }
-    document.cookie = `${name}=; path=/${domainStr}; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+    document.cookie = `${name}=; path=/${domainStr}; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure`;
   }
 }

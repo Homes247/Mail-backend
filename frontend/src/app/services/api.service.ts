@@ -4,13 +4,17 @@ import { Observable, Subject } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface SyncMessage {
-  type: 'update' | 'presence' | 'cursor' | 'cursor_remove';
+  type: 'update' | 'presence' | 'cursor' | 'cursor_remove' | 'cell_update';
   content?: string;
   title?: string;
   users?: number;
   client_id?: string;
   r?: number;
   c?: number;
+  sheetIdx?: number;
+  value?: any;
+  formatting?: any;
+  seq?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -24,11 +28,20 @@ export class ApiService implements OnDestroy {
   constructor(private http: HttpClient) { }
 
   createDocument(title: string, doc_type: string): Observable<any> {
-    return this.http.post(`${this.base}/documents/`, { title, doc_type });
+    return this.http.post(`${this.base}/documents`, { title, doc_type });
+  }
+
+  importFile(file: File, replaceDocId?: string): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (replaceDocId) {
+      formData.append('replace_doc_id', replaceDocId);
+    }
+    return this.http.post(`${this.base}/documents/import`, formData);
   }
 
   listDocuments(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/documents/`);
+    return this.http.get<any[]>(`${this.base}/documents`);
   }
 
   getDocument(id: string): Observable<any> {
@@ -108,6 +121,11 @@ export class ApiService implements OnDestroy {
   sendUpdate(content: string, title: string): void {
     if (this.socket?.readyState === WebSocket.OPEN)
       this.socket.send(JSON.stringify({ type: 'update', content, title }));
+  }
+
+  sendCellUpdate(sheetIdx: number, r: number, c: number, value: any, formatting?: any): void {
+    if (this.socket?.readyState === WebSocket.OPEN)
+      this.socket.send(JSON.stringify({ type: 'cell_update', sheetIdx, r, c, value, formatting }));
   }
 
   sendCursor(r: number, c: number): void {

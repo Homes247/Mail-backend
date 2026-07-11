@@ -59,32 +59,67 @@ async def get_conversations(db: AsyncSession = Depends(get_db), current_user: Us
         convs = result.scalars().all()
         
         response = []
+        if not convs:
+            return response
+
+        # Collect IDs for batched queries
+        other_user_ids = []
+        conv_ids = []
+        for conv in convs:
+            conv_ids.append(conv.id)
+            other_user_ids.append(conv.user2_id if conv.user1_id == current_user.id else conv.user1_id)
+
+        # Batch fetch users
+        res_users = await db.execute(select(User).where(User.id.in_(other_user_ids)))
+        users_dict = {u.id: u for u in res_users.scalars().all()}
+
+        # Batch fetch unread counts
+        # select conv_id, count(*) from messages where conv_id in (...) and sender_id != me and is_read = 0 group by conv_id
+        res_unread = await db.execute(
+            select(ChatMessage.conversation_id, func.count(ChatMessage.id))
+            .where(
+                ChatMessage.conversation_id.in_(conv_ids),
+                ChatMessage.sender_id != current_user.id,
+                ChatMessage.is_read == 0
+            )
+            .group_by(ChatMessage.conversation_id)
+        )
+        unread_dict = {row[0]: row[1] for row in res_unread.all()}
+
+        # Batch fetch last messages (using a subquery or by just fetching latest per conv)
+        # For simplicity and DB compatibility, we fetch the latest message per conversation
+        # MySQL/MariaDB: select m.* from messages m inner join (select conversation_id, max(created_at) as max_c from messages group by conversation_id) grouped on m.conversation_id = grouped.conversation_id and m.created_at = grouped.max_c
+        subq = (
+            select(
+                ChatMessage.conversation_id,
+                func.max(ChatMessage.created_at).label('max_time')
+            )
+            .where(ChatMessage.conversation_id.in_(conv_ids))
+            .group_by(ChatMessage.conversation_id)
+            .subquery()
+        )
+        res_msgs = await db.execute(
+            select(ChatMessage)
+            .join(subq, and_(
+                ChatMessage.conversation_id == subq.c.conversation_id,
+                ChatMessage.created_at == subq.c.max_time
+            ))
+        )
+        # If multiple messages have exact same max_time, we might get duplicates, so we map by ID
+        last_msgs_dict = {}
+        for m in res_msgs.scalars().all():
+            last_msgs_dict[m.conversation_id] = m
+
         for conv in convs:
             other_id = conv.user2_id if conv.user1_id == current_user.id else conv.user1_id
-            
-            # Fetch other user
-            res_user = await db.execute(select(User).where(User.id == other_id))
-            other = res_user.scalar_one_or_none()
+            other = users_dict.get(other_id)
             if not other: continue
-            
-            # Fetch last msg
-            res_msg = await db.execute(
-                select(ChatMessage).where(ChatMessage.conversation_id == conv.id).order_by(ChatMessage.created_at.desc()).limit(1)
-            )
-            last_msg = res_msg.scalar_one_or_none()
-            
+
+            last_msg = last_msgs_dict.get(conv.id)
             if not last_msg: continue
-            
-            # Unread
-            res_unread = await db.execute(
-                select(func.count(ChatMessage.id)).where(
-                    ChatMessage.conversation_id == conv.id,
-                    ChatMessage.sender_id != current_user.id,
-                    ChatMessage.is_read == 0
-                )
-            )
-            unread = res_unread.scalar() or 0
-            
+
+            unread = unread_dict.get(conv.id, 0)
+
             response.append({
                 "conversation_id": conv.id,
                 "other_user": {
@@ -99,6 +134,7 @@ async def get_conversations(db: AsyncSession = Depends(get_db), current_user: Us
                 "unread": unread,
                 "updated_at": to_utc_iso(conv.updated_at) if conv.updated_at else to_utc_iso(conv.created_at)
             })
+
         return response
     except Exception as e:
         traceback.print_exc()

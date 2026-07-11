@@ -21,11 +21,11 @@ DATABASE_URL = (
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    pool_size=20,
-    max_overflow=80,
+    pool_size=10,
+    max_overflow=20,
     pool_recycle=300,
-    pool_timeout=15,
-    pool_pre_ping=True,
+    pool_timeout=10,
+    pool_pre_ping=False,   # pre_ping adds ~90ms per request on remote DB; pool_recycle handles stale conns
     connect_args={
         "connect_timeout": 10
     }

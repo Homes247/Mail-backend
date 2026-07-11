@@ -17,4 +17,4 @@ echo WebSocket live sync at ws://192.168.0.187:8000/ws/
 echo Press Ctrl+C to stop.
 echo.
 
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
