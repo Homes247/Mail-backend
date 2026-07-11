@@ -1,2 +1,15 @@
+<<<<<<< HEAD
 
 
+=======
+.env
+*.log
+/logs/
+/cache/
+/uploads/
+/vendor/
+/node_modules/
+.well-known/
+.user.ini
+.DS_Store
+>>>>>>> e3b001bbbb192c6e5ee5559346950d0bb03d7199
