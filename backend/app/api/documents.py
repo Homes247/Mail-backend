@@ -1,6 +1,7 @@
 import json
 import uuid
 from typing import Optional
+import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -68,7 +69,9 @@ async def create_document(
     await db.refresh(doc)
     
     try:
-        storage_res = DocumentStorage.save(doc.owner_id, doc.id, content_val, doc_type=doc.doc_type)
+        storage_res = await asyncio.to_thread(
+            DocumentStorage.save, doc.owner_id, doc.id, content_val, doc_type=doc.doc_type
+        )
         doc.file_path = storage_res["relative_path"]
         doc.file_size = storage_res["size"]
         doc.content_version = 1
@@ -371,7 +374,9 @@ async def import_document(
     await db.refresh(doc)
 
     try:
-        storage_res = DocumentStorage.save(doc.owner_id, doc.id, content_json, doc_type=doc.doc_type)
+        storage_res = await asyncio.to_thread(
+            DocumentStorage.save, doc.owner_id, doc.id, content_json, doc_type=doc.doc_type
+        )
         doc.file_path = storage_res["relative_path"]
         doc.file_size = storage_res["size"]
         doc.content_version = 1
@@ -450,7 +455,8 @@ async def get_document(
     content = "{}"
     if doc.file_path:
         try:
-            content = DocumentStorage.load(
+            content = await asyncio.to_thread(
+                DocumentStorage.load,
                 doc.owner_id, doc.id,
                 doc_type=doc.doc_type,
                 file_path=doc.file_path,
@@ -489,7 +495,9 @@ async def update_document(
         doc.title = body.title
     if body.content is not None:
         try:
-            storage_res = DocumentStorage.save(doc.owner_id, doc.id, body.content, doc_type=doc.doc_type)
+            storage_res = await asyncio.to_thread(
+                DocumentStorage.save, doc.owner_id, doc.id, body.content, doc_type=doc.doc_type
+            )
             doc.file_path = storage_res["relative_path"]
             doc.file_size = storage_res["size"]
             doc.content_version = (doc.content_version or 1) + 1
@@ -517,7 +525,8 @@ async def delete_document(
     
     if doc.is_trashed:
         try:
-            DocumentStorage.delete(
+            await asyncio.to_thread(
+                DocumentStorage.delete,
                 doc.owner_id, doc.id,
                 doc_type=doc.doc_type,
                 file_path=doc.file_path,

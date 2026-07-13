@@ -1,5 +1,6 @@
 import traceback
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_, func
 from pydantic import BaseModel
@@ -27,9 +28,13 @@ def to_utc_iso(dt) -> str:
 
 router = APIRouter(tags=["chat"])
 
+from typing import Optional
+
 class SendMessageRequest(BaseModel):
     to_user_id: int
     message: str
+    is_file: bool = False
+    file_path: Optional[str] = None
 
 async def get_or_create_conversation(db: AsyncSession, user1_id: int, user2_id: int) -> ChatConversation:
     uid1, uid2 = min(user1_id, user2_id), max(user1_id, user2_id)
@@ -212,7 +217,13 @@ async def send_message(data: SendMessageRequest, db: AsyncSession = Depends(get_
         if not other: raise HTTPException(404, "User not found")
         
         conv = await get_or_create_conversation(db, current_user.id, data.to_user_id)
-        msg = ChatMessage(conversation_id=conv.id, sender_id=current_user.id, message=data.message)
+        msg = ChatMessage(
+            conversation_id=conv.id, 
+            sender_id=current_user.id, 
+            message=data.message,
+            is_file=data.is_file,
+            file_path=data.file_path
+        )
         db.add(msg)
         conv.updated_at = now_ist()
         await db.commit()
@@ -225,11 +236,149 @@ async def send_message(data: SendMessageRequest, db: AsyncSession = Depends(get_
             "sender_avatar_color": getattr(current_user, 'avatar_color', '#4f46e5') or '#4f46e5',
             "message": msg.message,
             "is_mine": True,
+            "is_file": msg.is_file,
+            "file_path": msg.file_path,
             "created_at": to_utc_iso(msg.created_at)
         }
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+class EditMessageRequest(BaseModel):
+    message: str
+
+@router.put("/messages/{message_id}")
+async def edit_message(message_id: int, data: EditMessageRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try:
+        res = await db.execute(select(ChatMessage).where(ChatMessage.id == message_id, ChatMessage.sender_id == current_user.id))
+        msg = res.scalar_one_or_none()
+        if not msg: raise HTTPException(404, "Message not found or unauthorized")
+        msg.message = data.message
+        msg.is_edited = 1
+        await db.commit()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ReactMessageRequest(BaseModel):
+    emoji: str
+
+@router.put("/messages/{message_id}/react")
+async def react_message(message_id: int, data: ReactMessageRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try:
+        res = await db.execute(select(ChatMessage).where(ChatMessage.id == message_id))
+        msg = res.scalar_one_or_none()
+        if not msg: raise HTTPException(404, "Message not found")
+        
+        import json
+        reactions = {}
+        if msg.reactions:
+            try:
+                reactions = json.loads(msg.reactions)
+            except: pass
+            
+        uid = str(current_user.id)
+        # If emoji is empty or same, toggle it off
+        if uid in reactions and reactions[uid] == data.emoji:
+            del reactions[uid]
+        elif data.emoji:
+            reactions[uid] = data.emoji
+            
+        msg.reactions = json.dumps(reactions)
+        await db.commit()
+        return {"success": True, "reactions": msg.reactions}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/messages/{message_id}")
+async def delete_chat_message(message_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try:
+        res = await db.execute(select(ChatMessage).where(ChatMessage.id == message_id, ChatMessage.sender_id == current_user.id))
+        msg = res.scalar_one_or_none()
+        if not msg: raise HTTPException(404, "Message not found or unauthorized")
+        await db.delete(msg)
+        await db.commit()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+from fastapi import Request
+import boto3
+import os
+import uuid
+import asyncio
+from app.lib.document_storage import R2_ENDPOINT_URL, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, _s3_client
+
+@router.post("/upload-stream")
+async def upload_stream_chat(
+    request: Request,
+    to_user_id: int,
+    filename: str,
+    mime_type: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        body_bytes = await request.body()
+        key = f"chat/{current_user.id}/{uuid.uuid4()}_{filename}"
+        
+        def upload():
+            _s3_client.put_object(
+                Bucket=R2_BUCKET_NAME,
+                Key=key,
+                Body=body_bytes,
+                ContentType=mime_type or "application/octet-stream",
+            )
+        await asyncio.to_thread(upload)
+        
+        # Save to DB
+        conv = await get_or_create_conversation(db, current_user.id, to_user_id)
+        # R2 public url might be needed, or we just save the key if we have a proxy, but Vmail uses direct R2 public url?
+        # Let's save the key, but in msg.file_path we might need full URL if frontend doesn't prefix it.
+        # Looking at frontend, it uses msg.file_path directly in href, so we should save full URL.
+        # Actually R2_ENDPOINT_URL is https://fa7777c8717deb771ad51677f4451593.r2.cloudflarestorage.com
+        # VMail uses a custom domain or we can just use the bucket URL. 
+        # For this test, let's just use the R2_ENDPOINT_URL/bucket/key
+        file_url = f"{R2_ENDPOINT_URL}/{R2_BUCKET_NAME}/{key}"
+        # Wait, R2_ENDPOINT_URL is private. If it's a private bucket, we need presigned URLs. 
+        # But if Vmail frontend just uses the URL directly, it must be public.
+        # Let's use https://pub-your-bucket.com if there's a public URL in env.
+        # There is no public URL in .env. We will use the endpoint URL.
+        
+        msg = ChatMessage(
+            conversation_id=conv.id, 
+            sender_id=current_user.id, 
+            message=filename,
+            is_file=1,
+            file_path=file_url
+        )
+        db.add(msg)
+        conv.updated_at = now_ist()
+        await db.commit()
+        await db.refresh(msg)
+        
+        return {
+            "id": msg.id,
+            "sender_id": msg.sender_id,
+            "sender_name": current_user.name,
+            "sender_avatar_color": getattr(current_user, 'avatar_color', '#4f46e5') or '#4f46e5',
+            "message": msg.message,
+            "is_mine": True,
+            "is_file": True,
+            "file_path": msg.file_path,
+            "created_at": to_utc_iso(msg.created_at)
+        }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/channels")
 async def get_channels(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -283,6 +432,8 @@ async def get_channel_messages(channel_id: int, db: AsyncSession = Depends(get_d
 
 class SendChannelMessageRequest(BaseModel):
     message: str
+    is_file: bool = False
+    file_path: Optional[str] = None
 
 @router.post("/channels/{channel_id}/send")
 async def send_channel_message(channel_id: int, data: SendChannelMessageRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -290,7 +441,13 @@ async def send_channel_message(channel_id: int, data: SendChannelMessageRequest,
     channel = res_chan.scalar_one_or_none()
     if not channel: raise HTTPException(404, "Channel not found")
     
-    msg = ChannelMessage(channel_id=channel_id, sender_id=current_user.id, message=data.message)
+    msg = ChannelMessage(
+        channel_id=channel_id, 
+        sender_id=current_user.id, 
+        message=data.message,
+        is_file=data.is_file,
+        file_path=data.file_path
+    )
     db.add(msg)
     await db.commit()
     await db.refresh(msg)
@@ -301,8 +458,147 @@ async def send_channel_message(channel_id: int, data: SendChannelMessageRequest,
         "sender_name": current_user.name,
         "message": msg.message,
         "is_mine": True,
+        "is_file": msg.is_file,
+        "file_path": msg.file_path,
         "created_at": to_utc_iso(msg.created_at)
     }
+
+@router.put("/channels/{channel_id}/messages/{message_id}")
+async def edit_channel_message(channel_id: int, message_id: int, data: EditMessageRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try:
+        res = await db.execute(select(ChannelMessage).where(ChannelMessage.id == message_id, ChannelMessage.sender_id == current_user.id, ChannelMessage.channel_id == channel_id))
+        msg = res.scalar_one_or_none()
+        if not msg: raise HTTPException(404, "Message not found or unauthorized")
+        msg.message = data.message
+        msg.is_edited = 1
+        await db.commit()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/channels/{channel_id}/messages/{message_id}/react")
+async def react_channel_message(channel_id: int, message_id: int, data: ReactMessageRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try:
+        res = await db.execute(select(ChannelMessage).where(ChannelMessage.id == message_id, ChannelMessage.channel_id == channel_id))
+        msg = res.scalar_one_or_none()
+        if not msg: raise HTTPException(404, "Message not found")
+        
+        import json
+        reactions = {}
+        if msg.reactions:
+            try:
+                reactions = json.loads(msg.reactions)
+            except: pass
+            
+        uid = str(current_user.id)
+        if uid in reactions and reactions[uid] == data.emoji:
+            del reactions[uid]
+        elif data.emoji:
+            reactions[uid] = data.emoji
+            
+        msg.reactions = json.dumps(reactions)
+        await db.commit()
+        return {"success": True, "reactions": msg.reactions}
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/channels/{channel_id}/messages/{message_id}")
+async def delete_channel_message(channel_id: int, message_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try:
+        res = await db.execute(select(ChannelMessage).where(ChannelMessage.id == message_id, ChannelMessage.sender_id == current_user.id, ChannelMessage.channel_id == channel_id))
+        msg = res.scalar_one_or_none()
+        if not msg: raise HTTPException(404, "Message not found or unauthorized")
+        await db.delete(msg)
+        await db.commit()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/channels/{channel_id}/upload-stream")
+async def upload_stream_channel(
+    channel_id: int,
+    request: Request,
+    filename: str,
+    mime_type: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        body_bytes = await request.body()
+        key = f"channels/{channel_id}/{uuid.uuid4()}_{filename}"
+        
+        def upload():
+            _s3_client.put_object(
+                Bucket=R2_BUCKET_NAME,
+                Key=key,
+                Body=body_bytes,
+                ContentType=mime_type or "application/octet-stream",
+            )
+        await asyncio.to_thread(upload)
+        
+        file_url = f"{R2_ENDPOINT_URL}/{R2_BUCKET_NAME}/{key}"
+        
+        msg = ChannelMessage(
+            channel_id=channel_id, 
+            sender_id=current_user.id, 
+            message=filename,
+            is_file=1,
+            file_path=file_url
+        )
+        db.add(msg)
+        await db.commit()
+        await db.refresh(msg)
+        
+        return {
+            "id": msg.id,
+            "sender_id": msg.sender_id,
+            "sender_name": current_user.name,
+            "sender_avatar_color": getattr(current_user, 'avatar_color', '#4f46e5') or '#4f46e5',
+            "sender_avatar_url": getattr(current_user, 'avatar_url', None),
+            "message": msg.message,
+            "is_mine": True,
+            "is_file": True,
+            "file_path": msg.file_path,
+            "created_at": to_utc_iso(msg.created_at)
+        }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/download")
+async def download_file(path: str, filename: str = None, db: AsyncSession = Depends(get_db)):
+    try:
+        key = path
+        prefix = f"{R2_ENDPOINT_URL}/{R2_BUCKET_NAME}/"
+        if path.startswith(prefix):
+            key = path[len(prefix):]
+        elif path.startswith("http"):
+            return RedirectResponse(url=path)
+            
+        # Legacy chat files were saved as 'user_...' in DB but stored as 'chat/user_...' in R2
+        if key.startswith("user_"):
+            key = f"chat/{key}"
+        
+        params = {'Bucket': R2_BUCKET_NAME, 'Key': key}
+        if filename:
+            params['ResponseContentDisposition'] = f'attachment; filename="{filename}"'
+            
+        presigned_url = _s3_client.generate_presigned_url(
+            'get_object',
+            Params=params,
+            ExpiresIn=3600
+        )
+        return RedirectResponse(url=presigned_url)
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/contacts")
 async def get_contacts(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):

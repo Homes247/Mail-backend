@@ -1981,10 +1981,6 @@ import { AuthService } from '../../services/auth.service';
             <span class="material-symbols-outlined" style="font-size:16px;">group</span>
             <span>Channels</span>
          </div>
-          <div class="status-item" (click)="toggleWidget('contacts')">
-            <span class="material-symbols-outlined" style="font-size:16px;">person</span>
-            <span>Contacts</span>
-          </div>
           <span class="status-divider"></span>
           <div class="status-info">Words: {{ wordCount }}</div>
           <div class="status-info">Chars: {{ charCount }}</div>

@@ -74,6 +74,10 @@ export class ApiService implements OnDestroy {
     return this.http.get<any[]>(`${this.base}/auth/search-users?q=${encodeURIComponent(query)}`);
   }
 
+  getAllUsers(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/users`);
+  }
+
   // CHAT ENDPOINTS
   getChatConversations(): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/chat/conversations`);
@@ -83,8 +87,16 @@ export class ApiService implements OnDestroy {
     return this.http.get<any>(`${this.base}/chat/messages/${userId}`);
   }
 
-  sendChatMessage(toUserId: number, message: string): Observable<any> {
-    return this.http.post<any>(`${this.base}/chat/send`, { to_user_id: toUserId, message });
+  sendChatMessage(toUserId: number, message: string, is_file: boolean = false, file_path: string | null = null): Observable<any> {
+    return this.http.post<any>(`${this.base}/chat/send`, { to_user_id: toUserId, message, is_file, file_path });
+  }
+
+  deleteChatMessage(messageId: number): Observable<any> {
+    return this.http.delete<any>(`${this.base}/chat/messages/${messageId}`);
+  }
+
+  reactToChatMessage(messageId: number, emoji: string): Observable<any> {
+    return this.http.put<any>(`${this.base}/chat/messages/${messageId}/react`, { emoji });
   }
 
   getChatChannels(): Observable<any[]> {
@@ -95,8 +107,16 @@ export class ApiService implements OnDestroy {
     return this.http.get<any>(`${this.base}/chat/channels/${channelId}/messages`);
   }
 
-  sendChannelMessage(channelId: number, message: string): Observable<any> {
-    return this.http.post<any>(`${this.base}/chat/channels/${channelId}/send`, { message });
+  sendChannelMessage(channelId: number, message: string, is_file: boolean = false, file_path: string | null = null): Observable<any> {
+    return this.http.post<any>(`${this.base}/chat/channels/${channelId}/send`, { message, is_file, file_path });
+  }
+
+  deleteChannelMessage(channelId: number, messageId: number): Observable<any> {
+    return this.http.delete<any>(`${this.base}/chat/channels/${channelId}/messages/${messageId}`);
+  }
+
+  reactToChannelMessage(channelId: number, messageId: number, emoji: string): Observable<any> {
+    return this.http.put<any>(`${this.base}/chat/channels/${channelId}/messages/${messageId}/react`, { emoji });
   }
 
   getChatContacts(): Observable<any[]> {

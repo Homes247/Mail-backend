@@ -1047,10 +1047,21 @@ export interface CellValidation {
               </div>
               <div class="mdi" (click)="setNumFormat('scientific')">Scientific <span class="mh">Ctrl+Shift+6</span></div>
               <div class="mdi" (click)="setNumFormat('text')">Text</div>
-              <div class="mdi disabled">Regional</div>
-              <div class="mdi disabled">Custom</div>
+              <div class="mdi has-sub">Regional <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+                <div class="mdi-sub sub-left" style="top: -50px; height: 250px; overflow-y: auto;">
+                  <div class="mdi" (click)="setNumFormat('regional_us')">United States (en-US)</div>
+                  <div class="mdi" (click)="setNumFormat('regional_uk')">United Kingdom (en-GB)</div>
+                  <div class="mdi" (click)="setNumFormat('regional_in')">India (en-IN)</div>
+                  <div class="mdi" (click)="setNumFormat('regional_de')">Germany (de-DE)</div>
+                  <div class="mdi" (click)="setNumFormat('regional_fr')">France (fr-FR)</div>
+                  <div class="mdi" (click)="setNumFormat('regional_it')">Italy (it-IT)</div>
+                  <div class="mdi" (click)="setNumFormat('regional_jp')">Japan (ja-JP)</div>
+                  <div class="mdi" (click)="setNumFormat('regional_cn')">China (zh-CN)</div>
+                </div>
+              </div>
+              <div class="mdi" (click)="openCustomFormatModal()">Custom</div>
               <div class="mds"></div>
-              <div class="mdi">More Formats...</div>
+              <div class="mdi" (click)="openMoreFormatsModal()">More Formats...</div>
             </div>
           </div>
           <button class="tb nf" (click)="setNumFormat('currency')" [class.tb-on]="getFormat('numFormat')==='currency'" title="Currency">$</button>
@@ -2059,6 +2070,7 @@ export interface CellValidation {
         <div class="ctx-item" (click)="cutCell(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_cut</span> Cut <span class="ctx-hint">Ctrl+X</span></div>
         <div class="ctx-item" (click)="copyCell(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_copy</span> Copy <span class="ctx-hint">Ctrl+C</span></div>
         <div class="ctx-item" (click)="pasteCell(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_paste</span> Paste <span class="ctx-hint">Ctrl+V</span></div>
+        <div class="ctx-item" (click)="openCellEditHistory(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px; color: #10b981;">history</span> Edit History...</div>
         <div class="ctx-sep"></div>
         <div class="ctx-item" (click)="openValidationModal(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">arrow_drop_down_circle</span> Set dropdown list...</div>
         <div class="ctx-item danger" (click)="removeValidation(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">close</span> Remove dropdown</div>
@@ -3018,7 +3030,65 @@ export interface CellValidation {
         </div>
       </div>
 
+      <!-- Edit History Sidebar -->
+      <div *ngIf="showEditHistoryPanel" class="edit-history-panel" style="position: absolute; right: 20px; top: 120px; width: 340px; background: #fff; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 1000; display: flex; flex-direction: column; border: 1px solid #e2e8f0; color: #333;">
+        <div class="eh-header" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #eee; background: #f8f9fa; border-radius: 8px 8px 0 0;">
+          <span style="font-weight: bold; font-size: 15px; color: #333;">Edit History</span>
+          <span class="material-symbols-outlined" style="cursor: pointer; font-size: 18px; color: #5f6368;" (click)="showEditHistoryPanel = false">close</span>
+        </div>
+        <div class="eh-body" style="padding: 16px; max-height: 400px; overflow-y: auto;">
+           <div style="font-size: 13px; color: #5f6368; margin-bottom: 16px;">Source: '{{sheets[currentSheetIdx].name || "Sheet1"}}'.{{colLabel(editHistoryCell?.c)}}{{editHistoryCell?.r + 1}}</div>
+           
+           <div *ngIf="!editHistoryData || editHistoryData.length === 0" style="color: #999; font-size: 13px; text-align: center; padding: 20px 0;">No edit history found.</div>
+
+           <div *ngFor="let edit of editHistoryData" class="eh-entry" style="display: flex; gap: 12px; margin-bottom: 16px; background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #eee;">
+              <div class="eh-icon" style="width: 32px; height: 32px; border-radius: 50%; background: #e21b5a; color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                  <span class="material-symbols-outlined" style="font-size: 20px;">person</span>
+              </div>
+              <div class="eh-info" style="flex: 1; word-break: break-word;">
+                 <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <div class="eh-user" style="font-weight: 600; font-size: 14px; color: #333;">{{edit.user}}</div>
+                    <div class="eh-action" style="font-size: 11px; font-weight: bold; text-transform: uppercase;" [style.color]="edit.action === 'ADDED' ? '#2e8b57' : (edit.action === 'EDITED' ? '#1a73e8' : '#d32f2f')">{{edit.action}}</div>
+                 </div>
+                 <div class="eh-time" style="font-size: 12px; color: #666; margin-bottom: 6px;">{{edit.time | date:'medium'}}</div>
+                 <div class="eh-value" *ngIf="edit.value !== undefined && edit.value !== null && edit.value !== ''" style="background: #fff; border: 1px solid #e2e8f0; padding: 4px 8px; border-radius: 4px; font-size: 13px; color: #333;">
+                     <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle; color: #2e8b57;">check_circle</span> <span style="margin-left: 4px;">{{edit.value}}</span>
+                 </div>
+              </div>
+           </div>
+        </div>
+      </div>
+
       <!-- Spreadsheet Statistics Modal -->
+      <div class="modal-overlay" *ngIf="showCustomFormatModal" (click)="showCustomFormatModal=false" style="z-index: 10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width: 400px; padding: 20px; background: #fff; color: #333; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); border: 1px solid #e2e8f0;">
+          <h3 style="margin-top: 0; color: #333;">Custom Number Format</h3>
+          <p style="font-size: 13px; color: #666;">Enter a custom format string (e.g. <code>$#,##0.00</code>, <code>0.00%</code>, <code>&#64;</code>)</p>
+          <input type="text" [(ngModel)]="customFormatString" style="width: 100%; padding: 8px; box-sizing: border-box; margin-bottom: 15px; font-family: monospace; border: 1px solid #ccc; border-radius: 4px; color: #333; background: #fff;">
+          <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button (click)="showCustomFormatModal=false" style="padding: 6px 12px; border: 1px solid #ccc; background: #f8f9fa; color: #333; cursor: pointer; border-radius: 4px;">Cancel</button>
+            <button (click)="applyCustomFormat()" style="padding: 6px 12px; border: none; background: #1a73e8; color: #fff; cursor: pointer; border-radius: 4px;">Apply</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay" *ngIf="showMoreFormatsModal" (click)="showMoreFormatsModal=false" style="z-index: 10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width: 400px; max-height: 80vh; overflow-y: auto; padding: 20px; background: #fff; color: #333; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); border: 1px solid #e2e8f0;">
+          <h3 style="margin-top: 0; color: #333;">More Formats</h3>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
+            <div class="mf-item" (click)="setNumFormat('number'); showMoreFormatsModal=false">Number (1,234.56)</div>
+            <div class="mf-item" (click)="setNumFormat('date_full'); showMoreFormatsModal=false">Full Date (Tuesday, August 5, 2030)</div>
+            <div class="mf-item" (click)="setNumFormat('date_iso'); showMoreFormatsModal=false">ISO Date (2030-08-05)</div>
+            <div class="mf-item" (click)="setNumFormat('accounting'); showMoreFormatsModal=false">Accounting ($ 1,234.56)</div>
+            <div class="mf-item" (click)="setNumFormat('financial'); showMoreFormatsModal=false">Financial ( (1,234.56) )</div>
+            <div class="mf-item" style="font-weight: bold; background: #f1f3f4;" (click)="openCustomFormatModal(); showMoreFormatsModal=false">Create Custom Format...</div>
+          </div>
+          <div style="display: flex; justify-content: flex-end;">
+            <button (click)="showMoreFormatsModal=false" style="padding: 6px 12px; border: 1px solid #ccc; background: #f8f9fa; color: #333; cursor: pointer; border-radius: 4px;">Close</button>
+          </div>
+        </div>
+      </div>
+
       <div class="modal-overlay" *ngIf="statsModalOpen" (click)="statsModalOpen=false" style="z-index:10000;">
         <div class="modal" (click)="$event.stopPropagation()" style="width:420px;background:#fff;color:#333;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.15);padding:24px;border:1px solid #e2e8f0;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -3066,10 +3136,6 @@ export interface CellValidation {
          <div class="bcb-item" (click)="toggleWidget('channels')">
             <span class="material-symbols-outlined" style="color:#5f6368;">group</span>
             <span>Channels</span>
-         </div>
-         <div class="bcb-item" (click)="toggleWidget('contacts')">
-            <span class="material-symbols-outlined" style="color:#5f6368;">person</span>
-            <span>Contacts</span>
          </div>
       </div>
 
@@ -3839,9 +3905,26 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   formatNumberValue(val: any, format: string): string {
-    // Check if it's a number
     const num = Number(val);
     const isNum = !isNaN(num) && String(val).trim() !== '';
+
+    if (format.startsWith('regional_')) {
+       if (!isNum) return val;
+       const locale = format.split('_')[1];
+       const locales: any = { us: 'en-US', uk: 'en-GB', in: 'en-IN', de: 'de-DE', fr: 'fr-FR', it: 'it-IT', jp: 'ja-JP', cn: 'zh-CN' };
+       return num.toLocaleString(locales[locale] || 'en-US', { maximumFractionDigits: 10 });
+    }
+
+    if (format.startsWith('custom_')) {
+      const fmtStr = format.substring(7);
+      return this.applyCustomFormatString(val, num, isNum, fmtStr);
+    }
+
+    if (format === 'date_full') return isNum ? new Date(Math.round((num - 25569) * 86400 * 1000)).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : val;
+    if (format === 'date_iso') return isNum ? new Date(Math.round((num - 25569) * 86400 * 1000)).toISOString().split('T')[0] : val;
+    if (format === 'financial') return isNum ? (num < 0 ? `(${Math.abs(num).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : val;
+
+    if (!format) return val;
 
     // Check if it's a date
     let date = null;
@@ -3877,28 +3960,29 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     // Fractions
     if (format.startsWith('fraction')) {
       if (!isNum) return val;
-      const whole = Math.floor(num);
-      const dec = num - whole;
-      if (dec === 0) return String(whole);
+      const sign = num < 0 ? '-' : '';
+      const absNum = Math.abs(num);
+      const whole = Math.floor(absNum);
+      const dec = absNum - whole;
+      if (dec === 0) return sign + whole;
 
       let denom = 10;
       if (format === 'fraction_1') denom = 9;
       if (format === 'fraction_2') denom = 99;
       if (format === 'fraction_3') denom = 999;
 
-      // Simple continued fraction approximation
-      let h1 = 1, h2 = 0, k1 = 0, k2 = 1, b = dec;
-      do {
-        const a = Math.floor(b);
-        let aux = h1; h1 = a * h1 + h2; h2 = aux;
-        aux = k1; k1 = a * k1 + k2; k2 = aux;
-        b = 1 / (b - a);
-      } while (Math.abs(dec - h1 / k1) > dec * 1.0E-6 && k1 <= denom);
-
-      if (k1 > denom) {
-        h1 = h2; k1 = k2;
+      let bestH = 0, bestK = 1, minErr = 1;
+      for (let k = 1; k <= denom; k++) {
+          const h = Math.round(dec * k);
+          const err = Math.abs(dec - h / k);
+          if (err < minErr) {
+              bestH = h;
+              bestK = k;
+              minErr = err;
+              if (err === 0) break;
+          }
       }
-      return (whole !== 0 ? whole + ' ' : '') + h1 + '/' + k1;
+      return sign + (whole !== 0 ? whole + ' ' : '') + bestH + '/' + bestK;
     }
 
     // Dates and Times
@@ -4261,6 +4345,17 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         }
         setTimeout(() => this.applyingRemote = false, 50);
       } else if (msg.type === 'cell_update' && msg.r !== undefined && msg.c !== undefined && msg.sheetIdx !== undefined) {
+        const remoteUser = 'Collaborator';
+        const key = `${msg.sheetIdx}-${msg.r}-${msg.c}`;
+        if (!this.cellEditHistory) this.cellEditHistory = {};
+        if (!this.cellEditHistory[key]) this.cellEditHistory[key] = [];
+        this.cellEditHistory[key].unshift({
+          user: remoteUser,
+          time: new Date(),
+          action: msg.value ? (this.cellEditHistory[key].length === 0 ? 'ADDED' : 'EDITED') : 'CLEARED',
+          value: msg.value
+        });
+
         if (msg.sheetIdx === this.currentSheetIdx) {
           this.cells[msg.r][msg.c] = msg.value ?? '';
           if (msg.formatting) {
@@ -7795,8 +7890,6 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (typeof raw !== 'string') raw = String(raw);
     
     if (!raw.startsWith('=')) {
-      const fmt = this.formats[`${r},${c}`];
-      if (fmt?.numFormat && raw !== '') return this.applyNumFormat(raw, fmt);
       return raw;
     }
     const key = `${r},${c}`;
@@ -7960,6 +8053,21 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   // --- Sync Engine ---
   onCellChange(r: number = this.selectedRow, c: number = this.selectedCol, forceBulk: boolean = false) {
     this.updateDisplayCache();
+    
+    if (!this.cellEditHistory) this.cellEditHistory = {};
+    if (r !== undefined && c !== undefined && !forceBulk && !this.applyingRemote) {
+       const key = `${this.currentSheetIdx}-${r}-${c}`;
+       if (!this.cellEditHistory[key]) this.cellEditHistory[key] = [];
+       const val = this.cells[r]?.[c] ?? '';
+       const action = val ? (this.cellEditHistory[key].length === 0 ? 'ADDED' : 'EDITED') : 'CLEARED';
+       this.cellEditHistory[key].unshift({
+         user: 'Current User',
+         time: new Date(),
+         action: action,
+         value: val
+       });
+    }
+
     if (this.applyingRemote) return;
     if (forceBulk) {
       this.api.sendUpdate(JSON.stringify(this.getSparse()), this.title);
@@ -8815,8 +8923,69 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (this.saveSubscription) this.saveSubscription.unsubscribe();
     if (this.hasPendingChanges) this.executeSave();
   }
-}
 
+  showEditHistoryPanel = false;
+  editHistoryCell: any = null;
+  editHistoryData: any[] = [];
+  cellEditHistory: Record<string, any[]> = {};
+
+  openCellEditHistory() {
+    if (this.selectedRow === null || this.selectedCol === null) return;
+    this.editHistoryCell = { r: this.selectedRow, c: this.selectedCol };
+    const key = `${this.currentSheetIdx}-${this.selectedRow}-${this.selectedCol}`;
+    if (!this.cellEditHistory) this.cellEditHistory = {};
+    if (!this.cellEditHistory[key]) {
+       this.cellEditHistory[key] = [];
+    }
+    this.editHistoryData = this.cellEditHistory[key];
+    this.showEditHistoryPanel = true;
+  }
+
+  showCustomFormatModal = false;
+  customFormatString = '';
+  showMoreFormatsModal = false;
+
+  openCustomFormatModal() {
+    this.closeMenus();
+    this.customFormatString = '';
+    this.showCustomFormatModal = true;
+  }
+  
+  applyCustomFormat() {
+    if (this.customFormatString.trim()) {
+      this.setFormat('numFormat', 'custom_' + this.customFormatString.trim());
+    }
+    this.showCustomFormatModal = false;
+  }
+  
+  openMoreFormatsModal() {
+    this.closeMenus();
+    this.showMoreFormatsModal = true;
+  }
+
+  private applyCustomFormatString(val: any, num: number, isNum: boolean, fmtStr: string): string {
+    if (!isNum) return String(val);
+    let out = fmtStr;
+    let tempNum = num;
+    if (fmtStr.includes('%')) tempNum = tempNum * 100;
+    let decimals = 0;
+    const decMatch = fmtStr.match(/\.(0+)/);
+    if (decMatch) decimals = decMatch[1].length;
+    let numStr = tempNum.toFixed(decimals);
+    if (fmtStr.includes(',')) {
+       const parts = numStr.split('.');
+       parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+       numStr = parts.join('.');
+    }
+    const numPattern = /[#0,]+(\.[0]+)?/;
+    if (numPattern.test(fmtStr)) {
+        out = fmtStr.replace(numPattern, numStr);
+    } else {
+        out = numStr;
+    }
+    return out;
+  }
+}
 
 
 

@@ -366,10 +366,6 @@ interface SlideData { id: string; title: string; pages: Record<string, Page>; pa
             <span class="material-symbols-outlined" style="color:#5f6368;">group</span>
             <span>Channels</span>
          </div>
-         <div class="bcb-item" (click)="toggleWidget('contacts')">
-            <span class="material-symbols-outlined" style="color:#5f6368;">person</span>
-            <span>Contacts</span>
-         </div>
       </div>
 
       <app-chat-widget [activeWidget]="activeWidget" (close)="activeWidget=null"></app-chat-widget>
