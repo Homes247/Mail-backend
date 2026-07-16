@@ -571,6 +571,7 @@ async def get_document(
                 raise HTTPException(403, "Access denied")
 
     content = "{}"
+    print(f"[DEBUG] get_document: id={doc_id}, file_path={doc.file_path}, doc_type={doc.doc_type}")
     if doc.file_path:
         try:
             content = await asyncio.to_thread(
@@ -579,9 +580,12 @@ async def get_document(
                 doc_type=doc.doc_type,
                 file_path=doc.file_path,
             )
+            print(f"[DEBUG] R2 load success, content length={len(content)}")
         except Exception as e:
-            print(f"Failed to load doc {doc.id} from storage: {e}")
+            print(f"[DEBUG] R2 load FAILED for doc {doc.id}: {e}")
             pass
+    else:
+        print(f"[DEBUG] file_path is NULL, returning empty content")
 
     return {"id": doc.id, "title": doc.title, "doc_type": doc.doc_type, "content": content}
 
