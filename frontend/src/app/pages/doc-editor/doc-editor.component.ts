@@ -5431,12 +5431,18 @@ export class DocEditorComponent implements OnInit, OnDestroy {
                 const checkFinished = () => {
                    loadedCount++;
                    if (loadedCount >= images.length) {
-                       setTimeout(() => this.autoPaginate(), 100);
+                       setTimeout(() => {
+                           this.autoPaginate();
+                           this.save(true);
+                       }, 100);
                    }
                 };
                 
                 if (images.length === 0) {
-                   setTimeout(() => this.autoPaginate(), 100);
+                   setTimeout(() => {
+                       this.autoPaginate();
+                       this.save(true);
+                   }, 100);
                 } else {
                    images.forEach(img => {
                        if (img.complete) {
