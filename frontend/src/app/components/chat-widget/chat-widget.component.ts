@@ -324,7 +324,7 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
           </div>
           <div style="display:flex; align-items:center; gap:4px;">
             <span class="material-symbols-outlined icon-btn" [class.active]="selectionMode" (click)="toggleSelectionMode()" title="Select Messages">checklist</span>
-            <span class="material-symbols-outlined icon-btn" (click)="openAddMember()">person_add</span>
+            <span class="material-symbols-outlined icon-btn" *ngIf="isAdmin" (click)="openAddMember()">person_add</span>
             <span class="material-symbols-outlined icon-btn" style="color:#ef4444;" (click)="leaveGroup()">logout</span>
             <span class="material-symbols-outlined icon-btn" (click)="closeChannel()">remove</span>
             <span class="material-symbols-outlined icon-btn" (click)="close.emit()">close</span>
@@ -569,38 +569,49 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
             <div class="group-modal" (click)="$event.stopPropagation()">
                 <div class="gm-header">
                     <span class="material-symbols-outlined" style="color:#3b82f6; font-size: 20px;">info</span>
-                    <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Group Info</h3>
+                    <h3 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--text-primary);">Group Info</h3>
                     <div style="flex:1"></div>
                     <span class="material-symbols-outlined icon-btn" style="cursor:pointer;" (click)="showGroupInfoModal = false">close</span>
                 </div>
                 <div class="gm-body">
-                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; display: block;">Group Name</label>
-                    <input type="text" [(ngModel)]="editGroupName" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 16px; background: var(--bg-color); color: var(--text-primary); font-family: inherit; font-size: 14px; box-sizing: border-box;">
-                    
-                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; display: block;">Description</label>
-                    <input type="text" [(ngModel)]="editGroupDesc" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 16px; background: var(--bg-color); color: var(--text-primary); font-family: inherit; font-size: 14px; box-sizing: border-box;">
-                    
-                    <button class="gm-save-btn" (click)="saveGroupInfo()">Save Changes</button>
-                    
-                    <div style="margin-top: 24px; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--text-primary); display:flex; justify-content: space-between; align-items:center;">
-                        <span>Members ({{ channelMembers.length }})</span>
+                    <div *ngIf="isAdmin" style="margin-bottom: 16px;">
+                        <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; display: block;">Group Name</label>
+                        <input type="text" [(ngModel)]="editGroupName" style="width: 100%; padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 6px; margin-bottom: 12px; background: var(--input-bg); color: var(--text-primary); font-family: inherit; font-size: 13px; box-sizing: border-box; outline: none; transition: border-color 0.2s;">
+                        
+                        <label style="font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; display: block;">Description</label>
+                        <input type="text" [(ngModel)]="editGroupDesc" style="width: 100%; padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 6px; margin-bottom: 16px; background: var(--input-bg); color: var(--text-primary); font-family: inherit; font-size: 13px; box-sizing: border-box; outline: none; transition: border-color 0.2s;">
+                        
+                        <button class="gm-save-btn" (click)="saveGroupInfo()">Save Changes</button>
                     </div>
-                    <div class="gm-members-list">
-                        <div class="gm-member-item" *ngFor="let m of channelMembers">
-                            <div class="gm-member-av" [style.background]="m.avatar_color || '#6366f1'">
-                                <img *ngIf="m.avatar_url" [src]="m.avatar_url">
+                    <div *ngIf="!isAdmin" style="margin-bottom: 16px;">
+                        <div style="font-weight:700; font-size:15px; color: var(--text-primary); margin-bottom:4px;">#{{ openedChannelName }}</div>
+                        <div style="font-size:13px; color: var(--text-secondary);">{{ editGroupDesc || 'No description' }}</div>
+                    </div>
+
+                    <hr style="border:none; border-top:1px solid var(--border-color); margin:16px 0;" />
+                    
+                    <div style="margin-bottom: 12px; font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                        Members ({{ channelMembers.length }})
+                    </div>
+                    <div class="gm-members-list" style="max-height: 200px; overflow-y: auto; display:flex; flex-direction:column; gap:12px;">
+                        <div class="gm-member-item" *ngFor="let m of channelMembers" style="display:flex; align-items:center; gap:12px; font-size:13px;">
+                            <div class="gm-member-av" [style.background]="m.avatar_color || '#6366f1'" style="width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-size:11px; font-weight:600; overflow:hidden; flex-shrink:0;">
+                                <img *ngIf="m.avatar_url" [src]="m.avatar_url" style="width:100%;height:100%;object-fit:cover;">
                                 <span *ngIf="!m.avatar_url">{{ getInitials(m.name) }}</span>
                             </div>
-                            <div class="gm-member-info">
-                                <span class="gm-member-name">{{ m.name }}</span>
-                                <span *ngIf="m.role === 'admin'" class="gm-role-badge">Admin</span>
+                            <div class="gm-member-info" style="display:flex; align-items:center; flex:1; min-width:0;">
+                                <span class="gm-member-name" style="color: var(--text-primary); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ m.name }}</span>
+                                <span *ngIf="m.role === 'admin' || m.is_admin" class="gm-role-badge" style="margin-left:6px; font-size:10px; background:rgba(99, 102, 241, 0.1); color:#6366f1; border: 1px solid rgba(99, 102, 241, 0.2); padding:2px 6px; border-radius:4px; font-weight:600;">Admin</span>
                             </div>
-                            <div style="flex:1"></div>
-                            <span *ngIf="m.id !== currentUser?.id && isAdmin" class="material-symbols-outlined rm-member-btn" (click)="removeMember(m.id)" title="Remove">person_remove</span>
+                            <div *ngIf="isAdmin && m.id !== currentUser?.id" style="display:flex; gap:8px; align-items:center;">
+                                <button *ngIf="m.role !== 'admin' && !m.is_admin" (click)="setMemberAdmin(m.id, true)" style="background:none; border:none; color:#818cf8; cursor:pointer; font-size:12px; font-weight:500;">Make Admin</button>
+                                <button *ngIf="m.role === 'admin' || m.is_admin" (click)="setMemberAdmin(m.id, false)" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:12px; font-weight:500;">Remove Admin</button>
+                                <span class="material-symbols-outlined rm-member-btn" (click)="removeMember(m.id)" title="Remove" style="font-size:18px; color:#ef4444; cursor:pointer;">person_remove</span>
+                            </div>
                         </div>
                     </div>
                     
-                    <button class="gm-delete-btn" (click)="deleteGroup()" *ngIf="isAdmin">Delete Group For Everyone</button>
+                    <button class="gm-delete-btn" (click)="deleteGroup()" *ngIf="isAdmin" style="width:100%; background:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.3); padding:10px; border-radius:8px; font-weight:600; cursor:pointer; margin-top:16px; transition:0.2s;">Delete Group For Everyone</button>
                 </div>
             </div>
         </div>
@@ -610,7 +621,7 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
             <div class="group-modal" (click)="$event.stopPropagation()" style="max-height: 80vh; display:flex; flex-direction: column;">
                 <div class="gm-header">
                     <span class="material-symbols-outlined" style="color:#3b82f6; font-size: 20px;">person_add</span>
-                    <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Add to #{{ openedChannelName }}</h3>
+                    <h3 style="margin: 0; font-size: 15px; font-weight: 600; color: var(--text-primary);">Add to #{{ openedChannelName }}</h3>
                     <div style="flex:1"></div>
                     <span class="material-symbols-outlined icon-btn" style="cursor:pointer;" (click)="showAddMemberModal = false">close</span>
                 </div>
@@ -618,17 +629,16 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
                     <span class="material-symbols-outlined">search</span>
                     <input type="text" placeholder="Search contacts..." [(ngModel)]="addMemberSearchQuery" (ngModelChange)="onAddMemberSearchChange()">
                 </div>
-                <div class="gm-add-list" style="overflow-y: auto; flex: 1; padding: 12px 16px;">
-                    <div class="gm-add-item" *ngFor="let c of filteredAddMemberContacts()">
-                        <div class="gm-member-av" [style.background]="c.avatar_color || '#6366f1'">
-                            <img *ngIf="c.avatar_url" [src]="c.avatar_url">
+                <div class="gm-add-list" style="overflow-y: auto; flex: 1; padding: 12px 16px; display:flex; flex-direction:column; gap:8px;">
+                    <div class="gm-add-item" *ngFor="let c of filteredAddMemberContacts()" style="display:flex; align-items:center; gap:12px;">
+                        <div class="gm-member-av" [style.background]="c.avatar_color || '#6366f1'" style="width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-size:12px; font-weight:600; overflow:hidden;">
+                            <img *ngIf="c.avatar_url" [src]="c.avatar_url" style="width:100%;height:100%;object-fit:cover;">
                             <span *ngIf="!c.avatar_url">{{ getInitials(c.name) }}</span>
                         </div>
-                        <div class="gm-add-info">
-                            <span class="gm-add-name">{{ c.name }}</span>
+                        <div class="gm-add-info" style="flex:1; min-width:0;">
+                            <span class="gm-add-name" style="color: var(--text-primary); font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">{{ c.name }}</span>
                         </div>
-                        <div style="flex:1"></div>
-                        <button class="gm-add-btn" (click)="addMember(c.id)">Add</button>
+                        <button class="gm-add-btn" (click)="addMember(c.id)" style="padding:4px 10px; font-size:12px; background:rgba(59, 130, 246, 0.1); color:#3b82f6; border:1px solid rgba(59, 130, 246, 0.2); border-radius:6px; cursor:pointer; font-weight:600;">Add</button>
                     </div>
                     <div *ngIf="filteredAddMemberContacts().length === 0" style="text-align:center; padding: 20px; color: var(--text-secondary); font-size: 13px;">
                         No contacts found or all are already members.
@@ -961,6 +971,36 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
         display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--border-color);
         background: var(--body-bg); font-size: 13px; color: var(--text-secondary);
     }
+    .group-modal-overlay {
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5); z-index: 100000; display: flex;
+        justify-content: center; align-items: center; padding: 16px;
+    }
+    .group-modal {
+        background: var(--bg-color); width: 100%; max-width: 360px;
+        border-radius: 12px; display: flex; flex-direction: column;
+        overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,0.25); border: 1px solid var(--border-color);
+    }
+    .gm-header {
+        display: flex; align-items: center; padding: 14px 16px; gap: 10px; border-bottom: 1px solid var(--border-color); background: var(--bg-color);
+    }
+    .gm-body {
+        padding: 16px; background: var(--bg-color); max-height: 70vh; overflow-y: auto;
+    }
+    .gm-save-btn {
+        width: 100%; padding: 10px; border-radius: 8px; border: none; background: #3b82f6; color: white; font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .gm-save-btn:hover { background: #2563eb; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4); }
+    .gm-delete-btn:hover { background: rgba(239,68,68,0.15) !important; border-color: rgba(239,68,68,0.4) !important; }
+    .gm-search {
+        display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border-color); background: var(--bg-color);
+    }
+    .gm-search input {
+        border: none; outline: none; background: transparent; width: 100%; margin-left: 8px; color: var(--text-primary); font-size: 13px;
+    }
+    .gm-search .material-symbols-outlined { color: var(--text-secondary); font-size: 18px; }
+    .gm-add-btn:hover { background: rgba(59, 130, 246, 0.15) !important; }
+    .rm-member-btn:hover { transform: scale(1.1); transition: 0.1s; }
   `]
 })
 export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
@@ -1231,7 +1271,7 @@ export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
           this.channelMembers = res.members || [];
           
           const myMember = this.channelMembers.find(m => m.id === this.currentUser?.id);
-          this.isAdmin = myMember ? myMember.role === 'admin' : false;
+          this.isAdmin = myMember ? (myMember.role === 'admin' || myMember.is_admin === 1 || myMember.is_admin === true) : false;
       });
   }
 
@@ -1273,6 +1313,13 @@ export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
       if (!this.openedChannelId) return;
       if (!confirm("Remove this member?")) return;
       this.api.removeChannelMember(this.openedChannelId, userId).subscribe(() => {
+          this.loadChannelInfo(this.openedChannelId!);
+      });
+  }
+
+  setMemberAdmin(userId: number, isAdmin: boolean) {
+      if (!this.openedChannelId) return;
+      this.api.setChannelAdmin(this.openedChannelId, userId, isAdmin).subscribe(() => {
           this.loadChannelInfo(this.openedChannelId!);
       });
   }

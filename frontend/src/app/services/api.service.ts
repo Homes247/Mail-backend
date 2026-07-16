@@ -134,6 +134,10 @@ export class ApiService implements OnDestroy {
     return this.http.delete<any>(`${this.base}/channels/${channelId}/members/${userId}`);
   }
 
+  setChannelAdmin(channelId: number, userId: number, isAdmin: boolean): Observable<any> {
+    return this.http.put<any>(`${this.base}/channels/${channelId}/members/${userId}/admin`, { is_admin: isAdmin ? 1 : 0 });
+  }
+
   leaveChannel(channelId: number): Observable<any> {
     return this.http.post<any>(`${this.base}/channels/${channelId}/leave`, {});
   }
