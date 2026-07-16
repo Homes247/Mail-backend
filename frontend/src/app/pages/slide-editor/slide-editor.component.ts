@@ -21,6 +21,12 @@ interface SlideData { id: string; title: string; pages: Record<string, Page>; pa
           <button class="back" (click)="back()" title="Back to Dashboard">
             <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="icon-sm"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
           </button>
+          <div class="brand" style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-right: 12px;" (click)="goHome()" title="Show Home">
+            <div style="background:#f4b400; color:#fff; display:flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:4px;">
+              <span class="material-symbols-outlined" style="font-size:20px;">slideshow</span>
+            </div>
+            <span class="brand-name" style="font-weight:600; font-size:18px;">Show</span>
+          </div>
           <div class="doc-meta">
             <input class="title-input" [(ngModel)]="title" (blur)="save()" placeholder="Untitled presentation" />
             <div class="menu-bar" (mousedown)="$event.preventDefault()">
@@ -518,6 +524,9 @@ interface SlideData { id: string; title: string; pages: Record<string, Page>; pa
   `]
 })
 export class SlideEditorComponent implements OnInit, OnDestroy {
+  goHome() {
+    window.location.href = '/';
+  }
   activeWidget: string | null = null;
   toggleWidget(w: string) {
     if (this.activeWidget === w) this.activeWidget = null;

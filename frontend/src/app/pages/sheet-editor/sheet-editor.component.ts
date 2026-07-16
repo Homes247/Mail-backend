@@ -75,7 +75,7 @@ export interface CellValidation {
           <button class="back-btn" (click)="back()" title="Back" style="background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; flex-shrink:0; opacity:0.8;">
             <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           </button>
-          <div class="brand" style="display:flex; align-items:center; gap:6px;">
+          <div class="brand" style="display:flex; align-items:center; gap:6px; cursor:pointer;" (click)="goHome()">
             <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
               <rect width="32" height="32" rx="5" fill="#26A96C"/>
               <rect x="5" y="8" width="22" height="2.5" rx="1.2" fill="white"/>
@@ -3771,6 +3771,10 @@ export interface CellValidation {
   `]
 })
 export class SheetEditorComponent implements OnInit, OnDestroy {
+
+  goHome() {
+    window.location.href = '/';
+  }
   COLS = 30;
   ROWS = 1000;
   visibleRowRange: number[] = [];

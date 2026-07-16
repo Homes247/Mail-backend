@@ -31,7 +31,7 @@ export class SafeHtmlPipe implements PipeTransform {
           <button class="back-btn" (click)="back()" title="Back to Dashboard" style="background:none; border:none; cursor:pointer; color:inherit; display:flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:50%; flex-shrink:0; opacity:0.8; margin-right:4px;">
             <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           </button>
-          <div class="brand-btn" title="Writer">
+          <div class="brand-btn" title="Writer" style="cursor:pointer;" (click)="goHome()">
             <span class="material-symbols-outlined" style="font-size:28px;">description</span>
             <span class="brand-label">Writer</span>
           </div>
@@ -3058,6 +3058,10 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       }
     }
   };
+  
+  goHome() {
+    window.location.href = '/';
+  }
 
   ngOnInit() {
     this.docId = this.route.snapshot.paramMap.get('id') ?? '';
