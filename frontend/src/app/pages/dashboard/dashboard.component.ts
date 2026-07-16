@@ -760,8 +760,23 @@ export class DashboardComponent implements OnInit {
 
   setApp(app: string, event: Event) {
     event.stopPropagation();
-    this.currentApp = app;
     this.closeAllMenus();
+    
+    if (app === 'WorkDrive') {
+      this.currentApp = app;
+      return;
+    }
+    
+    const env = window.location.hostname.startsWith('test') ? 'test' : '';
+    let domain = '';
+    
+    if (app === 'Writer') domain = `${env}docs`;
+    else if (app === 'Sheet') domain = `${env}sheets`;
+    else if (app === 'Show') domain = `${env}show`;
+
+    if (domain) {
+      window.location.href = `https://${domain}.vsnaptechnology.com/`;
+    }
   }
 
   toggleMenu(menuName: string, event: Event) {
