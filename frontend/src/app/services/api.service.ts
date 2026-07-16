@@ -118,6 +118,10 @@ export class ApiService implements OnDestroy {
     return this.http.get<any>(`${this.base}/channels/${channelId}/info`);
   }
 
+  getChannelMembers(channelId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/channels/${channelId}/members`);
+  }
+
   updateChannel(channelId: number, name: string, description: string): Observable<any> {
     return this.http.put<any>(`${this.base}/channels/${channelId}`, { name, description });
   }

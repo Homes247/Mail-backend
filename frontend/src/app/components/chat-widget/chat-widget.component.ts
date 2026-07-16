@@ -1265,13 +1265,21 @@ export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   loadChannelInfo(channelId: number) {
-      this.api.getChannelInfo(channelId).subscribe(res => {
-          this.editGroupName = res.name;
-          this.editGroupDesc = res.description;
-          this.channelMembers = res.members || [];
-          
-          const myMember = this.channelMembers.find(m => m.id === this.currentUser?.id);
-          this.isAdmin = myMember ? (myMember.role === 'admin' || myMember.is_admin === 1 || myMember.is_admin === true) : false;
+      const channel = this.channels.find(c => c.id === channelId);
+      if (channel) {
+          this.editGroupName = channel.name;
+          this.editGroupDesc = channel.description;
+      }
+      this.api.getChannelMembers(channelId).subscribe({
+          next: (members) => {
+              this.channelMembers = members || [];
+              const myMember = this.channelMembers.find(m => m.id === this.currentUser?.id);
+              this.isAdmin = myMember ? (myMember.role === 'admin' || myMember.is_admin === 1 || myMember.is_admin === true) : false;
+          },
+          error: (err) => {
+              console.error("Failed to load channel members", err);
+              this.channelMembers = [];
+          }
       });
   }
 
