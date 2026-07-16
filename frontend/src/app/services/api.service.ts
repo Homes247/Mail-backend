@@ -5,7 +5,7 @@ import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 export interface SyncMessage {
-  type: 'update' | 'presence' | 'cursor' | 'cursor_remove' | 'cell_update';
+  type: 'update' | 'presence' | 'cursor' | 'cursor_remove' | 'cell_update' | 'reload_page';
   content?: string;
   title?: string;
   users?: number;

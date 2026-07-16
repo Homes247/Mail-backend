@@ -3104,7 +3104,9 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     });
 
     this.syncSub = this.api.connectSync(this.docId).subscribe(msg => {
-      if (msg.type === 'presence') {
+      if (msg.type === 'reload_page') {
+        window.location.reload();
+      } else if (msg.type === 'presence') {
         this.activeUsers = msg.users ?? 1;
       } else if (msg.type === 'update') {
         const isInitialSync = msg.users === undefined;

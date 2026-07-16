@@ -490,6 +490,15 @@ async def import_document(
         doc.file_size = storage_res["size"]
         doc.content_version = 1
         await db.commit()
+        
+        try:
+            from main import manager
+            import json
+            manager.doc_states.pop(doc.id, None)
+            await manager.broadcast(doc.id, json.dumps({"type": "reload_page"}))
+        except Exception as inner_e:
+            print(f"Error resetting WS state: {inner_e}")
+            
     except Exception as e:
         print(f"Error saving imported document to storage: {e}")
 
