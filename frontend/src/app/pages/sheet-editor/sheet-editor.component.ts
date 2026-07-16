@@ -5896,13 +5896,24 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   insertCheckbox() {
     this.pushHistory();
-    this.cells[this.selectedRow][this.selectedCol] = 'FALSE';
-    const ref = `${this.selectedRow},${this.selectedCol}`;
-    if (!this.formats[ref]) this.formats[ref] = {};
-    (this.formats[ref] as any)['checkbox'] = true;
+    const minR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const maxR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    const maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+
+    for (let r = minR; r <= maxR; r++) {
+      for (let c = minC; c <= maxC; c++) {
+        this.cells[r][c] = 'FALSE';
+        const ref = `${r},${c}`;
+        if (!this.formats[ref]) this.formats[ref] = {};
+        (this.formats[ref] as any)['checkbox'] = true;
+      }
+    }
+
     if (this.formulaBarValue !== 'FALSE') {
       this.formulaBarValue = 'FALSE';
     }
+    this.formats = { ...this.formats };
     this.onCellChange(); this.save(); this.closeMenus();
     this.showToast('Checkbox inserted.');
   }
