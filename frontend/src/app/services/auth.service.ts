@@ -21,8 +21,17 @@ export class AuthService {
     const cookieToken = this.getCookie('auth_token');
     const cookieUser = this.getCookie('auth_user');
 
-    if (cookieToken && !localStorage.getItem('auth_token')) localStorage.setItem('auth_token', cookieToken);
-    if (cookieUser && !localStorage.getItem('auth_user')) localStorage.setItem('auth_user', cookieUser);
+    if (cookieToken) {
+      localStorage.setItem('auth_token', cookieToken);
+    } else {
+      localStorage.removeItem('auth_token');
+    }
+
+    if (cookieUser) {
+      localStorage.setItem('auth_user', cookieUser);
+    } else {
+      localStorage.removeItem('auth_user');
+    }
 
     const storedToken = localStorage.getItem('auth_token');
     const storedUser = localStorage.getItem('auth_user');
