@@ -380,6 +380,14 @@ async def upload_stream_chat(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/search-channels")
+async def search_channels(q: str = "", db: AsyncSession = Depends(get_db)):
+    if not q or len(q) < 2:
+        return []
+    res = await db.execute(select(Channel).where(Channel.name.ilike(f"%{q}%")).limit(10))
+    channels = res.scalars().all()
+    return [{"id": c.id, "name": c.name, "avatar_url": getattr(c, 'avatar_url', None)} for c in channels]
+
 @router.get("/channels")
 async def get_channels(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     res = await db.execute(
@@ -429,6 +437,127 @@ async def get_channel_messages(channel_id: int, db: AsyncSession = Depends(get_d
         "channel_name": channel.name,
         "messages": msgs_response
     }
+
+class UpdateChannelRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+@router.get("/channels/{channel_id}/info")
+async def get_channel_info(channel_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    res_chan = await db.execute(select(Channel).where(Channel.id == channel_id))
+    channel = res_chan.scalar_one_or_none()
+    if not channel: raise HTTPException(404, "Channel not found")
+
+    res_members = await db.execute(select(ChannelMember, User).join(User, ChannelMember.user_id == User.id).where(ChannelMember.channel_id == channel_id))
+    members = []
+    is_member = False
+    for cm, user in res_members.all():
+        if user.id == current_user.id:
+            is_member = True
+        members.append({
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "avatar_color": getattr(user, 'avatar_color', '#4f46e5') or '#4f46e5',
+            "avatar_url": getattr(user, 'avatar_url', None),
+            "role": cm.role
+        })
+
+    if not is_member:
+        raise HTTPException(403, "Not a member of this channel")
+
+    return {
+        "id": channel.id,
+        "name": channel.name,
+        "description": getattr(channel, 'description', ''),
+        "avatar_url": getattr(channel, 'avatar_url', None),
+        "members": members
+    }
+
+@router.put("/channels/{channel_id}")
+async def update_channel(channel_id: int, data: UpdateChannelRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    res_chan = await db.execute(select(Channel).where(Channel.id == channel_id))
+    channel = res_chan.scalar_one_or_none()
+    if not channel: raise HTTPException(404, "Channel not found")
+    
+    # Optional: check if admin
+    # res_cm = await db.execute(select(ChannelMember).where(ChannelMember.channel_id == channel_id, ChannelMember.user_id == current_user.id))
+    # cm = res_cm.scalar_one_or_none()
+    # if not cm or cm.role != 'admin': raise HTTPException(403, "Not admin")
+
+    channel.name = data.name
+    channel.description = data.description
+    await db.commit()
+    return {"success": True}
+
+@router.delete("/channels/{channel_id}")
+async def delete_channel(channel_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    res_chan = await db.execute(select(Channel).where(Channel.id == channel_id))
+    channel = res_chan.scalar_one_or_none()
+    if not channel: raise HTTPException(404, "Channel not found")
+    
+    # Verify member
+    res_cm = await db.execute(select(ChannelMember).where(ChannelMember.channel_id == channel_id, ChannelMember.user_id == current_user.id))
+    cm = res_cm.scalar_one_or_none()
+    if not cm: raise HTTPException(403, "Not a member")
+
+    await db.delete(channel) # Cascades should handle members and messages, or they might be orphaned
+    await db.commit()
+    return {"success": True}
+
+class AddMembersRequest(BaseModel):
+    user_ids: List[int]
+
+@router.post("/channels/{channel_id}/members")
+async def add_channel_members(channel_id: int, data: AddMembersRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    res_chan = await db.execute(select(Channel).where(Channel.id == channel_id))
+    channel = res_chan.scalar_one_or_none()
+    if not channel: raise HTTPException(404, "Channel not found")
+
+    res_cm = await db.execute(select(ChannelMember).where(ChannelMember.channel_id == channel_id, ChannelMember.user_id == current_user.id))
+    cm = res_cm.scalar_one_or_none()
+    if not cm: raise HTTPException(403, "Not a member")
+
+    # Add members
+    added = 0
+    for uid in data.user_ids:
+        # Check if already a member
+        r = await db.execute(select(ChannelMember).where(ChannelMember.channel_id == channel_id, ChannelMember.user_id == uid))
+        if not r.scalar_one_or_none():
+            new_cm = ChannelMember(channel_id=channel_id, user_id=uid, role='member')
+            db.add(new_cm)
+            added += 1
+            
+    if added > 0:
+        await db.commit()
+    return {"success": True, "added": added}
+
+@router.delete("/channels/{channel_id}/members/{user_id}")
+async def remove_channel_member(channel_id: int, user_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.id != user_id:
+        # Check if current_user is admin
+        res_cm = await db.execute(select(ChannelMember).where(ChannelMember.channel_id == channel_id, ChannelMember.user_id == current_user.id))
+        cm = res_cm.scalar_one_or_none()
+        if not cm or getattr(cm, 'role', 'member') != 'admin':
+            raise HTTPException(403, "Not an admin")
+
+    res = await db.execute(select(ChannelMember).where(ChannelMember.channel_id == channel_id, ChannelMember.user_id == user_id))
+    member = res.scalar_one_or_none()
+    if not member: raise HTTPException(404, "Member not found")
+    
+    await db.delete(member)
+    await db.commit()
+    return {"success": True}
+
+@router.post("/channels/{channel_id}/leave")
+async def leave_channel(channel_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    res = await db.execute(select(ChannelMember).where(ChannelMember.channel_id == channel_id, ChannelMember.user_id == current_user.id))
+    member = res.scalar_one_or_none()
+    if not member: raise HTTPException(404, "Member not found")
+    
+    await db.delete(member)
+    await db.commit()
+    return {"success": True}
 
 class SendChannelMessageRequest(BaseModel):
     message: str

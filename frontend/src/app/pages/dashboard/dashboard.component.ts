@@ -803,29 +803,16 @@ export class DashboardComponent implements OnInit {
       if (file.name.endsWith('.pptx')) type = 'slide';
 
       this.showToast(`Uploading ${file.name}...`);
-      if (type === 'sheet') {
-        this.api.importFile(file).subscribe({
-          next: (doc: any) => {
-            this.showToast(`${file.name} uploaded successfully.`);
-            this.load();
-          },
-          error: (err: any) => {
-            this.showToast(`Error uploading ${file.name}.`);
-            console.error('Import failed:', err);
-          }
-        });
-      } else {
-        this.api.createDocument(file.name.split('.')[0], type).subscribe({
-          next: (doc: any) => {
-            this.showToast(`${file.name} uploaded successfully.`);
-            this.load();
-          },
-          error: (err: any) => {
-            this.showToast(`Error uploading ${file.name}.`);
-            console.error('Upload failed:', err);
-          }
-        });
-      }
+      this.api.importFile(file).subscribe({
+        next: (doc: any) => {
+          this.showToast(`${file.name} uploaded successfully.`);
+          this.load();
+        },
+        error: (err: any) => {
+          this.showToast(`Error uploading ${file.name}.`);
+          console.error('Import failed:', err);
+        }
+      });
     }
   }
 

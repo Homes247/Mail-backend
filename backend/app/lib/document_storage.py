@@ -38,8 +38,9 @@ class DocumentStorage:
 
     @staticmethod
     def save(owner_id: int, doc_id: str, content: str, doc_type: str = "doc") -> dict:
+        import gzip
         key = DocumentStorage._key_for(owner_id, doc_id, doc_type)
-        body_bytes = content.encode("utf-8")
+        body_bytes = gzip.compress(content.encode("utf-8"), compresslevel=1)
 
         _s3_client.put_object(
             Bucket=R2_BUCKET_NAME,
@@ -62,7 +63,12 @@ class DocumentStorage:
 
         try:
             response = _s3_client.get_object(Bucket=R2_BUCKET_NAME, Key=key)
-            return response["Body"].read().decode("utf-8")
+            body_bytes = response["Body"].read()
+            import gzip
+            try:
+                return gzip.decompress(body_bytes).decode("utf-8")
+            except Exception:
+                return body_bytes.decode("utf-8")
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
             if error_code in ("NoSuchKey", "404"):

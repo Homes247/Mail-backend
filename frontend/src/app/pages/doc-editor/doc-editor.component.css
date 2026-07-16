@@ -227,19 +227,74 @@
   padding: 96px; border-radius: 2px; outline: none; font-size: 11pt;
   line-height: 1.5; color: #000; font-family: Arial, sans-serif;
   position: relative; z-index: 1; box-sizing: border-box; transform-origin: top center;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+:host ::ng-deep .page * {
+  max-width: 100%;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+}
+
+:host ::ng-deep .page img {
+  max-width: 100%;
+  max-height: 864px;
+  object-fit: contain;
+}
+
+:host ::ng-deep .page span {
+  white-space: pre-wrap !important;
+}
+
+:host ::ng-deep .page p {
+  white-space: pre-wrap !important;
+  margin-block-start: 0;
+  margin-block-end: 0;
+  margin: 0;
+}
+
+:host ::ng-deep .page table {
+  max-width: 100% !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+}
+
+:host ::ng-deep .page td, :host ::ng-deep .page th {
+  max-width: 100% !important;
+  min-width: 0 !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  overflow: hidden !important;
 }
 .page-area.no-print .page { padding: 20px 0; box-shadow: none; background-color: transparent; }
 .page-area.no-print .page-bg-layer { display: none; }
 .ruler { height: 16px; background: url('https://upload.wikimedia.org/wikipedia/commons/7/7b/Ruler_15_cm.png') repeat-x; opacity: 0.3; margin-bottom: 8px; width: 816px; }
 .page.show-np p::after, .page.show-np div::after { content: 'Â¶'; color: #9aa0a6; padding-left: 4px; font-weight: normal; }
 
-:host ::ng-deep .page img { max-width: 100%; height: auto; display: inline-block; cursor: pointer; }
+:host ::ng-deep .page img {
+  max-width: 100% !important;
+  max-height: 800px !important;
+  height: auto !important;
+  display: block !important;
+  margin: 12px auto !important;
+  cursor: pointer;
+  object-fit: contain !important;
+}
 .page.hide-images img { opacity: 0 !important; pointer-events: none !important; }
 .page.grid-lines {
   background-image: linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
   background-size: 20px 20px;
 }
-.page.object-indicator img { border: 1px dashed rgba(0,0,0,0.3); }
+.page.object-indicator img { border: 2px solid #1a73e8 !important; }
 
 /* ===== RESIZE OVERLAY ===== */
 .resize-overlay { position: fixed; border: 2px solid #1a73e8; pointer-events: none; z-index: 100; box-sizing: border-box; }
@@ -316,6 +371,7 @@
   display: flex; align-items: center; justify-content: space-between;
   height: 32px; background: #f8f9fa; border-top: 1px solid #dadce0;
   padding: 0 12px; font-size: 12px; color: #5f6368; flex-shrink: 0;
+  position: relative; z-index: 200;
 }
 .status-left, .status-right { display: flex; align-items: center; gap: 0; }
 .status-item {
@@ -569,3 +625,5 @@
 .suggestion-item {
   padding: 8px 24px;
 }
+:host ::ng-deep .page hr { max-width: 100% !important; border: 1px solid #ccc; margin: 10px 0; }
+

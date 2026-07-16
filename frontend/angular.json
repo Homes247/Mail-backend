@@ -11,7 +11,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/office-suite",
+            "outputPath": "dist/Mail-backend",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [

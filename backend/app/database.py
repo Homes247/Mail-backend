@@ -25,7 +25,7 @@ engine = create_async_engine(
     max_overflow=20,
     pool_recycle=300,
     pool_timeout=10,
-    pool_pre_ping=False,   # pre_ping adds ~90ms per request on remote DB; pool_recycle handles stale conns
+    pool_pre_ping=True,   # Enabled to prevent 'Lost connection' OperationalErrors crashing WebSockets
     connect_args={
         "connect_timeout": 10
     }

@@ -14,7 +14,7 @@ from app.models.document_share import DocumentShare
 from app.models.user import User
 from app.api.auth import get_current_user, get_optional_current_user
 from app.lib.document_storage import DocumentStorage
-from fastapi import UploadFile, File
+from fastapi import UploadFile, File, Form
 import datetime as _dt
 import io
 
@@ -152,6 +152,7 @@ def resolve_validation_options(formula, wb, ws):
 @router.post("/import")
 async def import_document(
     file: UploadFile = File(...),
+    replace_doc_id: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -159,15 +160,16 @@ async def import_document(
     content_bytes = await file.read()
     
     doc_type = "doc"
-    if filename.endswith(".xlsx") or filename.endswith(".csv"):
+    filename_lower = filename.lower()
+    if filename_lower.endswith(".xlsx") or filename_lower.endswith(".csv"):
         doc_type = "sheet"
-    elif filename.endswith(".pptx"):
+    elif filename_lower.endswith(".pptx"):
         doc_type = "slide"
         
     title = filename.rsplit(".", 1)[0]
     content_json = "{}"
     
-    if doc_type == "sheet" and filename.endswith(".xlsx"):
+    if doc_type == "sheet" and filename_lower.endswith(".xlsx"):
         try:
             with open("backend/debug_uploaded_sheet.xlsx", "wb") as f_debug:
                 f_debug.write(content_bytes)
@@ -361,15 +363,122 @@ async def import_document(
             except:
                 pass
             content_json = _default_content(doc_type, title)
+    elif doc_type == "doc":
+        parsed = False
+        try:
+            import docx
+            import base64
+            doc_file = docx.Document(io.BytesIO(content_bytes))
+            html = ""
+            for p in doc_file.paragraphs:
+                p_html = ""
+                for run in p.runs:
+                    # check for images
+                    drawing_elements = run._element.xpath('.//w:drawing')
+                    for drawing in drawing_elements:
+                        blips = drawing.xpath('.//a:blip')
+                        for blip in blips:
+                            embed_id = blip.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                            if embed_id and embed_id in doc_file.part.related_parts:
+                                part = doc_file.part.related_parts[embed_id]
+                                image_bytes = part.blob
+                                b64 = base64.b64encode(image_bytes).decode('utf-8')
+                                mime = part.content_type
+                                if p_html.strip():
+                                    style_str = ""
+                                    if p.alignment == 1: style_str = ' style="text-align: center;"'
+                                    elif p.alignment == 2: style_str = ' style="text-align: right;"'
+                                    elif p.alignment == 3: style_str = ' style="text-align: justify;"'
+                                    html += f"<p{style_str}>{p_html}</p>"
+                                    p_html = ""
+                                html += f'<img src="data:{mime};base64,{b64}" style="max-width: 100%; height: auto; display: block; margin: 12px auto;" />'
+                    
+                    text = run.text.replace('<', '&lt;').replace('>', '&gt;')
+                    if text:
+                        if run.bold: text = f"<b>{text}</b>"
+                        if run.italic: text = f"<i>{text}</i>"
+                        if run.underline: text = f"<u>{text}</u>"
+                        p_html += text
+                        
+                if p_html.strip():
+                    style_str = ""
+                    if p.alignment == 1:
+                        style_str = ' style="text-align: center;"'
+                    elif p.alignment == 2:
+                        style_str = ' style="text-align: right;"'
+                    elif p.alignment == 3:
+                        style_str = ' style="text-align: justify;"'
+                        
+                    html += f"<p{style_str}>{p_html}</p>"
+            if not html:
+                html = "<br>"
+            content_json = json.dumps({"html": html})
+            parsed = True
+        except Exception as e:
+            pass
+            
+        if not parsed:
+            if filename_lower.endswith(".html"):
+                try:
+                    html_content = content_bytes.decode('utf-8', errors='replace')
+                    content_json = json.dumps({"html": html_content})
+                    parsed = True
+                except:
+                    pass
+            elif filename_lower.endswith(".txt") or not parsed:
+                try:
+                    text = content_bytes.decode('utf-8', errors='replace')
+                    html_content = "".join([f"<p>{line}</p>" for line in text.splitlines()])
+                    content_json = json.dumps({"html": html_content or "<br>"})
+                    parsed = True
+                except:
+                    pass
+
+                    
+        if not parsed:
+            content_json = _default_content(doc_type, title)
+            
+    elif doc_type == "slide":
+        try:
+            from pptx import Presentation
+            import zipfile
+            prs = Presentation(io.BytesIO(content_bytes))
+            pages = {}
+            page_order = []
+            for slide in prs.slides:
+                pid = str(uuid.uuid4())
+                page_order.append(pid)
+                text_content = ""
+                for shape in slide.shapes:
+                    if hasattr(shape, "text") and shape.text.strip():
+                        text_content += f"<p>{shape.text}</p>"
+                pages[pid] = {"title": f"Slide {len(page_order)}", "body": text_content}
+            if not pages:
+                content_json = _default_content(doc_type, title)
+            else:
+                content_json = json.dumps({
+                    "id": page_order[0] if page_order else str(uuid.uuid4()),
+                    "title": title,
+                    "pages": pages,
+                    "pageOrder": page_order
+                })
+        except Exception as e:
+            content_json = _default_content(doc_type, title)
     else:
         content_json = _default_content(doc_type, title)
         
-    doc = Document(
-        title=title,
-        doc_type=doc_type,
-        owner_id=current_user.id,
-    )
-    db.add(doc)
+    if replace_doc_id:
+        doc = await db.get(Document, replace_doc_id)
+        if not doc or doc.owner_id != current_user.id:
+            raise HTTPException(404, "Document not found or access denied")
+        doc.title = title
+    else:
+        doc = Document(
+            title=title,
+            doc_type=doc_type,
+            owner_id=current_user.id,
+        )
+        db.add(doc)
     await db.commit()
     await db.refresh(doc)
 
@@ -384,7 +493,7 @@ async def import_document(
     except Exception as e:
         print(f"Error saving imported document to storage: {e}")
 
-    return {"id": doc.id, "title": doc.title, "doc_type": doc.doc_type}
+    return {"id": doc.id, "title": doc.title, "doc_type": doc.doc_type, "content": content_json}
 
 
 @router.get("")

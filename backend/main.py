@@ -71,7 +71,7 @@ class ConnectionManager:
                     
                 self.doc_states[doc_id] = {
                     "seq": 0,
-                    "sheets": state_data,
+                    "data": state_data,
                     "dirty": False,
                     "last_save": time.time(),
                     "doc_info": {
@@ -90,9 +90,16 @@ class ConnectionManager:
         
         # Send initial full state
         state = self.doc_states[doc_id]
+        
+        doc_type = state.get("doc_info", {}).get("doc_type", "sheet")
+        if doc_type in ("writer", "doc"):
+            content_str = json.dumps(state["data"][0]) if isinstance(state["data"], list) and state["data"] else json.dumps(state["data"])
+        else:
+            content_str = json.dumps(state["data"])
+
         payload = json.dumps({
             "type": "update",
-            "content": json.dumps(state["sheets"]),
+            "content": content_str,
             "seq": state["seq"]
         })
         await ws.send_text(payload)
@@ -112,7 +119,7 @@ class ConnectionManager:
         if not room:
             return
         dead = []
-        for cid, ws in room.items():
+        for cid, ws in list(room.items()):
             if cid == sender_id:
                 continue
             try:
@@ -138,7 +145,11 @@ class ConnectionManager:
         state["last_save"] = now
         
         doc_info = state["doc_info"]
-        content_str = json.dumps(state["sheets"])
+        doc_type = doc_info.get("doc_type", "sheet")
+        if doc_type in ("writer", "doc"):
+            content_str = json.dumps(state["data"][0]) if isinstance(state["data"], list) and state["data"] else json.dumps(state["data"])
+        else:
+            content_str = json.dumps(state["data"])
         try:
             await asyncio.to_thread(
                 DocumentStorage.save,
@@ -217,12 +228,17 @@ app.include_router(chat.router,      prefix="/api/chat",      tags=["chat"])
 
 @app.websocket("/ws/{doc_id}")
 async def websocket_endpoint(websocket: WebSocket, doc_id: str):
-    client_id = await manager.connect(doc_id, websocket)
-
-    count = manager.user_count(doc_id)
-    presence = json.dumps({"type": "presence", "users": count})
-    await manager.broadcast(doc_id, presence, sender_id=client_id)
-    await websocket.send_text(presence)
+    try:
+        client_id = await manager.connect(doc_id, websocket)
+        count = manager.user_count(doc_id)
+        presence = json.dumps({"type": "presence", "users": count})
+        await manager.broadcast(doc_id, presence, sender_id=client_id)
+        await websocket.send_text(presence)
+    except WebSocketDisconnect:
+        return
+    except Exception as e:
+        logger.error(f"WebSocket connect error for {doc_id}: {e}")
+        return
 
     try:
         while True:
@@ -232,9 +248,22 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: str):
 
 
             if msg_type == "update":
+                content_payload = msg.get("content")
+                
+                # Keep state updated for new joiners
+                state = manager.doc_states.get(doc_id)
+                if state:
+                    try:
+                        parsed = json.loads(content_payload)
+                        state["data"] = [parsed]
+                        if msg.get("autosave", True):
+                            state["dirty"] = True
+                    except Exception:
+                        pass
+
                 payload = json.dumps({
                     "type":    "update",
-                    "content": msg.get("content"),
+                    "content": content_payload,
                     "title":   msg.get("title"),
                     "users":   manager.user_count(doc_id),
                 })
@@ -249,7 +278,7 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: str):
                 
                 state = manager.doc_states.get(doc_id)
                 if state:
-                    sheets = state["sheets"]
+                    sheets = state["data"]
                     while len(sheets) <= sheet_idx:
                         sheets.append({})
                     sheet = sheets[sheet_idx]

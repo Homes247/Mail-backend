@@ -14,7 +14,7 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
   standalone: true,
   imports: [CommonModule, FormsModule, MediaPickerComponent],
   template: `
-    <div class="widget-panel shadow-lg" *ngIf="activeWidget" (click)="onWidgetClick($event)">
+    <div class="widget-panel shadow-lg" *ngIf="activeWidget" (click)="$event.stopPropagation()">
       
       <!-- CHAT VIEW -->
       <ng-container *ngIf="activeWidget === 'chat' && !openedChatId">
@@ -35,7 +35,7 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
         </div>
         <div class="wp-search">
           <span class="material-symbols-outlined">search</span>
-          <input type="text" placeholder="Search chats..." [(ngModel)]="searchQuery">
+          <input type="text" placeholder="Search chats or contacts..." [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange($event)">
         </div>
         <div class="wp-section-title" *ngIf="filteredConversations().length > 0">RECENT CHATS</div>
         <div class="wp-body-list" *ngIf="filteredConversations().length > 0">
@@ -77,6 +77,18 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
               <div class="cli-preview" style="color:var(--text-secondary)">{{ isSelf(u.id) ? 'Personal Space' : 'Team Member' }}</div>
             </div>
           </div>
+          <div class="chat-list-item" *ngFor="let u of serverContacts" (click)="openWidgetChat(u.id)">
+            <div class="cli-av" [style.background]="u.avatar_color || '#6366f1'">
+              <img *ngIf="u.avatar_url" [src]="u.avatar_url">
+              <span *ngIf="!u.avatar_url">{{ getInitials(u.name) }}</span>
+            </div>
+            <div class="cli-info">
+              <div class="cli-top">
+                <span class="cli-name">{{ u.name }}</span>
+              </div>
+              <div class="cli-preview" style="color:var(--text-secondary)">{{ u.email }}</div>
+            </div>
+          </div>
         </div>
       </ng-container>
 
@@ -112,13 +124,15 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
         </div>
         <div class="chat-body-area" #scrollMe>
             <ng-container *ngFor="let msg of messages; let i = index">
-                <div class="date-badge" *ngIf="isFirstOfDay(i, messages)" [id]="'date-' + getDateLabel(msg.created_at).toUpperCase().split(' ').join('-')">
-                    <span (mousedown)="$event.preventDefault()" (click)="openCalendarModal($event)" style="cursor:pointer; user-select:none;">{{ getDateLabel(msg.created_at) }}</span>
+                <div class="date-badge" *ngIf="isFirstOfDay(i, messages)" [id]="'date-badge-chat-' + i">
+                    <span class="hover-date-badge" style="position:relative; cursor:pointer;" (click)="openCustomCalendar('chat')">
+                        {{ getDateLabel(msg.created_at) }}
+                    </span>
                 </div>
-                <div class="msg-row" [class.mine]="msg.is_mine" [class.other]="!msg.is_mine">
-                    <input type="checkbox" *ngIf="selectionMode" [checked]="selectedMessages.has(msg.id)" (change)="toggleMessageSelection(msg)" style="margin-right:8px; margin-bottom:12px;">
+                <div class="msg-row" [id]="'msg-' + msg.id" [class.mine]="msg.is_mine" [class.other]="!msg.is_mine">
+                    <input type="checkbox" *ngIf="selectionMode && !msg.is_mine" [checked]="selectedMessages.has(msg.id)" (change)="toggleMessageSelection(msg)" style="margin-right:8px; margin-bottom:12px;">
                     <div style="display:flex; flex-direction:column; max-width:100%;">
-                        <div *ngIf="!msg.is_file" class="msg-bubble">
+                        <div *ngIf="!msg.is_file" class="msg-bubble" [ngClass]="{'emoji-only': isOnlyEmoji(msg.message)}">
                             <div *ngIf="getReplyMeta(msg.message) as rMsg" class="inline-reply">
                                 <strong>{{ rMsg.sender_name || (rMsg.is_mine ? 'You' : (openedChatUser?.name || 'User')) }}</strong>
                                 <span *ngIf="rMsg.is_file" style="display:flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:12px">description</span> {{ cleanMessage(rMsg.message) || 'Attachment' }}</span>
@@ -194,8 +208,10 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
                             <span *ngIf="msg.is_mine" class="material-symbols-outlined" style="font-size:14px; margin-left:4px;" [style.color]="(msg.is_read || isSelf(openedChatUser?.id)) ? '#3b82f6' : 'inherit'">{{ (msg.is_read || isSelf(openedChatUser?.id)) ? 'done_all' : 'check' }}</span>
                         </div>
                     </div>
+                    <input type="checkbox" *ngIf="selectionMode && msg.is_mine" [checked]="selectedMessages.has(msg.id)" (change)="toggleMessageSelection(msg)" style="margin-left:8px; margin-bottom:12px;">
                 </div>
             </ng-container>
+            <div style="height: 24px; flex-shrink: 0; width: 100%;"></div>
         </div>
         <div class="chat-input-container">
            <div *ngIf="stagedFile" class="staged-file">
@@ -215,7 +231,7 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
            <div class="chat-input-area">
                <input type="file" #fileInputChat style="display:none" (change)="onFileSelected($event)">
                <span class="material-symbols-outlined icon-btn" (click)="fileInputChat.click()">attach_file</span>
-               <span class="material-symbols-outlined icon-btn" [class.active]="showEmojiPicker" (click)="toggleEmojiPicker($event)">sentiment_satisfied</span>
+               <span class="material-symbols-outlined icon-btn" [class.active]="showEmojiPicker" (click)="showEmojiPicker = !showEmojiPicker">sentiment_satisfied</span>
                <textarea class="chat-input-textarea" placeholder="Message {{ openedChatUser?.name?.split(' ')[0] }}..." [(ngModel)]="newMessage" (keydown)="onInputKeydown($event)" (input)="autoResizeInput($event)" (paste)="onPaste($event)" rows="1"></textarea>
                <button class="send-btn" (click)="sendMessage()">
                    <span class="material-symbols-outlined" style="font-size:18px; margin-left:2px;">send</span>
@@ -233,16 +249,30 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
             <span style="font-size:15px; font-weight:600;">Groups</span>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
-            <span class="material-symbols-outlined icon-btn">group_add</span>
+            <span class="material-symbols-outlined icon-btn" (click)="showCreateGroup = !showCreateGroup">group_add</span>
             <span class="material-symbols-outlined icon-btn" (click)="close.emit()">close</span>
           </div>
         </div>
+        
+        <div *ngIf="showCreateGroup" class="create-group-form" style="padding: 12px; background: var(--bg-color); border-bottom: 1px solid var(--border-color);">
+            <input type="text" placeholder="Group name..." [(ngModel)]="newGroupName" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 8px; background: var(--bg-color); color: var(--text-primary); font-family: inherit; font-size: 13px; box-sizing: border-box;">
+            <input type="text" placeholder="Description (optional)" [(ngModel)]="newGroupDescription" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 8px; background: var(--bg-color); color: var(--text-primary); font-family: inherit; font-size: 13px; box-sizing: border-box;">
+            <div style="margin-bottom: 12px; display: flex; align-items: center;">
+                <button (click)="fileInputGroupAvatar.click()" style="padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: #f3f4f6; color: #374151; cursor: pointer; font-size: 13px;">Choose Avatar...</button>
+                <input type="file" #fileInputGroupAvatar style="display:none" (change)="onGroupAvatarSelected($event)" accept="image/*">
+                <span *ngIf="newGroupAvatar" style="margin-left: 8px; font-size: 12px; color: var(--text-secondary); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ newGroupAvatar.name }}</span>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button (click)="showCreateGroup = false; resetCreateGroup()" style="padding: 6px 16px; border: 1px solid var(--border-color); border-radius: 6px; background: white; color: #374151; cursor: pointer; font-size: 13px; font-weight: 500;">Cancel</button>
+                <button (click)="createGroup()" [disabled]="!newGroupName.trim()" style="padding: 6px 16px; border: none; border-radius: 6px; background: #60a5fa; color: white; cursor: pointer; font-size: 13px; font-weight: 500;" [style.opacity]="!newGroupName.trim() ? '0.5' : '1'">Create</button>
+            </div>
+        </div>
         <div class="wp-search">
           <span class="material-symbols-outlined">search</span>
-          <input type="text" placeholder="Search groups..." [(ngModel)]="searchQuery">
+          <input type="text" placeholder="Search groups..." [(ngModel)]="searchQuery" (ngModelChange)="onGroupSearchChange($event)">
         </div>
-        <div class="wp-section-title">MY GROUPS</div>
-        <div class="wp-body-list">
+        <div class="wp-section-title" *ngIf="filteredChannels().length > 0 || !searchQuery">MY GROUPS</div>
+        <div class="wp-body-list" *ngIf="filteredChannels().length > 0 || !searchQuery">
           <div class="chat-list-item" *ngFor="let c of filteredChannels()" (click)="openChannel(c.id, c.name, c.avatar_url)">
             <div class="cli-av" style="background:var(--bg-color); color:var(--text-primary); border:1px solid var(--border-color); overflow:hidden; padding:0;">
               <img *ngIf="c.avatar_url" [src]="c.avatar_url" style="width:100%; height:100%; object-fit:cover;">
@@ -256,8 +286,24 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
               <div class="cli-preview">{{ cleanMessage(c.last_message) || 'No messages' }}</div>
             </div>
           </div>
-          <div *ngIf="channels.length === 0" style="padding: 20px; text-align:center; color:var(--text-secondary); font-size:13px;">
+          <div *ngIf="channels.length === 0 && !searchQuery" style="padding: 20px; text-align:center; color:var(--text-secondary); font-size:13px;">
             No channels
+          </div>
+        </div>
+        
+        <div class="wp-section-title" *ngIf="searchQuery && filteredServerGroups().length > 0" style="margin-top:8px;">ALL GROUPS</div>
+        <div class="wp-body-list" *ngIf="searchQuery && filteredServerGroups().length > 0">
+          <div class="chat-list-item" *ngFor="let c of filteredServerGroups()" (click)="openChannel(c.id, c.name, c.avatar_url)">
+            <div class="cli-av" style="background:var(--bg-color); color:var(--text-primary); border:1px solid var(--border-color); overflow:hidden; padding:0;">
+              <img *ngIf="c.avatar_url" [src]="c.avatar_url" style="width:100%; height:100%; object-fit:cover;">
+              <span *ngIf="!c.avatar_url" style="font-size:16px; font-weight:bold;">#</span>
+            </div>
+            <div class="cli-info">
+              <div class="cli-top">
+                <span class="cli-name">{{ c.name }}</span>
+              </div>
+              <div class="cli-preview" style="color:var(--text-secondary)">Channel</div>
+            </div>
           </div>
         </div>
       </ng-container>
@@ -271,15 +317,15 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
               <img *ngIf="openedChannelAvatarUrl" [src]="openedChannelAvatarUrl" style="width:100%; height:100%; object-fit:cover;">
               <span *ngIf="!openedChannelAvatarUrl" style="font-size:16px; font-weight:bold;">#</span>
             </div>
-            <div style="display:flex; flex-direction:column; color:var(--header-text);">
+            <div style="display:flex; flex-direction:column; color:var(--header-text); cursor:pointer;" (click)="openGroupInfo()">
                 <span style="font-size:14px; font-weight:600;">{{ openedChannelName }}</span>
-                <span style="font-size:11px; color:var(--header-icon);">2 members</span>
+                <span style="font-size:11px; color:var(--header-icon);">{{ channelMembers.length }} members</span>
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:4px;">
             <span class="material-symbols-outlined icon-btn" [class.active]="selectionMode" (click)="toggleSelectionMode()" title="Select Messages">checklist</span>
-            <span class="material-symbols-outlined icon-btn">person_add</span>
-            <span class="material-symbols-outlined icon-btn" style="color:#ef4444;">logout</span>
+            <span class="material-symbols-outlined icon-btn" (click)="openAddMember()">person_add</span>
+            <span class="material-symbols-outlined icon-btn" style="color:#ef4444;" (click)="leaveGroup()">logout</span>
             <span class="material-symbols-outlined icon-btn" (click)="closeChannel()">remove</span>
             <span class="material-symbols-outlined icon-btn" (click)="close.emit()">close</span>
           </div>
@@ -295,14 +341,16 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
         </div>
         <div class="chat-body-area" #scrollMe>
             <ng-container *ngFor="let msg of channelMessages; let i = index">
-                <div class="date-badge" *ngIf="isFirstOfDay(i, channelMessages)" [id]="'date-' + getDateLabel(msg.created_at).toUpperCase().split(' ').join('-')">
-                    <span (mousedown)="$event.preventDefault()" (click)="openCalendarModal($event)" style="cursor:pointer; user-select:none;">{{ getDateLabel(msg.created_at) }}</span>
+                <div class="date-badge" *ngIf="isFirstOfDay(i, channelMessages)" [id]="'date-badge-channel-' + i">
+                    <span class="hover-date-badge" style="position:relative; cursor:pointer;" (click)="openCustomCalendar('channel')">
+                        {{ getDateLabel(msg.created_at) }}
+                    </span>
                 </div>
-                <div class="msg-row" [class.mine]="msg.is_mine" [class.other]="!msg.is_mine">
-                    <input type="checkbox" *ngIf="selectionMode" [checked]="selectedMessages.has(msg.id)" (change)="toggleMessageSelection(msg)" style="margin-right:8px; margin-bottom:12px;">
+                <div class="msg-row" [id]="'msg-' + msg.id" [class.mine]="msg.is_mine" [class.other]="!msg.is_mine">
+                    <input type="checkbox" *ngIf="selectionMode && !msg.is_mine" [checked]="selectedMessages.has(msg.id)" (change)="toggleMessageSelection(msg)" style="margin-right:8px; margin-bottom:12px;">
                     <div style="display:flex; flex-direction:column; max-width:100%;">
                         <span *ngIf="!msg.is_mine" style="font-size:11px; color:var(--text-secondary); margin-bottom:2px; margin-left:4px;">{{ msg.sender_name }}</span>
-                        <div *ngIf="!msg.is_file" class="msg-bubble">
+                        <div *ngIf="!msg.is_file" class="msg-bubble" [ngClass]="{'emoji-only': isOnlyEmoji(msg.message)}">
                             <div *ngIf="getReplyMeta(msg.message) as rMsg" class="inline-reply">
                                 <strong>{{ rMsg.sender_name || (rMsg.is_mine ? 'You' : 'User') }}</strong>
                                 <span *ngIf="rMsg.is_file" style="display:flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:12px">description</span> {{ cleanMessage(rMsg.message) || 'Attachment' }}</span>
@@ -392,8 +440,10 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
                             <span *ngIf="msg.is_mine" class="material-symbols-outlined" style="font-size:14px; margin-left:4px;" [style.color]="(msg.is_read || isSelf(openedChatUser?.id)) ? '#3b82f6' : 'inherit'">{{ (msg.is_read || isSelf(openedChatUser?.id)) ? 'done_all' : 'check' }}</span>
                         </div>
                     </div>
+                    <input type="checkbox" *ngIf="selectionMode && msg.is_mine" [checked]="selectedMessages.has(msg.id)" (change)="toggleMessageSelection(msg)" style="margin-left:8px; margin-bottom:12px;">
                 </div>
             </ng-container>
+            <div style="height: 24px; flex-shrink: 0; width: 100%;"></div>
         </div>
         <div class="chat-input-container">
            <div *ngIf="stagedFile" class="staged-file">
@@ -413,7 +463,7 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
            <div class="chat-input-area">
                <input type="file" #fileInputChannel style="display:none" (change)="onFileSelected($event)">
                <span class="material-symbols-outlined icon-btn" (click)="fileInputChannel.click()">attach_file</span>
-               <span class="material-symbols-outlined icon-btn" [class.active]="showEmojiPicker" (click)="toggleEmojiPicker($event)">sentiment_satisfied</span>
+               <span class="material-symbols-outlined icon-btn" [class.active]="showEmojiPicker" (click)="showEmojiPicker = !showEmojiPicker">sentiment_satisfied</span>
                <textarea class="chat-input-textarea" placeholder="Message {{ openedChannelName }}..." [(ngModel)]="newMessage" (keydown)="onInputKeydown($event)" (input)="autoResizeInput($event)" (paste)="onPaste($event)" rows="1"></textarea>
                <button class="send-btn" (click)="sendMessage()">
                    <span class="material-symbols-outlined" style="font-size:18px; margin-left:2px;">send</span>
@@ -491,30 +541,101 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
               <span class="material-symbols-outlined">navigate_next</span>
           </div>
       </div>
-      
-      <!-- PREMIUM CALENDAR MODAL -->
-      <div class="modal-overlay" *ngIf="calendarModal" (click)="calendarModal = false" style="position:absolute; inset:0; z-index:1000; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; border-radius:inherit;">
-        <div class="calendar-modal" (click)="$event.stopPropagation()">
-          <div class="cal-header">
-            <button class="cal-nav-btn" (click)="prevMonth()"><span class="material-symbols-outlined">chevron_left</span></button>
-            <div class="cal-title">{{ currentMonthName }} 2026</div>
-            <button class="cal-nav-btn" (click)="nextMonth()"><span class="material-symbols-outlined">chevron_right</span></button>
-          </div>
-          <div class="cal-weekdays">
-            <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
-          </div>
-          <div class="cal-days">
-            <button class="cal-day" *ngFor="let d of calendarDays" 
-              [class.empty]="!d.date" 
-              [class.has-chat]="d.hasChat" 
-              [class.selected]="d.selected" 
-              (click)="d.date && selectCalendarDate(d.date)">
-              {{ d.date ? d.dayNum : '' }}
-            </button>
-          </div>
+        <!-- CUSTOM CALENDAR MODAL -->
+        <div class="calendar-modal-overlay" *ngIf="showCalendarModal" (click)="showCalendarModal = false">
+            <div class="calendar-modal" (click)="$event.stopPropagation()">
+                <div class="cal-header">
+                    <button class="cal-nav-btn" (click)="changeMonth(-1)"><span class="material-symbols-outlined" style="font-size:20px;">chevron_left</span></button>
+                    <span class="cal-month-title">{{ calendarCurrentMonth | date:'MMMM yyyy' }}</span>
+                    <button class="cal-nav-btn" (click)="changeMonth(1)"><span class="material-symbols-outlined" style="font-size:20px;">chevron_right</span></button>
+                </div>
+                <div class="cal-weekdays">
+                    <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                </div>
+                <div class="cal-grid">
+                    <div class="cal-cell" *ngFor="let d of calendarDays" 
+                         [class.empty]="!d" 
+                         [class.has-msg]="d && hasMessagesOnDate(d)"
+                         (click)="d && selectCustomDate(d)">
+                        <span *ngIf="d">{{ d.getDate() }}</span>
+                        <div class="cal-dot" *ngIf="d && hasMessagesOnDate(d)"></div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
 
+        <!-- Group Info Modal -->
+        <div class="group-modal-overlay" *ngIf="showGroupInfoModal" (click)="showGroupInfoModal = false">
+            <div class="group-modal" (click)="$event.stopPropagation()">
+                <div class="gm-header">
+                    <span class="material-symbols-outlined" style="color:#3b82f6; font-size: 20px;">info</span>
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Group Info</h3>
+                    <div style="flex:1"></div>
+                    <span class="material-symbols-outlined icon-btn" style="cursor:pointer;" (click)="showGroupInfoModal = false">close</span>
+                </div>
+                <div class="gm-body">
+                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; display: block;">Group Name</label>
+                    <input type="text" [(ngModel)]="editGroupName" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 16px; background: var(--bg-color); color: var(--text-primary); font-family: inherit; font-size: 14px; box-sizing: border-box;">
+                    
+                    <label style="font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; display: block;">Description</label>
+                    <input type="text" [(ngModel)]="editGroupDesc" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 16px; background: var(--bg-color); color: var(--text-primary); font-family: inherit; font-size: 14px; box-sizing: border-box;">
+                    
+                    <button class="gm-save-btn" (click)="saveGroupInfo()">Save Changes</button>
+                    
+                    <div style="margin-top: 24px; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: var(--text-primary); display:flex; justify-content: space-between; align-items:center;">
+                        <span>Members ({{ channelMembers.length }})</span>
+                    </div>
+                    <div class="gm-members-list">
+                        <div class="gm-member-item" *ngFor="let m of channelMembers">
+                            <div class="gm-member-av" [style.background]="m.avatar_color || '#6366f1'">
+                                <img *ngIf="m.avatar_url" [src]="m.avatar_url">
+                                <span *ngIf="!m.avatar_url">{{ getInitials(m.name) }}</span>
+                            </div>
+                            <div class="gm-member-info">
+                                <span class="gm-member-name">{{ m.name }}</span>
+                                <span *ngIf="m.role === 'admin'" class="gm-role-badge">Admin</span>
+                            </div>
+                            <div style="flex:1"></div>
+                            <span *ngIf="m.id !== currentUser?.id && isAdmin" class="material-symbols-outlined rm-member-btn" (click)="removeMember(m.id)" title="Remove">person_remove</span>
+                        </div>
+                    </div>
+                    
+                    <button class="gm-delete-btn" (click)="deleteGroup()" *ngIf="isAdmin">Delete Group For Everyone</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Member Modal -->
+        <div class="group-modal-overlay" *ngIf="showAddMemberModal" (click)="showAddMemberModal = false">
+            <div class="group-modal" (click)="$event.stopPropagation()" style="max-height: 80vh; display:flex; flex-direction: column;">
+                <div class="gm-header">
+                    <span class="material-symbols-outlined" style="color:#3b82f6; font-size: 20px;">person_add</span>
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Add to #{{ openedChannelName }}</h3>
+                    <div style="flex:1"></div>
+                    <span class="material-symbols-outlined icon-btn" style="cursor:pointer;" (click)="showAddMemberModal = false">close</span>
+                </div>
+                <div class="gm-search">
+                    <span class="material-symbols-outlined">search</span>
+                    <input type="text" placeholder="Search contacts..." [(ngModel)]="addMemberSearchQuery" (ngModelChange)="onAddMemberSearchChange()">
+                </div>
+                <div class="gm-add-list" style="overflow-y: auto; flex: 1; padding: 12px 16px;">
+                    <div class="gm-add-item" *ngFor="let c of filteredAddMemberContacts()">
+                        <div class="gm-member-av" [style.background]="c.avatar_color || '#6366f1'">
+                            <img *ngIf="c.avatar_url" [src]="c.avatar_url">
+                            <span *ngIf="!c.avatar_url">{{ getInitials(c.name) }}</span>
+                        </div>
+                        <div class="gm-add-info">
+                            <span class="gm-add-name">{{ c.name }}</span>
+                        </div>
+                        <div style="flex:1"></div>
+                        <button class="gm-add-btn" (click)="addMember(c.id)">Add</button>
+                    </div>
+                    <div *ngIf="filteredAddMemberContacts().length === 0" style="text-align:center; padding: 20px; color: var(--text-secondary); font-size: 13px;">
+                        No contacts found or all are already members.
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
   `,
   styles: [`
@@ -667,18 +788,39 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
     .cli-time { font-size: 11px; color: var(--text-secondary); flex-shrink: 0; margin-left: 8px; }
     .cli-preview { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     
-    .chat-body-area { padding: 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; background: var(--body-bg); overflow-y: auto; position: relative; }
+    .chat-body-area { position: relative; padding: 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; background: var(--body-bg); overflow-y: auto; }
     
     .date-badge { text-align: center; margin: 12px 0; }
-    .date-badge span { background: var(--date-badge-bg); color: var(--date-badge-text); font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 12px; border: 1px solid var(--date-badge-border); display: inline-block; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .date-badge span { background: var(--date-badge-bg); color: var(--date-badge-text); font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 12px; border: 1px solid var(--date-badge-border); display: inline-block; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: 0.2s; }
+    .hover-date-badge:hover { background: #1a73e8 !important; color: white !important; border-color: #1a73e8 !important; }
 
+    @keyframes badgeHighlightPulse {
+        0% { transform: scale(1); box-shadow: 0 0 0 rgba(26,115,232,0); background: var(--date-badge-bg); color: var(--date-badge-text); border-color: var(--date-badge-border); }
+        15% { transform: scale(1.15); box-shadow: 0 0 20px rgba(26,115,232,0.7); background: #1a73e8; color: white; border-color: #1a73e8; }
+        85% { transform: scale(1.15); box-shadow: 0 0 20px rgba(26,115,232,0.7); background: #1a73e8; color: white; border-color: #1a73e8; }
+        100% { transform: scale(1); box-shadow: 0 0 0 rgba(26,115,232,0); background: var(--date-badge-bg); color: var(--date-badge-text); border-color: var(--date-badge-border); }
+    }
+    .badge-pulse { animation: badgeHighlightPulse 1.5s ease-in-out !important; }
+
+    /* CUSTOM CALENDAR STYLES */
+    .calendar-modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+    .calendar-modal { background: #1f2937; border-radius: 16px; padding: 20px; width: 100%; max-width: 320px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-family: 'Inter', sans-serif; }
+    .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .cal-nav-btn { background: rgba(255,255,255,0.08); border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #cbd5e1; cursor: pointer; transition: 0.2s; }
+    .cal-nav-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+    .cal-month-title { color: #f8fafc; font-weight: 700; font-size: 16px; letter-spacing: 0.5px; }
+    .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; color: #94a3b8; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+    .cal-cell { position: relative; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #f1f5f9; font-weight: 600; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+    .cal-cell:not(.empty):hover { background: rgba(255,255,255,0.1); }
+    .cal-cell.empty { cursor: default; }
+    .msg-bubble { padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; word-break: break-word; position: relative; }
     .msg-row { display: flex; align-items: flex-end; max-width: 85%; position: relative; margin-bottom: 4px; }
     .msg-row.mine { align-self: flex-end; }
     .msg-row.other { align-self: flex-start; }
-    
-    .msg-bubble { padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; word-break: break-word; position: relative; }
     .msg-row.mine .msg-bubble { background: var(--msg-mine-bg); color: var(--msg-mine-text); border-bottom-right-radius: 4px; }
     .msg-row.other .msg-bubble { background: var(--msg-other-bg); color: var(--msg-other-text); border: 1px solid var(--border-color); border-bottom-left-radius: 4px; }
+    .msg-row.mine .msg-bubble.emoji-only, .msg-row.other .msg-bubble.emoji-only { background: transparent !important; border: none !important; box-shadow: none !important; font-size: 32px; padding: 0; }
     
     .msg-file-card { display: flex; align-items: center; gap: 12px; text-decoration: none; padding: 8px 12px; border-radius: 12px; max-width: 240px; position: relative; }
     .msg-row.mine .msg-file-card { background: var(--msg-mine-bg); color: var(--msg-mine-text); border-bottom-right-radius: 4px; }
@@ -819,21 +961,6 @@ import { MediaPickerComponent } from '../media-picker/media-picker.component';
         display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--border-color);
         background: var(--body-bg); font-size: 13px; color: var(--text-secondary);
     }
-    
-    /* CALENDAR MODAL */
-    .calendar-modal { background:#1e293b;border-radius:16px;width:280px;box-shadow:0 16px 40px rgba(0,0,0,0.4);padding:16px; }
-    .cal-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:16px; }
-    .cal-nav-btn { background:#334155;border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#94a3b8;transition:all 0.2s; }
-    .cal-nav-btn:hover { background:#475569;color:#e2e8f0; }
-    .cal-title { font-size:1rem;font-weight:700;color:#f8fafc;font-family:'Inter',sans-serif; }
-    .cal-weekdays { display:grid;grid-template-columns:repeat(7, 1fr);text-align:center;font-size:0.7rem;font-weight:700;color:#94a3b8;margin-bottom:8px; }
-    .cal-days { display:grid;grid-template-columns:repeat(7, 1fr);gap:4px; }
-    .cal-day { aspect-ratio:1;border:none;background:transparent;border-radius:50%;font-size:0.85rem;font-weight:600;color:#cbd5e1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;position:relative;font-family:'Inter',sans-serif; }
-    .cal-day.empty { cursor:default; }
-    .cal-day:not(.empty):hover { background:#334155;color:#f8fafc; }
-    .cal-day.has-chat::after { content:'';position:absolute;bottom:2px;width:4px;height:4px;border-radius:50%;background:#3b82f6; }
-    .cal-day.selected { background:#3b82f6 !important;color:white !important; }
-    .cal-day.selected::after { background:white; }
   `]
 })
 export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
@@ -846,6 +973,13 @@ export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
   conversations: any[] = [];
   channels: any[] = [];
   allUsers: any[] = [];
+  serverContacts: any[] = [];
+  serverGroups: any[] = [];
+  
+  showCreateGroup: boolean = false;
+  newGroupName: string = '';
+  newGroupDescription: string = '';
+  newGroupAvatar: File | null = null;
   
   openedChatId: number | null = null;
   openedChatUser: any = null;
@@ -880,6 +1014,16 @@ export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
   selectedMessages = new Set<number>();
   emojis = ['😀', '😂', '🥰', '😎', '👍', '🙏', '🔥', '🎉', '😢', '😡', '🤔', '👀', '❤️', '✨', '💯', '🙌'];
 
+  showGroupInfoModal = false;
+  editGroupName = '';
+  editGroupDesc = '';
+  channelMembers: any[] = [];
+  isAdmin = false;
+  
+  showAddMemberModal = false;
+  addMemberSearchQuery = '';
+  addMemberContacts: any[] = [];
+
   private sub: Subscription = new Subscription();
 
   constructor(private api: ApiService, private auth: AuthService, private chatSocket: ChatSocketService, private http: HttpClient) {}
@@ -893,9 +1037,6 @@ export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
       this.allUsers = Array.isArray(res) ? res : [];
     });
     this.pollData();
-
-    // Listen for global clicks to close the emoji picker if clicked outside the widget entirely
-    document.addEventListener('click', this.globalClickListener);
 
     this.sub = this.chatSocket.newMessage$.subscribe(data => {
         if (data.type === 'new_message') {
@@ -927,25 +1068,6 @@ export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
   ngOnDestroy() {
       this.sub.unsubscribe();
       this.chatSocket.disconnect();
-      document.removeEventListener('click', this.globalClickListener);
-  }
-
-  globalClickListener = () => {
-      if (this.showEmojiPicker) {
-          this.showEmojiPicker = false;
-      }
-  };
-
-  onWidgetClick(event: Event) {
-      event.stopPropagation();
-      if (this.showEmojiPicker) {
-          this.showEmojiPicker = false;
-      }
-  }
-
-  toggleEmojiPicker(event: Event) {
-      event.stopPropagation();
-      this.showEmojiPicker = !this.showEmojiPicker;
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -1010,6 +1132,78 @@ export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
       });
   }
 
+  onSearchChange(q: string) {
+      if (q && q.trim().length >= 2) {
+          this.api.searchUsers(q.trim()).subscribe({
+              next: (res: any) => {
+                  const existingUserIds = new Set(this.conversations.map(c => String(c.other_user.id)));
+                  this.serverContacts = (res || []).filter((u: any) => 
+                      !existingUserIds.has(String(u.id)) && u.id !== this.currentUser?.id
+                  );
+              },
+              error: (err: any) => {
+                  console.error("Search error", err);
+                  this.serverContacts = [];
+              }
+          });
+      } else {
+          this.serverContacts = [];
+      }
+  }
+
+  onGroupSearchChange(q: string) {
+      if (q && q.trim().length >= 1) {
+          this.api.searchChannels(q.trim()).subscribe({
+              next: (res: any) => {
+                  this.serverGroups = res || [];
+              },
+              error: (err: any) => {
+                  console.error("Group search error", err);
+                  this.serverGroups = [];
+              }
+          });
+      } else {
+          this.serverGroups = [];
+      }
+  }
+
+  resetCreateGroup() {
+      this.newGroupName = '';
+      this.newGroupDescription = '';
+      this.newGroupAvatar = null;
+  }
+
+  onGroupAvatarSelected(event: any) {
+      const file = event.target.files[0];
+      if (file) {
+          this.newGroupAvatar = file;
+      }
+      event.target.value = '';
+  }
+
+  createGroup() {
+      const name = this.newGroupName?.trim();
+      if (!name) return;
+      
+      this.api.createChannel(name, this.newGroupDescription).subscribe({
+          next: (res: any) => {
+              this.channels.unshift(res);
+              this.showCreateGroup = false;
+              this.resetCreateGroup();
+              this.openChannel(res.id, res.name, res.avatar_url);
+          },
+          error: (err: any) => {
+              console.error("Failed to create group", err);
+          }
+      });
+  }
+
+  filteredServerGroups() {
+      if (!this.searchQuery || !this.serverGroups || !Array.isArray(this.serverGroups)) return [];
+      const existingChannelIds = new Set((this.channels || []).map(c => String(c.id)));
+      return this.serverGroups.filter(c => !existingChannelIds.has(String(c.id)));
+  }
+
   openWidgetChat(userId: number) {
       this.activeWidget = 'chat';
       this.openChat(userId);
@@ -1026,7 +1220,89 @@ export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
       this.openedChannelName = channelName;
       this.openedChannelAvatarUrl = avatarUrl;
       this.channelMessages = [];
+      this.loadChannelInfo(channelId);
       this.pollData();
+  }
+
+  loadChannelInfo(channelId: number) {
+      this.api.getChannelInfo(channelId).subscribe(res => {
+          this.editGroupName = res.name;
+          this.editGroupDesc = res.description;
+          this.channelMembers = res.members || [];
+          
+          const myMember = this.channelMembers.find(m => m.id === this.currentUser?.id);
+          this.isAdmin = myMember ? myMember.role === 'admin' : false;
+      });
+  }
+
+  openGroupInfo() {
+      if (!this.openedChannelId) return;
+      this.loadChannelInfo(this.openedChannelId);
+      this.showGroupInfoModal = true;
+  }
+
+  saveGroupInfo() {
+      if (!this.openedChannelId) return;
+      this.api.updateChannel(this.openedChannelId, this.editGroupName, this.editGroupDesc).subscribe(res => {
+          this.openedChannelName = this.editGroupName;
+          this.showGroupInfoModal = false;
+          this.pollData(); // Refresh list if needed
+      });
+  }
+
+  deleteGroup() {
+      if (!this.openedChannelId) return;
+      if (!confirm("Are you sure you want to delete this group for everyone?")) return;
+      this.api.deleteChannel(this.openedChannelId).subscribe(() => {
+          this.showGroupInfoModal = false;
+          this.closeChannel();
+          this.pollData();
+      });
+  }
+
+  leaveGroup() {
+      if (!this.openedChannelId) return;
+      if (!confirm("Are you sure you want to leave this group?")) return;
+      this.api.leaveChannel(this.openedChannelId).subscribe(() => {
+          this.closeChannel();
+          this.pollData();
+      });
+  }
+
+  removeMember(userId: number) {
+      if (!this.openedChannelId) return;
+      if (!confirm("Remove this member?")) return;
+      this.api.removeChannelMember(this.openedChannelId, userId).subscribe(() => {
+          this.loadChannelInfo(this.openedChannelId!);
+      });
+  }
+
+  openAddMember() {
+      if (!this.openedChannelId) return;
+      this.showAddMemberModal = true;
+      this.addMemberSearchQuery = '';
+      this.addMemberContacts = this.allUsers; // Using all users or contacts for simplicity
+  }
+
+  onAddMemberSearchChange() {
+      // filtering handled in getter
+  }
+
+  filteredAddMemberContacts() {
+      const currentMemberIds = new Set(this.channelMembers.map(m => m.id));
+      return this.addMemberContacts.filter(c => 
+          !currentMemberIds.has(c.id) &&
+          c.name.toLowerCase().includes(this.addMemberSearchQuery.toLowerCase())
+      );
+  }
+
+  addMember(userId: number) {
+      if (!this.openedChannelId) return;
+      this.api.addChannelMembers(this.openedChannelId, [userId]).subscribe(() => {
+          this.addMemberSearchQuery = '';
+          this.loadChannelInfo(this.openedChannelId!);
+          this.showAddMemberModal = false;
+      });
   }
 
   closeChannel() {
@@ -1215,6 +1491,15 @@ export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
       return text.replace(/\[REPLY_META:[\s\S]*?\]\n?/g, '').replace(/\[Reply:[\s\S]*?\]\n?/g, '');
   }
 
+  isOnlyEmoji(text: string | null | undefined): boolean {
+      if (!text) return false;
+      const clean = this.cleanMessage(text).trim();
+      if (!clean) return false;
+      // Regex to match string containing strictly emoji characters and optional spaces
+      const emojiRegex = /^[\p{Extended_Pictographic}\s]+$/u;
+      return emojiRegex.test(clean);
+  }
+
   getReplyMeta(text: string | null | undefined): any | null {
       if (!text) return null;
       const match = text.match(/\[REPLY_META:(.*?)\]/);
@@ -1236,6 +1521,116 @@ export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
   toggleSelectionMode() {
       this.selectionMode = !this.selectionMode;
       this.selectedMessages.clear();
+  }
+
+  // --- CUSTOM CALENDAR LOGIC ---
+  showCalendarModal = false;
+  calendarCurrentMonth = new Date();
+  calendarDays: any[] = [];
+  calendarTargetContext: 'chat' | 'channel' = 'chat';
+  msgDatesSet = new Set<string>();
+
+  openCustomCalendar(context: 'chat' | 'channel') {
+      this.calendarTargetContext = context;
+      this.calendarCurrentMonth = new Date();
+      this.generateCalendarDays();
+      this.showCalendarModal = true;
+  }
+
+  changeMonth(delta: number) {
+      this.calendarCurrentMonth = new Date(this.calendarCurrentMonth.getFullYear(), this.calendarCurrentMonth.getMonth() + delta, 1);
+      this.generateCalendarDays();
+  }
+
+  generateCalendarDays() {
+      this.calendarDays = [];
+      const year = this.calendarCurrentMonth.getFullYear();
+      const month = this.calendarCurrentMonth.getMonth();
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      for (let i = 0; i < firstDay; i++) {
+          this.calendarDays.push(null);
+      }
+      for (let i = 1; i <= daysInMonth; i++) {
+          this.calendarDays.push(new Date(year, month, i));
+      }
+
+      this.msgDatesSet.clear();
+      const msgList = this.calendarTargetContext === 'chat' ? this.messages : this.channelMessages;
+      msgList.forEach(m => {
+          const d = new Date(m.created_at);
+          this.msgDatesSet.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+      });
+  }
+
+  hasMessagesOnDate(d: Date): boolean {
+      return this.msgDatesSet.has(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+  }
+
+  selectCustomDate(d: Date) {
+      this.showCalendarModal = false;
+      const msgList = this.calendarTargetContext === 'chat' ? this.messages : this.channelMessages;
+      let targetIndex = null;
+      d.setHours(0,0,0,0);
+      for (let i = 0; i < msgList.length; i++) {
+          const msgDate = new Date(msgList[i].created_at);
+          msgDate.setHours(0,0,0,0);
+          if (msgDate >= d) {
+              targetIndex = i;
+              break;
+          }
+      }
+      if (targetIndex !== null) {
+          setTimeout(() => {
+              const badgeId = 'date-badge-' + this.calendarTargetContext + '-' + targetIndex;
+              const el = document.getElementById(badgeId);
+              if (el && this.scrollMe) {
+                  const container = this.scrollMe.nativeElement;
+                  container.scrollTop = el.offsetTop - 12;
+
+                  const span = el.querySelector('span.hover-date-badge');
+                  if (span) {
+                      span.classList.remove('badge-pulse');
+                      void span.clientWidth; // trigger reflow
+                      span.classList.add('badge-pulse');
+                      setTimeout(() => span.classList.remove('badge-pulse'), 1500);
+                  }
+              }
+          }, 100);
+      }
+  }
+  // -----------------------------
+
+  scrollToDate(event: Event, msgList: any[]) {
+      const target = event.target as HTMLInputElement;
+      if (!target.value) return;
+      
+      const selectedDate = new Date(target.value);
+      selectedDate.setHours(0,0,0,0);
+
+      let targetMsgId = null;
+      // find the first message that matches this date, or the closest one AFTER it
+      for (let i = 0; i < msgList.length; i++) {
+          const msgDate = new Date(msgList[i].created_at);
+          msgDate.setHours(0,0,0,0);
+          
+          if (msgDate >= selectedDate) {
+              targetMsgId = msgList[i].id;
+              break;
+          }
+      }
+
+      if (targetMsgId) {
+          setTimeout(() => {
+              const el = document.getElementById('msg-' + targetMsgId);
+              if (el && this.scrollMe) {
+                  const container = this.scrollMe.nativeElement;
+                  container.scrollTop = el.offsetTop - 20; // 20px padding
+              }
+          }, 100);
+      }
+      target.value = '';
   }
 
   toggleMessageSelection(msg: any) {
@@ -1435,137 +1830,6 @@ export class ChatWidgetComponent implements OnInit, OnDestroy, OnChanges {
           }
           return Object.keys(counts).map(k => k + (counts[k] > 1 ? ` ${counts[k]}` : ''));
       } catch { return []; }
-  }
-
-  // --- CALENDAR LOGIC ---
-  calendarModal = false;
-  calMonth = new Date().getMonth(); // Default to current month, or 6 for July
-  calendarDays: any[] = [];
-  currentMonthName = 'July';
-  chatDatesSet = new Set<string>();
-
-  openCalendarModal(event?: Event) {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    this.calendarModal = true;
-    
-    const currentList = this.activeWidget === 'chat' ? this.messages : this.channelMessages;
-    this.chatDatesSet = new Set(currentList.map(msg => this.getDateLabel(msg.created_at).toUpperCase()));
-    
-    this.calMonth = new Date().getMonth(); // You can fix this to 6 if strictly 2026, but dynamic is better
-    if (new Date().getFullYear() !== 2026) {
-        this.calMonth = 6; // Force July for the 2026 demo if needed, otherwise we can just use the current month
-    }
-    
-    this.generateCalendar();
-  }
-
-  prevMonth() {
-    if (this.calMonth > 0) {
-      this.calMonth--;
-      this.generateCalendar();
-    }
-  }
-
-  nextMonth() {
-    if (this.calMonth < 11) {
-      this.calMonth++;
-      this.generateCalendar();
-    }
-  }
-
-  generateCalendar() {
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    this.currentMonthName = monthNames[this.calMonth];
-    
-    const firstDay = new Date(2026, this.calMonth, 1).getDay();
-    const daysInMonth = new Date(2026, this.calMonth + 1, 0).getDate();
-    
-    this.calendarDays = [];
-    for (let i = 0; i < firstDay; i++) {
-      this.calendarDays.push({ empty: true });
-    }
-    
-    for (let i = 1; i <= daysInMonth; i++) {
-      const d = new Date(2026, this.calMonth, i);
-      const formattedDate = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
-      
-      const now = new Date();
-      const yest = new Date(now); yest.setDate(now.getDate() - 1);
-      
-      let dateKey = formattedDate;
-      if (d.toDateString() === now.toDateString()) {
-        dateKey = 'TODAY';
-      } else if (d.toDateString() === yest.toDateString()) {
-        dateKey = 'YESTERDAY';
-      }
-
-      this.calendarDays.push({
-        dayNum: i,
-        date: formattedDate, // Use the short formatted date for value
-        hasChat: this.chatDatesSet.has(dateKey) || this.chatDatesSet.has(formattedDate),
-        selected: false
-      });
-    }
-  }
-
-  selectCalendarDate(dateStr: string) {
-    this.calendarModal = false;
-    
-    const targetDate = new Date(dateStr);
-    targetDate.setHours(0,0,0,0);
-    const targetTime = targetDate.getTime();
-    
-    let closestMsg: any = null;
-    let minDiff = Infinity;
-    
-    const currentList = this.activeWidget === 'chat' ? this.messages : this.channelMessages;
-    
-    for (let msg of currentList) {
-      if (!msg.created_at) continue;
-      
-      const msgDate = new Date(msg.created_at);
-      msgDate.setHours(0,0,0,0);
-      const mTime = msgDate.getTime();
-      
-      if (!isNaN(mTime)) {
-        const diff = Math.abs(mTime - targetTime);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestMsg = msg;
-        }
-      }
-    }
-    
-    if (closestMsg) {
-      setTimeout(() => {
-        const idLabel = this.getDateLabel(closestMsg.created_at).toUpperCase().split(' ').join('-');
-        const el = document.getElementById('date-' + idLabel);
-        if (el && this.scrollMe) {
-          this.scrollMe.nativeElement.scrollTo({
-            top: el.offsetTop - 20,
-            behavior: 'smooth'
-          });
-          
-          const spanEl = el.querySelector('span');
-          if (spanEl) {
-            spanEl.style.transition = 'all 0.5s';
-            spanEl.style.transform = 'scale(1.2)';
-            spanEl.style.background = '#3b82f6';
-            spanEl.style.color = 'white';
-            spanEl.style.boxShadow = '0 0 15px rgba(59,130,246,0.5)';
-            setTimeout(() => {
-              spanEl.style.transform = 'scale(1)';
-              spanEl.style.background = '';
-              spanEl.style.color = '';
-              spanEl.style.boxShadow = '';
-            }, 1500);
-          }
-        }
-      }, 100);
-    }
   }
 
   closeReactionPopover(event?: Event) {

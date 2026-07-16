@@ -1,16 +1,28 @@
-import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, Pipe, PipeTransform } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
 import { ChatWidgetComponent } from '../../components/chat-widget/chat-widget.component';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
+@Pipe({
+  name: 'safeHtml',
+  standalone: true
+})
+export class SafeHtmlPipe implements PipeTransform {
+  constructor(private sanitizer: DomSanitizer) {}
+  transform(value: string): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(value || '');
+  }
+}
+
 @Component({
   selector: 'app-doc-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, ChatWidgetComponent],
+  imports: [CommonModule, FormsModule, ChatWidgetComponent, SafeHtmlPipe],
   template: `
     <div class="shell" (click)="closeMenus($event)" [class.theme-dark]="isDarkMode" [class.reader-mode]="isReaderView">
       <!-- Header Bar -->
@@ -167,14 +179,13 @@ import { AuthService } from '../../services/auth.service';
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subImport)">
                     <span class="material-symbols-outlined dd-icon">login</span><span class="dd-text">Import</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
                     <div #subImport class="sub-dropdown">
-                       <input type="file" #importInput (change)="importFile($event)" style="display:none" accept=".docx,.pdf,.txt,.html,.rtf">
-                       <div class="dd-item" (click)="triggerImport()"><span class="material-symbols-outlined dd-icon" style="font-size:16px; color:#1a73e8;">computer</span><span class="dd-text" style="color:#1a73e8;">From Computer</span></div>
+                       <div class="dd-item" (click)="triggerImport($event)"><span class="material-symbols-outlined dd-icon" style="font-size:16px; color:#1a73e8;">computer</span><span class="dd-text" style="color:#1a73e8;">From Computer</span></div>
                        <div class="dd-item" (click)="cloudModalOpen = true; closeMenus()"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">cloud_download</span><span class="dd-text">From Cloud Drives</span></div>
                     </div>
                   </div>
 
                   <!-- Open -->
-                  <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subOpen)">
+                  <div class="dd-item has-sub" (click)="docInput.click(); closeMenus()" (mouseenter)="positionSubmenu($event, subOpen)">
                     <span class="material-symbols-outlined dd-icon">folder_open</span><span class="dd-text">Open</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
                     <div #subOpen class="sub-dropdown">
                        <div style="padding: 4px 12px; font-size: 11px; font-weight: 600; color: #202124;">Recently Opened</div>
@@ -201,7 +212,6 @@ import { AuthService } from '../../services/auth.service';
                   <!-- Make a Copy -->
                   <div class="dd-item" (click)="makeCopy()"><span class="material-symbols-outlined dd-icon">content_copy</span><span class="dd-text">Make a Copy...</span><span class="dd-hint">Ctrl+Shift+S</span></div>
                   
-                  <!-- Save As -->
                   <div class="dd-item has-sub" (mouseenter)="positionSubmenu($event, subSaveAs)">
                     <span class="material-symbols-outlined dd-icon">save</span><span class="dd-text">Save As</span><span class="material-symbols-outlined" style="margin-left:auto; font-size:16px;">chevron_right</span>
                     <div #subSaveAs class="sub-dropdown">
@@ -209,6 +219,19 @@ import { AuthService } from '../../services/auth.service';
                        <div class="dd-item" (click)="saveAsTemplate()"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">receipt_long</span><span class="dd-text">Save As Template...</span></div>
                        <div class="dd-item" (click)="cloudModalOpen = true; closeMenus()"><span class="material-symbols-outlined dd-icon" style="font-size:16px;">cloud_upload</span><span class="dd-text">Save to Other Cloud Drives</span></div>
                     </div>
+                  </div>
+
+                  <!-- AutoSave Toggle -->
+                  <div class="dd-item" (click)="toggleAutoSave(); $event.stopPropagation()">
+                    <span class="material-symbols-outlined dd-icon" [style.color]="autoSaveEnabled ? '#1a73e8' : '#5f6368'">{{ autoSaveEnabled ? 'check_box' : 'check_box_outline_blank' }}</span>
+                    <span class="dd-text">AutoSave</span>
+                  </div>
+
+                  <!-- Manual Save (only if autosave is disabled) -->
+                  <div class="dd-item" *ngIf="!autoSaveEnabled" (click)="save(true); closeMenus()">
+                    <span class="material-symbols-outlined dd-icon" style="color:#1a73e8;">save</span>
+                    <span class="dd-text">Save Now</span>
+                    <span class="dd-hint" style="margin-left:auto; color:#5f6368;">Ctrl+S</span>
                   </div>
 
                   <!-- Download As -->
@@ -1356,8 +1379,15 @@ import { AuthService } from '../../services/auth.service';
       <div class="editor-layout">
         <div class="sidebar" *ngIf="showPrintLayout">
           <div class="thumbnail" *ngFor="let p of pageCountArray; let i = index" (click)="scrollToPage(i)">
-            <div class="thumb-page">
-              <button class="delete-page-btn" (click)="deletePage(i, $event)" title="Delete Page">&times;</button>
+            <div class="thumb-page" style="overflow: hidden; position: relative; background: #fff; display: flex; flex-direction: column; align-items: center; padding-top: 10px; gap: 4px;">
+              <!-- CSS Skeleton to look like a document preview without crashing the DOM -->
+              <div style="width: 70%; height: 2px; background: #e0e0e0; border-radius: 1px;"></div>
+              <div style="width: 80%; height: 2px; background: #e0e0e0; border-radius: 1px;"></div>
+              <div style="width: 75%; height: 2px; background: #e0e0e0; border-radius: 1px;"></div>
+              <div style="width: 85%; height: 2px; background: #e0e0e0; border-radius: 1px;"></div>
+              <div style="width: 60%; height: 2px; background: #e0e0e0; border-radius: 1px;"></div>
+              
+              <button class="delete-page-btn" (click)="deletePage(i, $event)" title="Delete Page" style="z-index: 10;">&times;</button>
             </div>
             <div class="thumb-label">{{ i + 1 }}</div>
           </div>
@@ -1382,6 +1412,7 @@ import { AuthService } from '../../services/auth.service';
                 [class.object-indicator]="showObjectIndicator"
                 [style.caret-color]="activeTrackChanges === 'On' ? activeMarkupColor : 'auto'"
                 (contextmenu)="onContextMenu($event)"
+                (paste)="onPaste($event)"
                 (input)="onInput(editor)" (blur)="save()">
               </div>
             </div>
@@ -1491,6 +1522,7 @@ import { AuthService } from '../../services/auth.service';
       <input type="file" #audioInput (change)="onAudioUpload($event)" accept="audio/*" style="display: none">
       <input type="file" #signatureInput (change)="onSignatureUpload($event)" accept="image/*" style="display: none">
       <input type="file" #docInput (change)="onDocOpen($event)" accept=".txt,.html" style="display: none">
+      <input type="file" #importInput (change)="importFile($event)" style="display:none" accept=".docx,.pdf,.txt,.html,.rtf">
       <div class="toast" [class.show]="toastVisible">{{ toastMsg }}</div>
 
       <!-- Image Resize Overlay -->
@@ -1501,6 +1533,40 @@ import { AuthService } from '../../services/auth.service';
         <div class="resize-handle tr" (mousedown)="startResize($event, 'tr')"></div>
         <div class="resize-handle bl" (mousedown)="startResize($event, 'bl')"></div>
         <div class="resize-handle br" (mousedown)="startResize($event, 'br')"></div>
+        
+        <div class="image-actions" *ngIf="selectedObject.tagName === 'IMG'" style="position: absolute; top: -36px; right: -2px; display: flex; gap: 4px; background: white; border-radius: 4px; padding: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); pointer-events: auto;">
+           <button class="header-icon-btn" (click)="setWrapStyle('inline')" title="Inline"><span class="material-symbols-outlined" style="font-size: 18px;">format_align_justify</span></button>
+           <button class="header-icon-btn" (click)="setWrapStyle('left')" title="Wrap Left"><span class="material-symbols-outlined" style="font-size: 18px;">format_align_left</span></button>
+           <button class="header-icon-btn" (click)="setWrapStyle('right')" title="Wrap Right"><span class="material-symbols-outlined" style="font-size: 18px;">format_align_right</span></button>
+           <button class="header-icon-btn" (click)="setWrapStyle('break')" title="Break Text"><span class="material-symbols-outlined" style="font-size: 18px;">wrap_text</span></button>
+           <button class="header-icon-btn" (click)="setWrapStyle('absolute')" title="In Front of Text"><span class="material-symbols-outlined" style="font-size: 18px;">layers</span></button>
+           <div style="width: 1px; background: #dadce0; margin: 2px 4px;"></div>
+           <button class="header-icon-btn" (click)="openCropModal()" title="Crop Image"><span class="material-symbols-outlined" style="font-size: 18px;">crop</span></button>
+        </div>
+      </div>
+
+      <!-- Crop Modal -->
+      <div class="modal-overlay" *ngIf="cropModalVisible">
+        <div class="modal" style="width: 540px; padding: 24px;">
+          <h3 style="margin: 0 0 16px 0; font-size: 16px; text-align: left;">Crop Image</h3>
+          <div style="position: relative; margin: 16px 0; background: #f1f3f4; border: 1px solid #dadce0; border-radius: 8px; display: flex; justify-content: center; align-items: center; min-height: 200px; padding: 20px;">
+             <img #cropImageEl [src]="cropTargetSrc" style="max-width: 100%; max-height: 400px; display: block; user-select: none;" (load)="initCropArea()" draggable="false">
+             <div class="crop-area" *ngIf="cropArea" 
+                  [style.left.px]="cropArea.x" [style.top.px]="cropArea.y" 
+                  [style.width.px]="cropArea.w" [style.height.px]="cropArea.h" 
+                  style="position: absolute; border: 2px dashed #1a73e8; background: rgba(26,115,232,0.1); cursor: move; user-select: none;"
+                  (mousedown)="startCropDrag($event)">
+                <div class="resize-handle tl" (mousedown)="startCropResize($event, 'tl')" style="position: absolute; top: -7px; left: -7px; cursor: nwse-resize;"></div>
+                <div class="resize-handle tr" (mousedown)="startCropResize($event, 'tr')" style="position: absolute; top: -7px; right: -7px; cursor: nesw-resize;"></div>
+                <div class="resize-handle bl" (mousedown)="startCropResize($event, 'bl')" style="position: absolute; bottom: -7px; left: -7px; cursor: nesw-resize;"></div>
+                <div class="resize-handle br" (mousedown)="startCropResize($event, 'br')" style="position: absolute; bottom: -7px; right: -7px; cursor: nwse-resize;"></div>
+             </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn outline" (click)="cropModalVisible = false">Cancel</button>
+            <button class="btn" (click)="applyCrop()">Apply Crop</button>
+          </div>
+        </div>
       </div>
 
       <!-- Find Dialog -->
@@ -2004,10 +2070,40 @@ import { AuthService } from '../../services/auth.service';
 export class DocEditorComponent implements OnInit, OnDestroy {
   contextMenuX = 0;
   contextMenuY = 0;
+  
+  sanitizeImportedHtml(html: string): string {
+    if (!html) return html;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // Extract imgs from p tags because p tags cannot be split by autoPaginate
+    const ps = Array.from(tempDiv.querySelectorAll('p'));
+    for (const p of ps) {
+       const imgs = Array.from(p.querySelectorAll('img'));
+       if (imgs.length > 0) {
+           for (const img of imgs) {
+              const wrapper = document.createElement('div');
+              wrapper.style.textAlign = 'center';
+              img.style.maxWidth = '100%';
+              wrapper.appendChild(img.cloneNode(true));
+              p.parentNode?.insertBefore(wrapper, p);
+              img.remove();
+           }
+           if (p.innerHTML.trim() === '') {
+              p.remove();
+           }
+       }
+    }
+    return tempDiv.innerHTML;
+  }
+
   showContextMenu = false;
   contextMenuSuggestions: string[] = [];
   isFetchingSuggestions = false;
   contextMenuRange: Range | null = null;
+  private inputTimeout: any;
+  private typingTimer: any;
+  private hasReceivedInitialSync = false;
   @ViewChild('importInput') importInput!: ElementRef;
   @ViewChild('editor') editor!: ElementRef;
   recentDocs: any[] = [];
@@ -2614,6 +2710,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   currentPage = 1;
   zoomLevel = 100;
   isSaving = false;
+  autoSaveEnabled = true;
 
   tableGridRows = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   tableGridCols = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -2755,6 +2852,16 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   shareRole = 'View';
   userSearchResults: any[] = [];
   findDialogVisible = false;
+
+  cropModalVisible = false;
+  cropTargetSrc = '';
+  cropTargetImg: HTMLImageElement | null = null;
+  cropArea: { x: number, y: number, w: number, h: number } | null = null;
+  cropAction: string | null = null;
+  cropStartX = 0;
+  cropStartY = 0;
+  cropStartArea: any = null;
+  @ViewChild('cropImageEl') cropImageEl!: ElementRef<HTMLImageElement>;
   findTextQuery = '';
   pageCountArray: number[] = [0];
   toastVisible = false;
@@ -2903,6 +3010,8 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   dragStartY = 0;
   imgStartX = 0;
   imgStartY = 0;
+  nativeDragStartWidth = 0;
+  nativeDragStartHeight = 0;
 
   // Drawing Modal State
   drawingModalVisible = false;
@@ -2965,8 +3074,9 @@ export class DocEditorComponent implements OnInit, OnDestroy {
         this.lastSavedTime = new Date(doc.updated_at);
       }
       try { 
-        const p = JSON.parse(doc.content || '{}'); 
-        this.htmlContent = p.html ?? '<div><br></div>'; 
+        let p = JSON.parse(doc.content || '{}'); 
+        if (Array.isArray(p) && p.length > 0) p = p[0];
+        this.htmlContent = this.sanitizeImportedHtml(p.html) ?? '<div><br></div>'; 
         const el = document.querySelector('.page') as HTMLElement;
         if (el) {
           el.innerHTML = this.htmlContent;
@@ -2974,6 +3084,17 @@ export class DocEditorComponent implements OnInit, OnDestroy {
           setTimeout(() => {
              this.autoPaginate();
              this.updatePageHeight();
+             
+             // Re-paginate when images load to prevent them from intersecting pages
+             const images = el.querySelectorAll('img');
+             images.forEach(img => {
+               if (!img.complete) {
+                 img.addEventListener('load', () => {
+                   this.autoPaginate();
+                   this.updatePageHeight();
+                 });
+               }
+             });
 
             // Setup selection change listener
             document.addEventListener('selectionchange', this.onSelectionChange.bind(this));
@@ -2986,21 +3107,35 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       if (msg.type === 'presence') {
         this.activeUsers = msg.users ?? 1;
       } else if (msg.type === 'update') {
+        const isInitialSync = msg.users === undefined;
         this.activeUsers = msg.users ?? this.activeUsers;
+        
+        if (isInitialSync && this.hasReceivedInitialSync) {
+            // Ignore initial state dumps on reconnect to avoid overwriting local typing
+            return;
+        }
+        if (isInitialSync) {
+            this.hasReceivedInitialSync = true;
+        }
+
         this.applyingRemote = true;
         if (msg.title) this.title = msg.title;
         if (msg.content !== undefined) {
           try {
-            const p = JSON.parse(msg.content!);
-            this.htmlContent = p.html ?? '<div><br></div>';
-            const el = document.querySelector('.page') as HTMLElement;
-            if (el) {
-              el.innerHTML = this.htmlContent;
-              try { document.execCommand('enableObjectResizing', false, 'false'); } catch (e) { }
-              setTimeout(() => {
-                 this.autoPaginate();
-                 this.updatePageHeight();
-              }, 100);
+            let p = JSON.parse(msg.content!);
+            if (Array.isArray(p) && p.length > 0) p = p[0];
+            const newHtml = this.sanitizeImportedHtml(p.html) ?? '<div><br></div>';
+            if (newHtml !== this.htmlContent) {
+              this.htmlContent = newHtml;
+              const el = document.querySelector('.page') as HTMLElement;
+              if (el) {
+                el.innerHTML = this.htmlContent;
+                try { document.execCommand('enableObjectResizing', false, 'false'); } catch (e) { }
+                setTimeout(() => {
+                   this.autoPaginate();
+                   this.updatePageHeight();
+                }, 100);
+              }
             }
           } catch { }
         }
@@ -3490,11 +3625,13 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     this.closeMenus();
   }
 
+
+
   insertImage() {
     this.closeMenus();
     const url = prompt('Enter image URL:', 'https://');
     if (url) {
-      document.execCommand('insertImage', false, url);
+      this.insertImageAsBlock(url);
     }
   }
 
@@ -3504,7 +3641,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       const reader = new FileReader();
       reader.onload = (e) => {
         const dataUrl = e.target?.result as string;
-        document.execCommand('insertImage', false, dataUrl);
+        this.insertImageAsBlock(dataUrl);
       };
       reader.readAsDataURL(file);
     }
@@ -3647,7 +3784,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
   confirmImageUrl() {
     if (this.imageUrlInput) {
-      document.execCommand('insertImage', false, this.imageUrlInput);
+      this.insertImageAsBlock(this.imageUrlInput);
     }
     this.imageModalVisible = false;
   }
@@ -3907,6 +4044,47 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     this.closeMenus();
   }
 
+  insertImageAsBlock(dataUrl: string) {
+    const el = document.querySelector('.page') as HTMLElement;
+    this.closeMenus();
+    el.focus();
+    
+    // Compress image to prevent WebSocket limits from disconnecting the client
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      const MAX_DIM = 1200;
+      if (width > MAX_DIM || height > MAX_DIM) {
+        const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+        width *= ratio;
+        height *= ratio;
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+         ctx.drawImage(img, 0, 0, width, height);
+         const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+         const html = `<div><img src="${compressedDataUrl}" style="max-width: 100%; height: auto; display: block; margin: 0 auto; cursor: pointer;"></div><br>`;
+         document.execCommand('insertHTML', false, html);
+         this.save();
+      } else {
+         const html = `<div><img src="${dataUrl}" style="max-width: 100%; height: auto; display: block; margin: 0 auto; cursor: pointer;"></div><br>`;
+         document.execCommand('insertHTML', false, html);
+         this.save();
+      }
+    };
+    img.onerror = () => {
+      // Fallback if image fails to load for compression
+      const html = `<div><img src="${dataUrl}" style="max-width: 100%; height: auto; display: block; margin: 0 auto; cursor: pointer;"></div><br>`;
+      document.execCommand('insertHTML', false, html);
+      this.save();
+    };
+    img.src = dataUrl;
+  }
+
   insertHTML(html: string) {
     const el = document.querySelector('.page') as HTMLElement;
     if (!el) return;
@@ -4094,7 +4272,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       this.drawingModalVisible = false;
       const el = document.querySelector('.page') as HTMLElement;
       if (el) el.focus();
-      document.execCommand('insertImage', false, dataUrl);
+      this.insertImageAsBlock(dataUrl);
     }
   }
 
@@ -4246,7 +4424,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
     this.chartModalVisible = false;
     const el = document.querySelector('.page') as HTMLElement;
     if (el) el.focus();
-    document.execCommand('insertImage', false, image64);
+    this.insertImageAsBlock(image64);
   }
 
 
@@ -4270,12 +4448,43 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
   onInput(editor: HTMLElement) {
     if (this.applyingRemote) return;
+    
+    // Check for newly pasted/inserted images that need to load before we can measure them properly
+    const newImages = Array.from(editor.querySelectorAll('img:not([data-loaded="true"])')) as HTMLImageElement[];
+    if (newImages.length > 0) {
+       newImages.forEach(img => {
+           // Mark as tracked so we don't attach multiple listeners
+           img.dataset['loaded'] = 'true';
+           if (!img.complete) {
+               const onLoadOrError = () => {
+                   if (this.typingTimer) clearTimeout(this.typingTimer);
+                   this.typingTimer = window.setTimeout(() => this.save(), 400);
+               };
+               img.addEventListener('load', onLoadOrError, { once: true });
+               img.addEventListener('error', onLoadOrError, { once: true });
+           }
+       });
+    }
+
+    // Run pagination synchronously to prevent text from overflowing visually while typing
     this.autoPaginate();
-    this.htmlContent = editor.innerHTML;
-    this.updateOverlay();
-    this.updatePageHeight();
-    this.updateCounts();
-    this.api.sendUpdate(JSON.stringify({ html: this.htmlContent }), this.title);
+
+    // For small docs, we can update immediately, but for large docs it's best to debounce
+    if (this.inputTimeout) {
+      clearTimeout(this.inputTimeout);
+    }
+    
+    this.inputTimeout = setTimeout(() => {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = editor.innerHTML;
+      tempDiv.querySelectorAll('.page-break-dummy').forEach(row => row.remove());
+      this.htmlContent = tempDiv.innerHTML;
+      
+      this.updateOverlay();
+      this.updatePageHeight();
+      this.updateCounts();
+      this.api.sendUpdate(JSON.stringify({ html: this.htmlContent }), this.title, this.autoSaveEnabled);
+    }, 400); // 400ms debounce ensures smooth typing without locking the main thread
   }
 
   autoPaginate() {
@@ -4292,41 +4501,136 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Clean up temporary dummy elements before recalculating
+    pageEl.querySelectorAll('.page-break-dummy').forEach(el => el.remove());
+
     const children = Array.from(pageEl.children) as HTMLElement[];
 
-    // Reset margins to recalculate natural flow
-    children.forEach(child => {
-      if (child.style.position !== 'absolute') child.style.marginTop = '0px';
-    });
+    // Read all metrics in one pass to prevent layout thrashing (O(1) reflow instead of O(N))
+    const metrics = children.map(child => ({
+      child,
+      top: child.offsetTop,
+      height: child.offsetHeight,
+      isBreak: child.style?.pageBreakAfter === 'always' ||
+        child.classList?.contains('manual-page-break') ||
+        (child.querySelector && child.querySelector('[style*="page-break-after: always"], .manual-page-break'))
+    }));
 
+    let currentPushOffset = 0;
     let forceNextPage = false;
 
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-      if (child.style.position === 'absolute') continue;
+    for (const m of metrics) {
+      if (m.child.style.position === 'absolute') continue;
       
-      const childTop = child.offsetTop;
-      const childHeight = child.offsetHeight;
-      const childBottom = childTop + childHeight;
+      let effectiveTop = m.top + currentPushOffset;
+      let childBottom = effectiveTop + m.height;
       
-      const currentPage = Math.floor(childTop / 1080) + 1;
+      let currentPage = Math.floor(effectiveTop / 1080) + 1;
+      const textTopLimit = (currentPage - 1) * 1080 + 96;
       const textBottomLimit = (currentPage - 1) * 1080 + 960;
       
-      if (forceNextPage || childBottom > textBottomLimit) {
-         const nextPageTextStart = currentPage * 1080 + 96;
-         const pushAmount = nextPageTextStart - childTop;
-         child.style.marginTop = Math.max(0, pushAmount) + 'px';
-        forceNextPage = false;
+      const tagName = m.child.tagName.toLowerCase();
+      
+      // If the element naturally lands inside the top margin of a page, push it down to the text start
+      if (effectiveTop < textTopLimit) {
+          const pushAmount = textTopLimit - effectiveTop;
+          if (pushAmount > 0) {
+              const dummy = document.createElement('div');
+              dummy.className = 'page-break-dummy';
+              dummy.contentEditable = 'false';
+              dummy.style.height = pushAmount + 'px';
+              dummy.style.display = 'flow-root';
+              dummy.style.margin = '0';
+              dummy.style.padding = '0';
+              dummy.style.border = 'none';
+              dummy.style.userSelect = 'none';
+              m.child.parentNode?.insertBefore(dummy, m.child);
+              currentPushOffset += pushAmount;
+          }
+          
+          effectiveTop = textTopLimit;
+          childBottom = effectiveTop + m.height;
+      }
+      
+      if (tagName === 'table') {
+         let tablePushOffset = 0;
+         const rows = Array.from(m.child.querySelectorAll('tr'));
+         const tableRectTop = m.child.getBoundingClientRect().top;
+         
+         for (const row of rows) {
+            if (row.classList.contains('page-break-dummy')) continue;
+            const rowRelTop = row.getBoundingClientRect().top - tableRectTop;
+            let rowTop = effectiveTop + rowRelTop + tablePushOffset;
+            let rowBottom = rowTop + row.offsetHeight;
+            
+            let rowPage = Math.floor(rowTop / 1080) + 1;
+            let rowBottomLimit = (rowPage - 1) * 1080 + 960;
+            
+            if (rowBottom > rowBottomLimit) {
+               rowPage = Math.floor(rowTop / 1080) + 1;
+               const nextStart = rowPage * 1080 + 96;
+               const push = nextStart - rowTop;
+               
+               if (push > 0) {
+                   const dummy = document.createElement('tr');
+                   dummy.className = 'page-break-dummy';
+                   dummy.contentEditable = 'false';
+                   dummy.style.userSelect = 'none';
+                   dummy.innerHTML = `<td colspan="100" style="height: ${push}px; border: none; padding: 0;"></td>`;
+                   row.parentNode?.insertBefore(dummy, row);
+                   tablePushOffset += push;
+               }
+            }
+         }
+         
+         m.height += tablePushOffset;
+         childBottom += tablePushOffset;
+      } else {
+         if (forceNextPage || childBottom > textBottomLimit) {
+            // Re-calculate currentPage in case the top margin push pushed it exactly to the border, though unlikely
+            currentPage = Math.floor(effectiveTop / 1080) + 1;
+            const nextPageTextStart = currentPage * 1080 + 96;
+            const pushAmount = nextPageTextStart - effectiveTop;
+            
+            if (pushAmount > 0) {
+                const dummy = document.createElement('div');
+                dummy.className = 'page-break-dummy';
+                dummy.contentEditable = 'false';
+                dummy.style.height = pushAmount + 'px';
+                dummy.style.display = 'flow-root'; // Prevent margin collapse
+                dummy.style.margin = '0';
+                dummy.style.padding = '0';
+                dummy.style.border = 'none';
+                dummy.style.userSelect = 'none';
+                m.child.parentNode?.insertBefore(dummy, m.child);
+                currentPushOffset += pushAmount;
+            }
+            
+            forceNextPage = false;
+         }
       }
 
-      // Detect manual page break either on the child itself or if it contains a break element
-      const isBreak = child.style?.pageBreakAfter === 'always' ||
-        child.classList?.contains('manual-page-break') ||
-        (child.querySelector && child.querySelector('[style*="page-break-after: always"], .manual-page-break'));
-
-      if (isBreak) {
+      if (m.isBreak) {
         forceNextPage = true;
       }
+    }
+  }
+
+  onPaste(e: ClipboardEvent) {
+    // Attempt to sanitize HTML to remove problematic width/min-width inline styles
+    // often found in pasted spreadsheet tables (Excel, Google Sheets).
+    const htmlData = e.clipboardData?.getData('text/html');
+    if (htmlData) {
+      e.preventDefault();
+      // Remove inline width and min-width attributes safely without consuming closing quotes
+      let sanitizedHtml = htmlData.replace(/(?:min-|max-)?width\s*:\s*[^;"]+;?/ig, '')
+                                  .replace(/(?:min-|max-)?height\s*:\s*[^;"]+;?/ig, '');
+      
+      // Also remove fixed width attributes from table elements
+      sanitizedHtml = sanitizedHtml.replace(/ width="[^"]*"/ig, '')
+                                   .replace(/ height="[^"]*"/ig, '');
+
+      document.execCommand('insertHTML', false, sanitizedHtml);
     }
   }
 
@@ -4565,7 +4869,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
 
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
       e.preventDefault();
-      this.save();
+      this.save(true);
       return;
     }
 
@@ -4614,40 +4918,67 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       return; 
     }
 
+    // Handle clicks on empty space or unselectable dummy spacers
+    if (target.classList.contains('page-break-dummy') || target.classList.contains('page') || target.classList.contains('page-area')) {
+      // Allow default but ensure editor is focused
+      setTimeout(() => {
+        if (this.editor && this.editor.nativeElement) {
+          const editor = this.editor.nativeElement;
+          editor.focus();
+          
+          // If clicking a dummy, try to place cursor at the end of the preceding paragraph
+          if (target.classList.contains('page-break-dummy') && target.previousSibling) {
+             const sel = window.getSelection();
+             const range = document.createRange();
+             range.selectNodeContents(target.previousSibling as Node);
+             range.collapse(false); // false means end of node
+             sel?.removeAllRanges();
+             sel?.addRange(range);
+          } else if (target.classList.contains('page') || target.classList.contains('page-area')) {
+             // Fallback: place cursor at very end of document if no valid selection exists
+             const sel = window.getSelection();
+             if (!sel || !sel.focusNode || sel.focusNode === editor || sel.focusNode.nodeName === 'BODY') {
+                const range = document.createRange();
+                range.selectNodeContents(editor);
+                range.collapse(false);
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+             }
+          }
+        }
+      }, 10);
+    }
+
     if (target.tagName === 'IMG' || target.classList.contains('vmail-text-box') || target.closest('.vmail-text-box')) {
       const actualTarget = target.classList.contains('vmail-text-box') ? target : target.closest('.vmail-text-box') as HTMLElement || target;
-      if (actualTarget.tagName === 'IMG') {
-        e.preventDefault(); // Prevent native drag-and-drop ghosting
-      }
+      e.preventDefault(); // Prevent native drag-and-drop
+      
       this.selectedObject = actualTarget as HTMLElement;
-      const sel = window.getSelection();
-      if (sel) {
-        const range = document.createRange();
-        range.selectNode(actualTarget);
-        sel.removeAllRanges();
-        sel.addRange(range);
+      
+      // Do not select the image text node, so pressing Space does not delete it
+      if (this.selectedObject.tagName !== 'IMG') {
+        const sel = window.getSelection();
+        if (sel) {
+          const range = document.createRange();
+          range.selectNode(actualTarget);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
       }
 
-      // Convert to absolute positioning for free dragging if not already
-      const pageEl = document.querySelector('.page') as HTMLElement;
-      if (this.selectedObject.style.position !== 'absolute' && pageEl) {
-        const pageRect = pageEl.getBoundingClientRect();
-        const imgRect = this.selectedObject.getBoundingClientRect();
-        
-        this.selectedObject.style.position = 'absolute';
-        this.selectedObject.style.left = (imgRect.left - pageRect.left) + 'px';
-        this.selectedObject.style.top = (imgRect.top - pageRect.top) + 'px';
-        this.selectedObject.style.margin = '0';
+      // Initiate custom free drag only if it is already absolute
+      if (this.selectedObject.style.position === 'absolute') {
+        this.isDraggingImage = true;
+        this.dragStartX = e.clientX;
+        this.dragStartY = e.clientY;
+        this.imgStartX = parseFloat(this.selectedObject.style.left || '0');
+        this.imgStartY = parseFloat(this.selectedObject.style.top || '0');
       }
+
+      this.nativeDragStartWidth = this.selectedObject.offsetWidth;
+      this.nativeDragStartHeight = this.selectedObject.offsetHeight;
       
       this.updateOverlay();
-
-      // Initiate custom free drag
-      this.isDraggingImage = true;
-      this.dragStartX = e.clientX;
-      this.dragStartY = e.clientY;
-      this.imgStartX = parseFloat(this.selectedObject.style.left || '0');
-      this.imgStartY = parseFloat(this.selectedObject.style.top || '0');
     } else {
       if (this.selectedObject) {
         this.selectedObject = null;
@@ -4739,29 +5070,277 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       this.selectedObject.style.left = newLeft + 'px';
       this.selectedObject.style.top = newTop + 'px';
       this.updateOverlay();
+    } else if (this.cropModalVisible && this.cropAction && this.cropArea && this.cropStartArea && this.cropImageEl) {
+      const dx = e.clientX - this.cropStartX;
+      const dy = e.clientY - this.cropStartY;
+      const img = this.cropImageEl.nativeElement;
+
+      if (this.cropAction === 'drag') {
+         let newX = this.cropStartArea.x + dx;
+         let newY = this.cropStartArea.y + dy;
+         newX = Math.max(img.offsetLeft, Math.min(newX, img.offsetLeft + img.width - this.cropArea.w));
+         newY = Math.max(img.offsetTop, Math.min(newY, img.offsetTop + img.height - this.cropArea.h));
+         this.cropArea.x = newX;
+         this.cropArea.y = newY;
+      } else {
+         let newX = this.cropStartArea.x;
+         let newY = this.cropStartArea.y;
+         let newW = this.cropStartArea.w;
+         let newH = this.cropStartArea.h;
+         
+         if (this.cropAction === 'br') {
+           newW = Math.max(20, this.cropStartArea.w + dx);
+           newH = Math.max(20, this.cropStartArea.h + dy);
+         } else if (this.cropAction === 'tr') {
+           newW = Math.max(20, this.cropStartArea.w + dx);
+           newH = Math.max(20, this.cropStartArea.h - dy);
+           newY = this.cropStartArea.y + (this.cropStartArea.h - newH);
+         } else if (this.cropAction === 'bl') {
+           newW = Math.max(20, this.cropStartArea.w - dx);
+           newH = Math.max(20, this.cropStartArea.h + dy);
+           newX = this.cropStartArea.x + (this.cropStartArea.w - newW);
+         } else if (this.cropAction === 'tl') {
+           newW = Math.max(20, this.cropStartArea.w - dx);
+           newH = Math.max(20, this.cropStartArea.h - dy);
+           newX = this.cropStartArea.x + (this.cropStartArea.w - newW);
+           newY = this.cropStartArea.y + (this.cropStartArea.h - newH);
+         }
+
+         if (newX < img.offsetLeft) { newW -= (img.offsetLeft - newX); newX = img.offsetLeft; }
+         if (newY < img.offsetTop) { newH -= (img.offsetTop - newY); newY = img.offsetTop; }
+         if (newX + newW > img.offsetLeft + img.width) newW = img.offsetLeft + img.width - newX;
+         if (newY + newH > img.offsetTop + img.height) newH = img.offsetTop + img.height - newY;
+
+         this.cropArea.x = newX;
+         this.cropArea.y = newY;
+         this.cropArea.w = newW;
+         this.cropArea.h = newH;
+      }
     }
   }
 
-  @HostListener('document:mouseup')
-  onMouseUp() {
+  @HostListener('document:mouseup', ['$event'])
+  onMouseUp(e: MouseEvent) {
+    this.cropAction = null;
     if (this.isResizing || this.isDraggingImage) {
+      const wasDragging = this.isDraggingImage;
       this.isResizing = false;
       this.isDraggingImage = false;
+      
+      if (wasDragging && this.selectedObject && this.selectedObject.tagName === 'IMG') {
+          const img = this.selectedObject;
+          
+          if (img.dataset['wrapStyle'] === 'absolute') {
+              // Leave it exactly where it is (it's already position: absolute)
+          } else {
+              // Disable hit testing on the moving image so the browser can find the text underneath
+              const oldPointerEvents = img.style.pointerEvents;
+              img.style.pointerEvents = 'none';
+              
+              let targetNode: Node | null = null;
+              let targetOffset = 0;
+              
+              if ((document as any).caretPositionFromPoint) {
+                  const pos = (document as any).caretPositionFromPoint(e.clientX, e.clientY);
+                  if (pos) { targetNode = pos.offsetNode; targetOffset = pos.offset; }
+              } else if (document.caretRangeFromPoint) {
+                  const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+                  if (range) { targetNode = range.startContainer; targetOffset = range.startOffset; }
+              }
+              
+              // Restore image styles
+              img.style.pointerEvents = oldPointerEvents;
+              img.style.position = '';
+              img.style.left = '';
+              img.style.top = '';
+              
+              const pageEl = document.querySelector('.page') as HTMLElement;
+              if (pageEl) {
+                  let isSafe = true;
+                  let curr = targetNode;
+                  while(curr && curr !== pageEl) {
+                      if (curr.nodeType === Node.ELEMENT_NODE && (curr as HTMLElement).classList.contains('page-break-dummy')) {
+                          isSafe = false;
+                          break;
+                      }
+                      curr = curr.parentNode;
+                  }
+                  
+                  if (targetNode && pageEl.contains(targetNode) && isSafe) {
+                      if (targetNode.nodeType === Node.TEXT_NODE) {
+                          const split = (targetNode as Text).splitText(targetOffset);
+                          targetNode.parentNode?.insertBefore(img, split);
+                      } else {
+                          if (targetNode.childNodes.length > targetOffset) {
+                              targetNode.insertBefore(img, targetNode.childNodes[targetOffset]);
+                          } else {
+                              targetNode.appendChild(img);
+                          }
+                      }
+                  }
+              }
+          }
+          this.updateOverlay();
+      }
+
       this.save();
+    } else if (this.selectedObject && this.selectedObject.tagName === 'IMG') {
+      // Catch native image resizing that doesn't trigger isResizing
+      if (this.selectedObject.offsetWidth !== this.nativeDragStartWidth || this.selectedObject.offsetHeight !== this.nativeDragStartHeight) {
+          setTimeout(() => {
+              this.autoPaginate();
+              this.updatePageHeight();
+              this.save();
+          }, 100);
+      }
     }
   }
 
-  save() {
-    this.isSaving = true;
+  setWrapStyle(style: string) {
+    if (this.selectedObject && this.selectedObject.tagName === 'IMG') {
+       this.selectedObject.dataset['wrapStyle'] = style;
+       
+       if (style === 'inline') {
+         this.selectedObject.style.position = '';
+         this.selectedObject.style.float = 'none';
+         this.selectedObject.style.display = 'inline-block';
+         this.selectedObject.style.margin = '0';
+       } else if (style === 'left') {
+         this.selectedObject.style.position = '';
+         this.selectedObject.style.float = 'left';
+         this.selectedObject.style.display = 'inline-block';
+         this.selectedObject.style.margin = '0 16px 8px 0';
+       } else if (style === 'right') {
+         this.selectedObject.style.position = '';
+         this.selectedObject.style.float = 'right';
+         this.selectedObject.style.display = 'inline-block';
+         this.selectedObject.style.margin = '0 0 8px 16px';
+       } else if (style === 'break') {
+         this.selectedObject.style.position = '';
+         this.selectedObject.style.float = 'none';
+         this.selectedObject.style.display = 'block';
+         this.selectedObject.style.margin = '16px auto';
+       } else if (style === 'absolute') {
+         // Switch to absolute positioning
+         const pageEl = document.querySelector('.page') as HTMLElement;
+         if (this.selectedObject.style.position !== 'absolute' && pageEl) {
+           const pageRect = pageEl.getBoundingClientRect();
+           const imgRect = this.selectedObject.getBoundingClientRect();
+           this.selectedObject.style.position = 'absolute';
+           this.selectedObject.style.left = (imgRect.left - pageRect.left) + 'px';
+           this.selectedObject.style.top = (imgRect.top - pageRect.top) + 'px';
+           this.selectedObject.style.margin = '0';
+           this.selectedObject.style.float = 'none';
+         }
+       }
+       this.updateOverlay();
+       this.save();
+    }
+  }
+
+  openCropModal() {
+    if (this.selectedObject && this.selectedObject.tagName === 'IMG') {
+      this.cropTargetImg = this.selectedObject as HTMLImageElement;
+      this.cropTargetSrc = this.cropTargetImg.src;
+      this.cropModalVisible = true;
+    }
+  }
+
+  initCropArea() {
+    if (!this.cropImageEl) return;
+    const img = this.cropImageEl.nativeElement;
+    this.cropArea = {
+      x: img.offsetLeft + img.width * 0.1,
+      y: img.offsetTop + img.height * 0.1,
+      w: img.width * 0.8,
+      h: img.height * 0.8
+    };
+  }
+
+  startCropDrag(e: MouseEvent) {
+    e.preventDefault();
+    if (!this.cropArea) return;
+    this.cropAction = 'drag';
+    this.cropStartX = e.clientX;
+    this.cropStartY = e.clientY;
+    this.cropStartArea = { ...this.cropArea };
+  }
+
+  startCropResize(e: MouseEvent, corner: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!this.cropArea) return;
+    this.cropAction = corner;
+    this.cropStartX = e.clientX;
+    this.cropStartY = e.clientY;
+    this.cropStartArea = { ...this.cropArea };
+  }
+
+  applyCrop() {
+    if (!this.cropTargetImg || !this.cropArea || !this.cropImageEl) return;
+    const img = this.cropImageEl.nativeElement;
+    
+    const scaleX = img.naturalWidth / img.width;
+    const scaleY = img.naturalHeight / img.height;
+
+    const sourceX = (this.cropArea.x - img.offsetLeft) * scaleX;
+    const sourceY = (this.cropArea.y - img.offsetTop) * scaleY;
+    const sourceW = this.cropArea.w * scaleX;
+    const sourceH = this.cropArea.h * scaleY;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = sourceW;
+    canvas.height = sourceH;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+       ctx.drawImage(img, sourceX, sourceY, sourceW, sourceH, 0, 0, sourceW, sourceH);
+       this.cropTargetImg.src = canvas.toDataURL('image/png');
+       
+       this.cropTargetImg.style.width = this.cropArea.w + 'px';
+       this.cropTargetImg.style.height = this.cropArea.h + 'px';
+       
+       this.updateOverlay();
+       this.save();
+    }
+    this.cropModalVisible = false;
+  }
+
+  onAutoSaveChange() {
+    if (this.autoSaveEnabled) {
+      this.save(true);
+    }
+  }
+
+  toggleAutoSave() {
+    this.autoSaveEnabled = !this.autoSaveEnabled;
+    this.onAutoSaveChange();
+  }
+
+  save(force: boolean = false) {
     this.autoPaginate();
     const el = document.querySelector('.page') as HTMLElement;
     if (el) {
-      this.htmlContent = el.innerHTML;
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = el.innerHTML;
+      tempDiv.querySelectorAll('.page-break-dummy').forEach(row => row.remove());
+      
+      this.htmlContent = tempDiv.innerHTML;
       if (!this.htmlContent.trim() || this.htmlContent.trim() === '<div><br></div>') {
          this.htmlContent = '<div><br></div>';
          el.innerHTML = this.htmlContent;
       }
     }
+    
+    // Always broadcast via websocket so memory state stays in sync across clients,
+    // passing the appropriate autosave flag so the backend knows whether to mark it dirty.
+    const shouldSaveToDisk = force || this.autoSaveEnabled;
+    this.api.sendUpdate(JSON.stringify({ html: this.htmlContent }), this.title, shouldSaveToDisk);
+    
+    if (!shouldSaveToDisk) {
+      return;
+    }
+    
+    this.isSaving = true;
     this.api.saveDocument(this.docId, this.title, JSON.stringify({ html: this.htmlContent })).subscribe(() => {
       this.isSaving = false;
       this.lastSavedTime = new Date();
@@ -4807,11 +5386,14 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       .then(() => this.showToast('Link copied! Anyone with the link can collaborate.'));
   }
 
-  triggerImport() {
-    this.closeMenus();
+  triggerImport(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
     if (this.importInput) {
       this.importInput.nativeElement.click();
     }
+    this.closeMenus();
   }
 
   connectCloud(provider: string) {
@@ -4828,17 +5410,56 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   importFile(event: any) {
     const file = event.target.files[0];
     if (file) {
-      this.showToast(`Imported ${file.name}`);
-      // Basic mock for text files
-      if (file.name.endsWith('.txt') || file.name.endsWith('.html')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          this.htmlContent = (e.target?.result as string).replace(/\n/g, '<br>');
-          const el = document.querySelector('.page') as HTMLElement;
-          if (el) el.innerHTML = this.htmlContent;
-        };
-        reader.readAsText(file);
-      }
+      this.showToast(`Importing ${file.name}...`);
+      this.api.importFile(file, this.docId).subscribe({
+        next: (doc: any) => {
+          this.showToast(`${file.name} imported successfully.`);
+          try {
+            let p = JSON.parse(doc.content || '{}');
+            if (Array.isArray(p) && p.length > 0) p = p[0];
+            
+            if (p.html) {
+              this.htmlContent = this.sanitizeImportedHtml(p.html);
+              const el = document.querySelector('.page') as HTMLElement;
+              if (el) {
+                el.innerHTML = this.htmlContent;
+                
+                // Wait for all images to load before paginating so offsetHeight is correct
+                const images = Array.from(el.querySelectorAll('img'));
+                let loadedCount = 0;
+                
+                const checkFinished = () => {
+                   loadedCount++;
+                   if (loadedCount >= images.length) {
+                       setTimeout(() => this.autoPaginate(), 100);
+                   }
+                };
+                
+                if (images.length === 0) {
+                   setTimeout(() => this.autoPaginate(), 100);
+                } else {
+                   images.forEach(img => {
+                       if (img.complete) {
+                           checkFinished();
+                       } else {
+                           img.onload = checkFinished;
+                           img.onerror = checkFinished;
+                       }
+                   });
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Error parsing document content:', e);
+          }
+          this.title = doc.title;
+        },
+        error: (err: any) => {
+          this.showToast(`Error importing ${file.name}.`);
+          console.error('Import failed:', err);
+        }
+      });
+      event.target.value = '';
     }
   }
 

@@ -1,6 +1,7 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, Subject } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 export interface SyncMessage {
@@ -100,27 +101,61 @@ export class ApiService implements OnDestroy {
   }
 
   getChatChannels(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.base}/chat/channels`);
+    return this.http.get<any[]>(`${this.base}/channels/`);
+  }
+
+  searchChannels(query: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/channels/all`).pipe(
+      map(channels => channels.filter(c => c.name.toLowerCase().includes(query.toLowerCase())))
+    );
   }
 
   getChannelMessages(channelId: number): Observable<any> {
-    return this.http.get<any>(`${this.base}/chat/channels/${channelId}/messages`);
+    return this.http.get<any>(`${this.base}/channels/${channelId}/messages`);
+  }
+
+  getChannelInfo(channelId: number): Observable<any> {
+    return this.http.get<any>(`${this.base}/channels/${channelId}/info`);
+  }
+
+  updateChannel(channelId: number, name: string, description: string): Observable<any> {
+    return this.http.put<any>(`${this.base}/channels/${channelId}`, { name, description });
+  }
+
+  deleteChannel(channelId: number): Observable<any> {
+    return this.http.delete<any>(`${this.base}/channels/${channelId}`);
+  }
+
+  addChannelMembers(channelId: number, userIds: number[]): Observable<any> {
+    return this.http.post<any>(`${this.base}/channels/${channelId}/members`, { user_ids: userIds });
+  }
+
+  removeChannelMember(channelId: number, userId: number): Observable<any> {
+    return this.http.delete<any>(`${this.base}/channels/${channelId}/members/${userId}`);
+  }
+
+  leaveChannel(channelId: number): Observable<any> {
+    return this.http.post<any>(`${this.base}/channels/${channelId}/leave`, {});
   }
 
   sendChannelMessage(channelId: number, message: string, is_file: boolean = false, file_path: string | null = null): Observable<any> {
-    return this.http.post<any>(`${this.base}/chat/channels/${channelId}/send`, { message, is_file, file_path });
+    return this.http.post<any>(`${this.base}/channels/${channelId}/messages`, { message, is_file, file_path });
   }
 
   deleteChannelMessage(channelId: number, messageId: number): Observable<any> {
-    return this.http.delete<any>(`${this.base}/chat/channels/${channelId}/messages/${messageId}`);
+    return this.http.post<any>(`${this.base}/channels/messages/${messageId}/delete`, {});
   }
 
   reactToChannelMessage(channelId: number, messageId: number, emoji: string): Observable<any> {
-    return this.http.put<any>(`${this.base}/chat/channels/${channelId}/messages/${messageId}/react`, { emoji });
+    return this.http.post<any>(`${this.base}/channels/messages/${messageId}/react`, { reaction: emoji });
   }
 
   getChatContacts(): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/chat/contacts`);
+  }
+
+  createChannel(name: string, description: string): Observable<any> {
+    return this.http.post<any>(`${this.base}/channels/`, { name, description });
   }
 
   connectSync(docId: string): Observable<SyncMessage> {
@@ -138,9 +173,14 @@ export class ApiService implements OnDestroy {
     return this.messageSubject.asObservable();
   }
 
-  sendUpdate(content: string, title: string): void {
-    if (this.socket?.readyState === WebSocket.OPEN)
-      this.socket.send(JSON.stringify({ type: 'update', content, title }));
+  sendUpdate(content: string, title: string, autosave?: boolean): void {
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      const payload: any = { type: 'update', content, title };
+      if (autosave !== undefined) {
+        payload.autosave = autosave;
+      }
+      this.socket.send(JSON.stringify(payload));
+    }
   }
 
   sendCellUpdate(sheetIdx: number, r: number, c: number, value: any, formatting?: any): void {
