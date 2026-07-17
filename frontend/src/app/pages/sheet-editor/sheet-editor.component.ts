@@ -1890,6 +1890,10 @@ export interface CellValidation {
                         <a *ngIf="isUrl(cells[r][c]); else normalText" [href]="cells[r][c]" target="_blank" style="color: #1155cc; text-decoration: underline; pointer-events: auto; cursor: pointer;">{{ getDisplayValue(r, c) }}</a>
                         <ng-template #normalText>{{ getDisplayValue(r, c) }}</ng-template>
                       </div>
+                      <!-- Auto-filter Dropdown Icon -->
+                      <div *ngIf="isFilterHeaderCell(r, c)" class="cell-filter-icon" (click)="openFilterMenu($event, r, c); $event.stopPropagation()" style="position:absolute; right:4px; top:50%; transform:translateY(-50%); width:16px; height:16px; background:#f1f5f9; border-radius:2px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10; border:1px solid #cbd5e1; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+                        <span class="material-symbols-outlined" style="font-size:12px;" [style.color]="isColumnFiltered(c) ? '#10b981' : '#5f6368'">{{ isColumnFiltered(c) ? 'filter_alt' : 'arrow_drop_down' }}</span>
+                      </div>
                     </ng-template>
                   </ng-template>
                 </ng-template>
@@ -2078,14 +2082,59 @@ export interface CellValidation {
         <div class="ctx-item" (click)="sortColAZ(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort A to Z</div>
         <div class="ctx-item" (click)="sortColZA(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort Z to A</div>
         <div class="ctx-sep"></div>
-        <div class="ctx-item" (click)="insertRowAbove(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert {{ selectedRowCount }} row{{ selectedRowCount > 1 ? 's' : '' }} above</div>
-        <div class="ctx-item" (click)="insertRowBelow(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert {{ selectedRowCount }} row{{ selectedRowCount > 1 ? 's' : '' }} below</div>
-        <div class="ctx-item" (click)="insertColLeft(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert {{ selectedColCount }} column{{ selectedColCount > 1 ? 's' : '' }} left</div>
-        <div class="ctx-item" (click)="insertColRight(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert {{ selectedColCount }} column{{ selectedColCount > 1 ? 's' : '' }} right</div>
-        <div class="ctx-sep"></div>
-        <div class="ctx-item danger" (click)="deleteRow(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">delete</span> Delete {{ selectedRowCount }} row{{ selectedRowCount > 1 ? 's' : '' }}</div>
-        <div class="ctx-item danger" (click)="deleteCol(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">delete</span> Delete {{ selectedColCount }} column{{ selectedColCount > 1 ? 's' : '' }}</div>
-        <div class="ctx-item danger" (click)="clearRangeData(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">backspace</span> Clear selection</div>
+        <div class="ctx-item" (mouseenter)="showCtxSubmenu('clear', $event)" (mouseleave)="hideCtxSubmenu()">
+          <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">ink_eraser</span> Clear <span class="mdi-arrow material-symbols-outlined" style="margin-left:auto;font-size:16px;">chevron_right</span>
+        </div>
+        <div class="ctx-item" (mouseenter)="showCtxSubmenu('insert', $event)" (mouseleave)="hideCtxSubmenu()">
+          <span class="ctx-icon material-symbols-outlined" style="font-size: 16px; color: #10b981;">add_box</span> Insert <span class="mdi-arrow material-symbols-outlined" style="margin-left:auto;font-size:16px;">chevron_right</span>
+        </div>
+        <div class="ctx-item" (mouseenter)="showCtxSubmenu('delete', $event)" (mouseleave)="hideCtxSubmenu()">
+          <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">table_rows_narrow</span> Delete <span class="mdi-arrow material-symbols-outlined" style="margin-left:auto;font-size:16px;">chevron_right</span>
+        </div>
+        <div class="ctx-item" (mouseenter)="showCtxSubmenu('filter', $event)" (mouseleave)="hideCtxSubmenu()">
+          <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">filter_alt</span> Filter by <span class="mdi-arrow material-symbols-outlined" style="margin-left:auto;font-size:16px;">chevron_right</span>
+        </div>
+      </div>
+
+      <!-- Right-click Context Submenu -->
+      <div class="ctx-menu" *ngIf="ctxVisible && activeCtxSubmenu"
+           (mouseenter)="keepCtxSubmenu()" (mouseleave)="hideCtxSubmenu()"
+           [style.left.px]="ctxSubX" 
+           [style.top.px]="ctxSubTop" 
+           [style.bottom.px]="ctxSubBottom" 
+           style="position: fixed; z-index: 100001; min-width: 220px; overflow: visible;">
+        
+        <ng-container *ngIf="activeCtxSubmenu === 'clear'">
+            <div class="ctx-item" (click)="clearAll(); hideCtx()">All <span class="mh" style="margin-left:auto;color:#a0aec0;font-size:11px;">Ctrl+Del</span></div>
+            <div class="ctx-item" (click)="clearAllFormats(); hideCtx()">Formats <span class="mh" style="margin-left:auto;color:#a0aec0;font-size:11px;">Shift+Del</span></div>
+            <div class="ctx-item" (click)="clearRangeData(); hideCtx()">Contents <span class="mh" style="margin-left:auto;color:#a0aec0;font-size:11px;">Del</span></div>
+            <div class="ctx-sep"></div>
+            <div class="ctx-item" (click)="clearNotes(); hideCtx()">Notes</div>
+            <div class="ctx-item" (click)="clearHyperlinks(); hideCtx()">Hyperlinks</div>
+            <div class="ctx-item" (click)="clearCheckboxes(); hideCtx()">Checkboxes</div>
+            <div class="ctx-sep"></div>
+            <div class="ctx-item" (click)="clearDataValidations(); hideCtx()">Data Validations</div>
+            <div class="ctx-item" (click)="clearConditionalFormats(); hideCtx()">Conditional Formats</div>
+            <div class="ctx-item" (click)="clearRichTextFormats(); hideCtx()">RichText Formats</div>
+        </ng-container>
+
+        <ng-container *ngIf="activeCtxSubmenu === 'insert'">
+            <div class="ctx-item" (click)="insertRowAbove(); hideCtx()">Insert {{ selectedRowCount }} row{{ selectedRowCount > 1 ? 's' : '' }} above</div>
+            <div class="ctx-item" (click)="insertRowBelow(); hideCtx()">Insert {{ selectedRowCount }} row{{ selectedRowCount > 1 ? 's' : '' }} below</div>
+            <div class="ctx-item" (click)="insertColLeft(); hideCtx()">Insert {{ selectedColCount }} column{{ selectedColCount > 1 ? 's' : '' }} left</div>
+            <div class="ctx-item" (click)="insertColRight(); hideCtx()">Insert {{ selectedColCount }} column{{ selectedColCount > 1 ? 's' : '' }} right</div>
+        </ng-container>
+
+        <ng-container *ngIf="activeCtxSubmenu === 'delete'">
+            <div class="ctx-item danger" (click)="deleteRow(); hideCtx()">Delete {{ selectedRowCount }} row{{ selectedRowCount > 1 ? 's' : '' }}</div>
+            <div class="ctx-item danger" (click)="deleteCol(); hideCtx()">Delete {{ selectedColCount }} column{{ selectedColCount > 1 ? 's' : '' }}</div>
+        </ng-container>
+
+        <ng-container *ngIf="activeCtxSubmenu === 'filter'">
+            <div class="ctx-item" (click)="filterByCellValue(); hideCtx()">Cell Value</div>
+            <div class="ctx-item" (click)="filterByCellColor(); hideCtx()">Cell Color</div>
+            <div class="ctx-item" (click)="filterByTextColor(); hideCtx()">Text Color</div>
+        </ng-container>
       </div>
 
       <!-- Validation / Dropdown Modal (Zoho Picklist Style) -->
@@ -3570,7 +3619,7 @@ export interface CellValidation {
     .filter-row select { border:none; background:transparent; font-size:11px; width:100%; cursor:pointer; }
 
     /* ── CONTEXT MENU ───────────────────────────────────────────────────── */
-        .ctx-menu { background:#fff; border:1px solid #cbd5e1; border-radius:6px; box-shadow:0 4px 20px rgba(0,0,0,.15); min-width:220px; padding:4px 0; position:fixed; z-index:900; max-height:80vh; overflow-y:auto; color: #333; }
+        .ctx-menu { background:#fff; border:1px solid #cbd5e1; border-radius:6px; box-shadow:0 4px 20px rgba(0,0,0,.15); min-width:220px; padding:4px 0; position:fixed; z-index:100000; max-height:80vh; overflow-y:auto; color: #333; box-sizing: border-box; }
         .ctx-item { padding:8px 16px; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px; }
         .ctx-item:hover { background:#f1f5f9; }
         .ctx-item.danger { color:#e53e3e; }
@@ -3771,6 +3820,45 @@ export interface CellValidation {
   `]
 })
 export class SheetEditorComponent implements OnInit, OnDestroy {
+
+  activeCtxSubmenu: 'insert' | 'delete' | 'clear' | 'filter' | null = null;
+  ctxSubX: number = 0;
+  ctxSubTop: number | null = null;
+  ctxSubBottom: number | null = null;
+  ctxSubmenuTimer: any;
+
+  showCtxSubmenu(type: 'insert' | 'delete' | 'clear' | 'filter', event: MouseEvent) {
+    clearTimeout(this.ctxSubmenuTimer);
+    this.activeCtxSubmenu = type;
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    
+    const submenuWidth = 220;
+    if (this.ctxX + 220 + submenuWidth > window.innerWidth) {
+       this.ctxSubX = this.ctxX - submenuWidth + 4; // slight overlap so there's no gap
+    } else {
+       this.ctxSubX = this.ctxX + 220 - 4; // slight overlap so there's no gap
+    }
+    
+    const estimatedHeight = 150;
+    if (rect.top + estimatedHeight > window.innerHeight) {
+       this.ctxSubTop = null;
+       this.ctxSubBottom = window.innerHeight - rect.bottom;
+    } else {
+       this.ctxSubTop = rect.top;
+       this.ctxSubBottom = null;
+    }
+  }
+
+  hideCtxSubmenu() {
+    this.ctxSubmenuTimer = setTimeout(() => {
+      this.activeCtxSubmenu = null;
+    }, 300);
+  }
+
+  keepCtxSubmenu() {
+    clearTimeout(this.ctxSubmenuTimer);
+  }
 
   goHome() {
     window.location.href = 'https://sheets.vsnaptechnology.com/';
@@ -4080,6 +4168,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   promptModalValue = '';
   private promptResolve: ((value: string | null) => void) | null = null;
   filterActive = false;
+  activeFilterCols: Set<number> = new Set();
   frozenRowsCount: number = 0;
   frozenColsCount: number = 0;
   gridDirection: 'ltr' | 'rtl' = 'ltr';
@@ -4133,6 +4222,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   // Context menu
   ctxVisible = false;
+  ctxRow: number | null = null;
+  ctxCol: number | null = null;
   ctxX = 0;
   ctxY = 0;
   ctxTop: number | null = null;
@@ -4175,7 +4266,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   dvAppliesTo = 'Sheet1.A1';
 
   // Multiple sheets
-  sheets: Array<{ name: string, cells: string[][], formats: Record<string, CellFormat>, validations: Record<string, CellValidation>, colWidths?: Record<number, number>, rowHeights?: Record<number, number>, hideGridlines?: boolean, locked?: boolean, hidden?: boolean, tabColor?: string, shapes?: any[], rowGroups?: Array<{ start: number, end: number, collapsed: boolean }>, colGroups?: Array<{ start: number, end: number, collapsed: boolean }> }> = [
+  sheets: Array<{ name: string, cells: string[][], formats: Record<string, CellFormat>, validations: Record<string, CellValidation>, colWidths?: Record<number, number>, rowHeights?: Record<number, number>, hideGridlines?: boolean, locked?: boolean, hidden?: boolean, tabColor?: string, shapes?: any[], rowGroups?: Array<{ start: number, end: number, collapsed: boolean }>, colGroups?: Array<{ start: number, end: number, collapsed: boolean }>, hiddenRows?: number[], activeFilterCols?: number[], filterActive?: boolean }> = [
     { name: 'Sheet1', cells: Array.from({ length: this.ROWS }, () => Array(this.COLS).fill('')), formats: {}, validations: {}, shapes: [] }
   ];
   currentSheetIdx = 0;
@@ -4325,6 +4416,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
               this.cells[r][c] = s0.cells[r]?.[c] ?? '';
           this.formats = { ...(s0.formats || {}) };
           this.validations = { ...(s0.validations || {}) };
+          this.hiddenRows = new Set(s0.hiddenRows || []);
+          this.activeFilterCols = new Set(s0.activeFilterCols || []);
+          this.filterActive = !!s0.filterActive;
         }
         if (p.calendarNotes) this.calendarNotes = p.calendarNotes;
         if (p.globalNotes) this.globalNotes = p.globalNotes;
@@ -4354,6 +4448,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
               }
               if (active.formats) this.formats = active.formats;
               if (active.validations) this.validations = active.validations;
+              if (active.hiddenRows !== undefined) this.hiddenRows = new Set(active.hiddenRows);
+              if (active.activeFilterCols !== undefined) this.activeFilterCols = new Set(active.activeFilterCols);
+              if (active.filterActive !== undefined) this.filterActive = active.filterActive;
             }
           } catch { }
           this.updateDisplayCache();
@@ -5134,6 +5231,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (!this.isCellInRange(r, c)) {
       this.selectCell(r, c);
     }
+    this.ctxRow = r;
+    this.ctxCol = c;
     
     this.showContextMenu(e);
   }
@@ -5166,7 +5265,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.ctxVisible = true;
   }
 
-  hideCtx() { this.ctxVisible = false; }
+  hideCtx() { 
+    this.ctxVisible = false; 
+    this.activeCtxSubmenu = null;
+  }
 
   cutCell() {
     this.clipboard = this.cells[this.selectedRow][this.selectedCol];
@@ -5217,6 +5319,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.save();
     this.showToast('Selection cleared.');
   }
+
+
 
   // ── Dropdown / Data validation ───────────────────────────────────────────────
   hasCellDropdown(r: number, c: number): boolean {
@@ -6081,28 +6185,51 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   pushHistory() {
-    this.history.push(JSON.stringify({ cells: this.cells, formats: this.formats }));
+    this.history.push(JSON.stringify({
+      cells: this.cells, formats: this.formats,
+      hiddenRows: Array.from(this.hiddenRows),
+      activeFilterCols: Array.from(this.activeFilterCols),
+      filterActive: this.filterActive
+    }));
     if (this.history.length > 50) this.history.shift();
     this.future = [];
   }
 
   undo() {
     if (!this.history.length) { this.showToast('Nothing to undo.'); return; }
-    this.future.push(JSON.stringify({ cells: this.cells, formats: this.formats }));
+    this.future.push(JSON.stringify({
+      cells: this.cells, formats: this.formats,
+      hiddenRows: Array.from(this.hiddenRows),
+      activeFilterCols: Array.from(this.activeFilterCols),
+      filterActive: this.filterActive
+    }));
     const prev = JSON.parse(this.history.pop()!);
     if (prev.cells) for (let r = 0; r < this.ROWS; r++) for (let c = 0; c < this.COLS; c++) this.cells[r][c] = prev.cells[r]?.[c] ?? '';
     if (prev.formats) this.formats = { ...prev.formats };
+    if (prev.hiddenRows !== undefined) this.hiddenRows = new Set(prev.hiddenRows);
+    if (prev.activeFilterCols !== undefined) this.activeFilterCols = new Set(prev.activeFilterCols);
+    if (prev.filterActive !== undefined) this.filterActive = prev.filterActive;
     this.closeMenus();
+    this.updateDisplayCache();
     this.showToast('Undo.');
   }
 
   redo() {
     if (!this.future.length) { this.showToast('Nothing to redo.'); return; }
-    this.history.push(JSON.stringify({ cells: this.cells, formats: this.formats }));
+    this.history.push(JSON.stringify({
+      cells: this.cells, formats: this.formats,
+      hiddenRows: Array.from(this.hiddenRows),
+      activeFilterCols: Array.from(this.activeFilterCols),
+      filterActive: this.filterActive
+    }));
     const next = JSON.parse(this.future.pop()!);
     if (next.cells) for (let r = 0; r < this.ROWS; r++) for (let c = 0; c < this.COLS; c++) this.cells[r][c] = next.cells[r]?.[c] ?? '';
     if (next.formats) this.formats = { ...next.formats };
+    if (next.hiddenRows !== undefined) this.hiddenRows = new Set(next.hiddenRows);
+    if (next.activeFilterCols !== undefined) this.activeFilterCols = new Set(next.activeFilterCols);
+    if (next.filterActive !== undefined) this.filterActive = next.filterActive;
     this.closeMenus();
+    this.updateDisplayCache();
     this.showToast('Redo.');
   }
 
@@ -6140,12 +6267,117 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   pasteExceptNotes() { this.showToast('Paste Except Notes not implemented.'); this.closeMenus(); }
   pasteExceptBorders() { this.showToast('Paste Except Borders not implemented.'); this.closeMenus(); }
 
-  clearNotes() { this.showToast('Cleared Notes.'); this.closeMenus(); }
-  clearHyperlinks() { this.showToast('Cleared Hyperlinks.'); this.closeMenus(); }
-  clearCheckboxes() { this.showToast('Cleared Checkboxes.'); this.closeMenus(); }
-  clearDataValidations() { this.removeValidation(); this.closeMenus(); }
-  clearConditionalFormats() { this.showToast('Cleared Conditional Formats.'); this.closeMenus(); }
-  clearRichTextFormats() { this.showToast('Cleared RichText Formats.'); this.closeMenus(); }
+  private forEachSelectedCell(callback: (r: number, c: number) => void) {
+    if (this.rangeStart && this.rangeEnd) {
+      const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+      const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+      const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+      const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+      for (let r = minR; r <= maxR; r++) {
+        for (let c = minC; c <= maxC; c++) {
+           callback(r, c);
+        }
+      }
+    } else {
+       callback(this.selectedRow, this.selectedCol);
+    }
+  }
+
+  clearNotes() {
+    this.pushHistory();
+    this.forEachSelectedCell((r, c) => {
+      if (this.formats[`${r},${c}`]) {
+        delete (this.formats[`${r},${c}`] as any).note;
+        delete (this.formats[`${r},${c}`] as any).comment;
+      }
+    });
+    this.formats = { ...this.formats };
+    this.onCellChange();
+    this.save();
+    this.showToast('Cleared notes.');
+    this.closeMenus();
+  }
+
+  clearHyperlinks() {
+    this.pushHistory();
+    this.forEachSelectedCell((r, c) => {
+      if (this.formats[`${r},${c}`]) {
+        delete (this.formats[`${r},${c}`] as any).hyperlink;
+        delete (this.formats[`${r},${c}`] as any).underline;
+        if (this.formats[`${r},${c}`].color === '#1155cc' || this.formats[`${r},${c}`].color === '#1a73e8') {
+            delete this.formats[`${r},${c}`].color;
+        }
+      }
+    });
+    this.formats = { ...this.formats };
+    this.onCellChange();
+    this.save();
+    this.showToast('Cleared hyperlinks.');
+    this.closeMenus();
+  }
+
+  clearCheckboxes() {
+    this.pushHistory();
+    this.forEachSelectedCell((r, c) => {
+      if (this.formats[`${r},${c}`] && (this.formats[`${r},${c}`] as any).checkbox) {
+         delete (this.formats[`${r},${c}`] as any).checkbox;
+         if (this.cells[r][c] === 'TRUE' || this.cells[r][c] === 'FALSE') {
+             this.cells[r][c] = '';
+         }
+      }
+    });
+    this.formats = { ...this.formats };
+    this.onCellChange();
+    this.save();
+    this.showToast('Cleared checkboxes.');
+    this.closeMenus();
+  }
+
+  clearDataValidations() {
+    this.pushHistory();
+    this.forEachSelectedCell((r, c) => {
+      delete this.validations[`${r},${c}`];
+    });
+    this.validations = { ...this.validations };
+    this.onCellChange();
+    this.save();
+    this.showToast('Cleared data validations.');
+    this.closeMenus();
+  }
+
+  clearConditionalFormats() {
+    this.pushHistory();
+    this.forEachSelectedCell((r, c) => {
+      if (this.formats[`${r},${c}`]) {
+          delete (this.formats[`${r},${c}`] as any).conditionalFormat;
+      }
+    });
+    this.formats = { ...this.formats };
+    this.onCellChange();
+    this.save();
+    this.showToast('Cleared conditional formats.');
+    this.closeMenus();
+  }
+
+  clearRichTextFormats() {
+    this.pushHistory();
+    this.forEachSelectedCell((r, c) => {
+      if (this.formats[`${r},${c}`]) {
+        delete this.formats[`${r},${c}`].bold;
+        delete this.formats[`${r},${c}`].italic;
+        delete this.formats[`${r},${c}`].underline;
+        delete this.formats[`${r},${c}`].strikethrough;
+        delete this.formats[`${r},${c}`].color;
+        delete (this.formats[`${r},${c}`] as any).fontFamily;
+        delete (this.formats[`${r},${c}`] as any).fontSize;
+      }
+    });
+    this.formats = { ...this.formats };
+    this.onCellChange();
+    this.save();
+    this.showToast('Cleared rich text formatting.');
+    this.closeMenus();
+  }
 
   shapeTab: 'text' | 'shape' | 'diagram' = 'diagram';
   diagramCategory: 'list' | 'process' | 'pyramid' | 'cycle' = 'list';
@@ -6278,7 +6510,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     for (let i = 0; i < count; i++) {
       this.cells.splice(r, 0, Array(this.COLS).fill(''));
     }
-    while (this.cells.length > this.ROWS) this.cells.pop();
+    this.ROWS += count;
+    this.rowRange = Array.from({ length: this.ROWS }, (_, i) => i);
     this.onCellChange(); this.closeMenus();
     this.showToast(`${count} Row${count > 1 ? 's' : ''} inserted above.`);
   }
@@ -6290,7 +6523,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     for (let i = 0; i < count; i++) {
       this.cells.splice(r, 0, Array(this.COLS).fill(''));
     }
-    while (this.cells.length > this.ROWS) this.cells.pop();
+    this.ROWS += count;
+    this.rowRange = Array.from({ length: this.ROWS }, (_, i) => i);
     this.onCellChange(); this.closeMenus();
     this.showToast(`${count} Row${count > 1 ? 's' : ''} inserted below.`);
   }
@@ -6299,10 +6533,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.pushHistory();
     const count = this.selectedColCount;
     const c = this.rangeStart && this.rangeEnd ? Math.min(this.rangeStart.c, this.rangeEnd.c) : this.selectedCol;
+    this.COLS += count;
     for (const row of this.cells) { 
       for (let i = 0; i < count; i++) row.splice(c, 0, '');
-      while (row.length > this.COLS) row.pop();
     }
+    this.colRange = Array.from({ length: this.COLS }, (_, i) => i);
     this.onCellChange(); this.closeMenus();
     this.showToast(`${count} Column${count > 1 ? 's' : ''} inserted.`);
   }
@@ -6311,10 +6546,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.pushHistory();
     const count = this.selectedColCount;
     const c = (this.rangeStart && this.rangeEnd ? Math.max(this.rangeStart.c, this.rangeEnd.c) : this.selectedCol) + 1;
+    this.COLS += count;
     for (const row of this.cells) {
       for (let i = 0; i < count; i++) row.splice(c, 0, '');
-      while (row.length > this.COLS) row.pop();
     }
+    this.colRange = Array.from({ length: this.COLS }, (_, i) => i);
     this.onCellChange(); this.closeMenus();
     this.showToast(`${count} Column${count > 1 ? 's' : ''} inserted.`);
   }
@@ -6324,7 +6560,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const count = this.selectedRowCount;
     const r = this.rangeStart && this.rangeEnd ? Math.min(this.rangeStart.r, this.rangeEnd.r) : this.selectedRow;
     this.cells.splice(r, count);
-    for (let i = 0; i < count; i++) this.cells.push(Array(this.COLS).fill(''));
+    this.ROWS = Math.max(1, this.ROWS - count);
+    while (this.cells.length < this.ROWS) this.cells.push(Array(this.COLS).fill(''));
+    while (this.cells.length > this.ROWS) this.cells.pop();
+    this.rowRange = Array.from({ length: this.ROWS }, (_, i) => i);
+    if (this.selectedRow >= this.ROWS) this.selectedRow = this.ROWS - 1;
     this.onCellChange(); this.closeMenus();
     this.showToast(`${count} Row${count > 1 ? 's' : ''} deleted.`);
   }
@@ -6333,10 +6573,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.pushHistory();
     const count = this.selectedColCount;
     const c = this.rangeStart && this.rangeEnd ? Math.min(this.rangeStart.c, this.rangeEnd.c) : this.selectedCol;
+    this.COLS = Math.max(1, this.COLS - count);
     for (const row of this.cells) {
       row.splice(c, count);
-      for (let i = 0; i < count; i++) row.push('');
+      while (row.length < this.COLS) row.push('');
+      while (row.length > this.COLS) row.pop();
     }
+    this.colRange = Array.from({ length: this.COLS }, (_, i) => i);
+    if (this.selectedCol >= this.COLS) this.selectedCol = this.COLS - 1;
     this.onCellChange(); this.closeMenus();
     this.showToast(`${count} Column${count > 1 ? 's' : ''} deleted.`);
   }
@@ -7958,6 +8202,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       cells: this.cells.map(row => [...row]),
       formats: { ...this.formats },
       validations: { ...this.validations },
+      hiddenRows: Array.from(this.hiddenRows),
+      activeFilterCols: Array.from(this.activeFilterCols),
+      filterActive: this.filterActive,
     };
   }
 
@@ -7969,6 +8216,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     for (let r = 0; r < this.ROWS; r++) for (let c = 0; c < this.COLS; c++) this.cells[r][c] = s.cells[r]?.[c] ?? '';
     this.formats = { ...s.formats };
     this.validations = { ...s.validations };
+    this.hiddenRows = new Set(s.hiddenRows || []);
+    this.activeFilterCols = new Set(s.activeFilterCols || []);
+    this.filterActive = !!s.filterActive;
     this.rangeStart = null; this.rangeEnd = null;
     this.selectedRow = 0; this.selectedCol = 0;
     this.formulaBarValue = '';
@@ -8238,7 +8488,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         f.font || f.size || f.wrap !== undefined ||
         f.indent || f.rotation || f.numFormat || f.decimals !== undefined ||
         f.borders ||
-        (f as any)._mergeSpan || (f as any)._mergedInto
+        (f as any)._mergeSpan || (f as any)._mergedInto ||
+        (f as any).note || (f as any).hyperlink || (f as any).checkbox ||
+        (f as any).conditionalFormat
       ) {
         cleanFormats[k] = f;
       }
@@ -8251,6 +8503,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       cells: this.cells.map(row => [...row]),
       formats: { ...cleanFormats },
       validations: { ...this.validations },
+      hiddenRows: Array.from(this.hiddenRows),
+      activeFilterCols: Array.from(this.activeFilterCols),
+      filterActive: this.filterActive,
     };
 
     // Convert every sheet's cells 2D array to sparse format to avoid huge payloads
@@ -8560,12 +8815,142 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   toggleFilter() {
+    this.pushHistory();
     this.filterActive = !this.filterActive;
-    if (this.filterActive) {
-      this.showToast('Filter active: rows with empty cells in selected column are dimmed.');
-    } else {
+    if (!this.filterActive) {
+      this.hiddenRows.clear();
+      this.activeFilterCols.clear();
       this.showToast('Filter cleared.');
+    } else {
+      this.showToast('Filter activated. Use column options to filter.');
     }
+    this.onCellChange();
+  }
+
+  isFilterHeaderCell(r: number, c: number): boolean {
+    if (!this.filterActive) return false;
+    const headerRow = Math.max(1, this.frozenRowsCount || 1) - 1;
+    const cellValue = this.cells[r]?.[c];
+    return r === headerRow && cellValue !== undefined && cellValue !== null && cellValue.toString().trim() !== '';
+  }
+
+  isColumnFiltered(c: number): boolean {
+    return this.activeFilterCols.has(c);
+  }
+
+  openFilterMenu(event: MouseEvent, r: number, c: number) {
+    this.selectCell(r, c);
+    this.ctxRow = r;
+    this.ctxCol = c;
+    this.ctxVisible = true;
+    this.activeCtxSubmenu = 'filter';
+    
+    // Position the submenu exactly under the filter icon
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    this.ctxSubX = rect.left;
+    this.ctxSubTop = rect.bottom + 4; // slight offset
+    this.ctxSubBottom = 0;
+  }
+
+  getLastUsedRow(): number {
+    let lastDataRow = 0;
+    for (let r = this.ROWS - 1; r >= 0; r--) {
+      if (this.cells[r].some(val => val !== '')) {
+        lastDataRow = r;
+        break;
+      }
+    }
+    for (const key of Object.keys(this.formats)) {
+      const r = parseInt(key.split(',')[0], 10);
+      if (r > lastDataRow) {
+        lastDataRow = r;
+      }
+    }
+    return lastDataRow;
+  }
+
+  filterByCellValue() {
+    this.pushHistory();
+    this.filterActive = true;
+    const rClick = this.ctxRow !== null ? this.ctxRow : this.selectedRow;
+    const cClick = this.ctxCol !== null ? this.ctxCol : this.selectedCol;
+    this.activeFilterCols.add(cClick);
+    const targetVal = this.cells[rClick][cClick];
+    const lastRow = this.getLastUsedRow();
+    const startRow = Math.max(1, this.frozenRowsCount || 0);
+    for (let r = 0; r < startRow; r++) {
+       this.hiddenRows.delete(r);
+    }
+    for (let r = startRow; r <= lastRow; r++) {
+       if (this.cells[r][cClick] !== targetVal) {
+          this.hiddenRows.add(r);
+       } else {
+          this.hiddenRows.delete(r);
+       }
+    }
+    for (let r = lastRow + 1; r < this.ROWS; r++) {
+       this.hiddenRows.delete(r);
+    }
+    this.showToast(`Filtered by value: "${targetVal}"`);
+    this.onCellChange();
+  }
+
+  filterByCellColor() {
+    this.pushHistory();
+    this.filterActive = true;
+    const rClick = this.ctxRow !== null ? this.ctxRow : this.selectedRow;
+    const cClick = this.ctxCol !== null ? this.ctxCol : this.selectedCol;
+    this.activeFilterCols.add(cClick);
+    const targetRef = `${rClick},${cClick}`;
+    const targetColor = this.formats[targetRef]?.bg || '';
+    const lastRow = this.getLastUsedRow();
+    const startRow = Math.max(1, this.frozenRowsCount || 0);
+    for (let r = 0; r < startRow; r++) {
+       this.hiddenRows.delete(r);
+    }
+    for (let r = startRow; r <= lastRow; r++) {
+       const ref = `${r},${cClick}`;
+       const color = this.formats[ref]?.bg || '';
+       if (color !== targetColor) {
+          this.hiddenRows.add(r);
+       } else {
+          this.hiddenRows.delete(r);
+       }
+    }
+    for (let r = lastRow + 1; r < this.ROWS; r++) {
+       this.hiddenRows.delete(r);
+    }
+    this.showToast(targetColor ? 'Filtered by cell color.' : 'Filtered by empty cell color.');
+    this.onCellChange();
+  }
+
+  filterByTextColor() {
+    this.pushHistory();
+    this.filterActive = true;
+    const rClick = this.ctxRow !== null ? this.ctxRow : this.selectedRow;
+    const cClick = this.ctxCol !== null ? this.ctxCol : this.selectedCol;
+    this.activeFilterCols.add(cClick);
+    const targetRef = `${rClick},${cClick}`;
+    const targetColor = this.formats[targetRef]?.color || '';
+    const lastRow = this.getLastUsedRow();
+    const startRow = Math.max(1, this.frozenRowsCount || 0);
+    for (let r = 0; r < startRow; r++) {
+       this.hiddenRows.delete(r);
+    }
+    for (let r = startRow; r <= lastRow; r++) {
+       const ref = `${r},${cClick}`;
+       const color = this.formats[ref]?.color || '';
+       if (color !== targetColor) {
+          this.hiddenRows.add(r);
+       } else {
+          this.hiddenRows.delete(r);
+       }
+    }
+    for (let r = lastRow + 1; r < this.ROWS; r++) {
+       this.hiddenRows.delete(r);
+    }
+    this.showToast(targetColor ? 'Filtered by text color.' : 'Filtered by default text color.');
     this.onCellChange();
   }
 
@@ -8879,6 +9264,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   getRowHeight(r: number): number {
+    if (this.hiddenRows && this.hiddenRows.has(r)) return 0;
     return this.sheets[this.currentSheetIdx].rowHeights?.[r] ?? 26;
   }
 

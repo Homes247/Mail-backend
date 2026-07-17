@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-
-
-=======
 *.log
 /logs/
 /cache/
@@ -11,4 +7,3 @@
 .well-known/
 .user.ini
 .DS_Store
->>>>>>> e3b001bbbb192c6e5ee5559346950d0bb03d7199
