@@ -5419,21 +5419,29 @@ export class DocEditorComponent implements OnInit, OnDestroy {
       this.showToast(`Importing ${file.name}...`);
       this.api.importFile(file, this.docId).subscribe({
         next: (doc: any) => {
-          this.showToast(`${file.name} imported successfully.`);
+          console.log('[IMPORT] Response received:', {
+            id: doc.id,
+            title: doc.title,
+            contentLength: doc.content?.length,
+            contentPreview: doc.content?.substring(0, 200)
+          });
           try {
             let p = JSON.parse(doc.content || '{}');
+            console.log('[IMPORT] Parsed content keys:', Object.keys(p));
             if (Array.isArray(p) && p.length > 0) p = p[0];
-            
+
             if (p.html) {
+              console.log('[IMPORT] HTML found, length:', p.html.length);
               this.htmlContent = this.sanitizeImportedHtml(p.html);
               const el = document.querySelector('.page') as HTMLElement;
               if (el) {
                 el.innerHTML = this.htmlContent;
-                
+                console.log('[IMPORT] DOM updated, innerHTML length:', el.innerHTML.length);
+
                 // Wait for all images to load before paginating so offsetHeight is correct
                 const images = Array.from(el.querySelectorAll('img'));
                 let loadedCount = 0;
-                
+
                 const checkFinished = () => {
                    loadedCount++;
                    if (loadedCount >= images.length) {
@@ -5443,7 +5451,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
                        }, 100);
                    }
                 };
-                
+
                 if (images.length === 0) {
                    setTimeout(() => {
                        this.autoPaginate();
@@ -5460,15 +5468,20 @@ export class DocEditorComponent implements OnInit, OnDestroy {
                    });
                 }
               }
+            } else {
+              console.warn('[IMPORT] No html field in parsed content. Keys:', Object.keys(p));
+              this.showToast('Import complete but no content found. Check console for details.');
             }
           } catch (e) {
-            console.error('Error parsing document content:', e);
+            console.error('[IMPORT] Error parsing document content:', e, 'Raw:', doc.content?.substring(0, 500));
+            this.showToast('Import parsing error. Check console.');
           }
           this.title = doc.title;
+          this.showToast(`${file.name} imported successfully.`);
         },
         error: (err: any) => {
           this.showToast(`Error importing ${file.name}.`);
-          console.error('Import failed:', err);
+          console.error('[IMPORT] HTTP error:', err);
         }
       });
       event.target.value = '';

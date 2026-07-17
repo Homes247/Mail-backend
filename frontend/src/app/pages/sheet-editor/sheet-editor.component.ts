@@ -230,8 +230,9 @@ export interface CellValidation {
                 <div class="mds"></div>
                 <div class="mdi" (click)="pasteExceptNotes()">All Except Notes</div>
                 <div class="mdi" (click)="pasteExceptBorders()">All Except Borders</div>
-                <div class="mds"></div>
-                <div class="mdi disabled">Link To Source</div>
+                <div class="md-sep"></div>
+                <div class="mdi" (click)="pasteLinkToSource()">Link To Source</div>
+                <div class="mdi" (click)="pasteTranspose()">Transpose</div>
               </div>
             </div>
             <div class="mds"></div>
@@ -2073,7 +2074,9 @@ export interface CellValidation {
       <div class="ctx-menu" *ngIf="ctxVisible" [style.left.px]="ctxX" [style.top.px]="ctxTop" [style.bottom.px]="ctxBottom" [style.maxHeight.px]="ctxMaxHeight" (click)="$event.stopPropagation()">
         <div class="ctx-item" (click)="cutCell(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_cut</span> Cut <span class="ctx-hint">Ctrl+X</span></div>
         <div class="ctx-item" (click)="copyCell(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_copy</span> Copy <span class="ctx-hint">Ctrl+C</span></div>
-        <div class="ctx-item" (click)="pasteCell(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_paste</span> Paste <span class="ctx-hint">Ctrl+V</span></div>
+        <div class="ctx-item" (mouseenter)="showCtxSubmenu('paste', $event)" (mouseleave)="hideCtxSubmenu()">
+          <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_paste</span> Paste <span class="mdi-arrow material-symbols-outlined" style="margin-left:auto;font-size:16px;">chevron_right</span>
+        </div>
         <div class="ctx-item" (click)="openCellEditHistory(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px; color: #10b981;">history</span> Edit History...</div>
         <div class="ctx-sep"></div>
         <div class="ctx-item" (click)="openValidationModal(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">arrow_drop_down_circle</span> Set dropdown list...</div>
@@ -2104,6 +2107,24 @@ export interface CellValidation {
            [style.bottom.px]="ctxSubBottom"
            style="position: fixed; z-index: 100001; min-width: 220px; max-height: calc(100vh - 16px); overflow-y: auto; overflow-x: hidden;">
         
+        <ng-container *ngIf="activeCtxSubmenu === 'paste'">
+            <div class="ctx-item" (click)="pasteCell(); hideCtx()">All <span class="mh" style="margin-left:auto;color:#a0aec0;font-size:11px;">Ctrl+V</span></div>
+            <div class="ctx-item" (click)="pasteValues(); hideCtx()">Values <span class="mh" style="margin-left:auto;color:#a0aec0;font-size:11px;">Ctrl+Shift+V</span></div>
+            <div class="ctx-item" (click)="pasteFormulas(); hideCtx()">Formulas</div>
+            <div class="ctx-item" (click)="pasteFormats(); hideCtx()">Formats</div>
+            <div class="ctx-item" (click)="pasteNotes(); hideCtx()">Notes</div>
+            <div class="ctx-sep"></div>
+            <div class="ctx-item" (click)="pasteFormulasAndNumberFormats(); hideCtx()">Formulas and Number Formats</div>
+            <div class="ctx-item" (click)="pasteValuesAndNumberFormats(); hideCtx()">Values and Number Formats</div>
+            <div class="ctx-item" (click)="pasteValidation(); hideCtx()">Validation</div>
+            <div class="ctx-sep"></div>
+            <div class="ctx-item" (click)="pasteExceptNotes(); hideCtx()">All Except Notes</div>
+            <div class="ctx-item" (click)="pasteExceptBorders(); hideCtx()">All Except Borders</div>
+            <div class="ctx-sep"></div>
+            <div class="ctx-item" (click)="pasteLinkToSource(); hideCtx()">Link To Source</div>
+            <div class="ctx-item" (click)="pasteTranspose(); hideCtx()">Transpose</div>
+        </ng-container>
+
         <ng-container *ngIf="activeCtxSubmenu === 'clear'">
             <div class="ctx-item" (click)="clearAll(); hideCtx()">All <span class="mh" style="margin-left:auto;color:#a0aec0;font-size:11px;">Ctrl+Del</span></div>
             <div class="ctx-item" (click)="clearAllFormats(); hideCtx()">Formats <span class="mh" style="margin-left:auto;color:#a0aec0;font-size:11px;">Shift+Del</span></div>
@@ -3073,6 +3094,12 @@ export interface CellValidation {
           <span class="tab-menu-icon material-symbols-outlined" (click)="openSheetMenu(i, $event)" style="font-size: 16px; margin-left: 4px; border-radius: 4px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.1)'" onmouseout="this.style.background='transparent'">arrow_drop_down</span>
         </div>
         <button class="tab-add" (click)="addSheet()" title="Add sheet">＋</button>
+
+        <!-- Selected Cell Count -->
+        <div *ngIf="selectedNonEmptyCount > 1" 
+             style="margin-left: auto; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); padding: 4px 12px; border-radius: 4px; font-size: 13px; font-weight: 500; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); user-select: none;">
+          Count : {{ selectedNonEmptyCount }}
+        </div>
       </div>
 
       <!-- Sheet Context Menu -->
@@ -3919,13 +3946,13 @@ export interface CellValidation {
 })
 export class SheetEditorComponent implements OnInit, OnDestroy {
 
-  activeCtxSubmenu: 'insert' | 'delete' | 'clear' | 'filter' | null = null;
+  activeCtxSubmenu: 'insert' | 'delete' | 'clear' | 'filter' | 'paste' | null = null;
   ctxSubX: number = 0;
   ctxSubTop: number | null = null;
   ctxSubBottom: number | null = null;
   ctxSubmenuTimer: any;
 
-  showCtxSubmenu(type: 'insert' | 'delete' | 'clear' | 'filter', event: MouseEvent) {
+  showCtxSubmenu(type: 'insert' | 'delete' | 'clear' | 'filter' | 'paste', event: MouseEvent) {
     clearTimeout(this.ctxSubmenuTimer);
     this.activeCtxSubmenu = type;
     const target = event.currentTarget as HTMLElement;
@@ -3944,6 +3971,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     // Use accurate estimated height per submenu type
     const heightMap: Record<string, number> = {
       clear: 360,   // All + Formats + Contents + sep + Notes + Hyperlinks + Checkboxes + sep + DataValidations + ConditionalFormats + RichText + sep + ClearAllFilters
+      paste: 400,
       insert: 120,
       delete: 100,
       filter: 100
@@ -3988,6 +4016,33 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   get selectedColCount(): number {
     if (!this.rangeStart || !this.rangeEnd) return 1;
     return Math.abs(this.rangeEnd.c - this.rangeStart.c) + 1;
+  }
+
+  get selectedNonEmptyCount(): number {
+    if (!this.rangeStart || !this.rangeEnd) return 0;
+    
+    // For single cell selection, don't show the count pill
+    if (this.rangeStart.r === this.rangeEnd.r && this.rangeStart.c === this.rangeEnd.c) return 0;
+
+    let count = 0;
+    const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+    const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+    const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+    const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+
+    // If selecting full columns/rows, this loop could be huge, so cap the search to this.ROWS/this.COLS
+    const endR = Math.min(maxR, this.ROWS - 1);
+    const endC = Math.min(maxC, this.COLS - 1);
+
+    for (let r = minR; r <= endR; r++) {
+      if (this.hiddenRows.has(r)) continue;
+      for (let c = minC; c <= endC; c++) {
+        if (this.cells[r] && this.cells[r][c] !== undefined && this.cells[r][c] !== null && this.cells[r][c] !== '') {
+          count++;
+        }
+      }
+    }
+    return count;
   }
 
   COLS = 30;
@@ -4318,7 +4373,17 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   currentSize = '13px';
   currentSizeNum = 13;
   fonts = ['Arial', 'Caveat', 'Comfortaa', 'Comic Sans MS', 'Courier New', 'EB Garamond', 'Georgia', 'Impact', 'Lexend', 'Lobster', 'Lora', 'Merriweather', 'Oswald', 'Pacifico', 'Playfair Display', 'Roboto', 'Times New Roman', 'Trebuchet MS', 'Verdana'];
-  private clipboard = '';
+  private clipboard = '';  // legacy single-cell text (used by system clipboard fallback)
+  // Rich internal clipboard for range copy/cut operations
+  private richClipboard: {
+    cells: string[][];
+    formats: Record<string, any>;
+    validations: Record<string, any>;
+    rows: number;
+    cols: number;
+    originR: number;
+    originC: number;
+  } | null = null;
   private history: string[] = [];
   private future: string[] = [];
 
@@ -5467,13 +5532,24 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   cutCell() {
-    this.clipboard = this.cells[this.selectedRow][this.selectedCol];
-    navigator.clipboard.writeText(this.clipboard).catch(() => { });
+    // Capture the range first (same as copy)
+    this.copyCell();
+    // Then clear the source cells (values + formats + validations)
     this.pushHistory();
-    this.cells[this.selectedRow][this.selectedCol] = '';
+    const startR = this.richClipboard!.originR;
+    const startC = this.richClipboard!.originC;
+    for (let r = 0; r < this.richClipboard!.rows; r++) {
+      for (let c = 0; c < this.richClipboard!.cols; c++) {
+        const srcR = startR + r;
+        const srcC = startC + c;
+        this.cells[srcR][srcC] = '';
+        delete this.formats[`${srcR},${srcC}`];
+        delete this.validations[`${srcR},${srcC}`];
+      }
+    }
     this.formulaBarValue = '';
     this.onCellChange();
-    this.showToast(`Cut: "${this.clipboard}"`);
+    this.showToast(`Cut ${this.richClipboard!.rows}×${this.richClipboard!.cols} cell${this.richClipboard!.rows * this.richClipboard!.cols > 1 ? 's' : ''}.`);
   }
 
   // ── Clear all cells in current range / selection ─────────────────────────
@@ -6457,38 +6533,84 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   copyCell() {
-    this.clipboard = this.cells[this.selectedRow][this.selectedCol];
-    navigator.clipboard.writeText(this.clipboard).catch(() => { });
+    // Determine the range to copy
+    const startR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const endR   = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const startC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    const endC   = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+
+    const rows = endR - startR + 1;
+    const cols = endC - startC + 1;
+
+    // Snapshot cells, formats, validations
+    const cellSnap: string[][] = [];
+    const fmtSnap: Record<string, any> = {};
+    const valSnap: Record<string, any> = {};
+    const tsvRows: string[] = [];
+
+    for (let r = 0; r < rows; r++) {
+      cellSnap[r] = [];
+      const tsvCols: string[] = [];
+      for (let c = 0; c < cols; c++) {
+        const srcR = startR + r;
+        const srcC = startC + c;
+        const val = this.cells[srcR][srcC] || '';
+        cellSnap[r][c] = val;
+        tsvCols.push(val);
+        const srcKey = `${srcR},${srcC}`;
+        const dstKey = `${r},${c}`;
+        if (this.formats[srcKey]) fmtSnap[dstKey] = { ...this.formats[srcKey] };
+        if (this.validations[srcKey]) valSnap[dstKey] = { ...this.validations[srcKey] };
+      }
+      tsvRows.push(tsvCols.join('\t'));
+    }
+
+    this.richClipboard = { cells: cellSnap, formats: fmtSnap, validations: valSnap, rows, cols, originR: startR, originC: startC };
+    this.clipboard = cellSnap[0][0]; // fallback for system paste
+
+    // Write TSV to system clipboard so Ctrl+V also works in other apps
+    navigator.clipboard.writeText(tsvRows.join('\n')).catch(() => {});
     this.closeMenus();
-    this.showToast(`Copied: "${this.clipboard}"`);
+    this.showToast(`Copied ${rows}×${cols} cell${rows * cols > 1 ? 's' : ''}.`);
   }
 
   pasteCell() {
-    navigator.clipboard.readText().then(text => {
-      this.pushHistory();
-      this.cells[this.selectedRow][this.selectedCol] = text;
-      this.formulaBarValue = text;
-      this.onCellChange();
-    }).catch(() => {
-      if (this.clipboard) {
+    if (this.richClipboard) {
+      // Use rich internal clipboard (preserves formats, validations, multi-cell ranges)
+      this.applyRichPaste('all');
+      this.showToast('Pasted.');
+    } else {
+      // Fallback: read from system clipboard (external paste)
+      navigator.clipboard.readText().then(text => {
         this.pushHistory();
-        this.cells[this.selectedRow][this.selectedCol] = this.clipboard;
-        this.formulaBarValue = this.clipboard;
+        this.cells[this.selectedRow][this.selectedCol] = text;
+        this.formulaBarValue = text;
         this.onCellChange();
-      }
-    });
-    this.closeMenus();
+        this.showToast('Pasted.');
+      }).catch(() => {
+        if (this.clipboard) {
+          this.pushHistory();
+          this.cells[this.selectedRow][this.selectedCol] = this.clipboard;
+          this.formulaBarValue = this.clipboard;
+          this.onCellChange();
+          this.showToast('Pasted.');
+        }
+      });
+      this.closeMenus();
+    }
   }
 
-  pasteValues() { this.pasteCell(); }
-  pasteFormulas() { this.showToast('Paste Formulas not implemented.'); this.closeMenus(); }
-  pasteFormats() { this.showToast('Paste Formats not implemented.'); this.closeMenus(); }
-  pasteNotes() { this.showToast('Paste Notes not implemented.'); this.closeMenus(); }
-  pasteFormulasAndNumberFormats() { this.showToast('Paste Formulas/Number Formats not implemented.'); this.closeMenus(); }
-  pasteValuesAndNumberFormats() { this.showToast('Paste Values/Number Formats not implemented.'); this.closeMenus(); }
-  pasteValidation() { this.showToast('Paste Validation not implemented.'); this.closeMenus(); }
-  pasteExceptNotes() { this.showToast('Paste Except Notes not implemented.'); this.closeMenus(); }
-  pasteExceptBorders() { this.showToast('Paste Except Borders not implemented.'); this.closeMenus(); }
+  pasteValues()                  { this.applyRichPaste('values');              this.showToast('Pasted values.'); }
+  pasteFormulas()                { this.applyRichPaste('formulas');            this.showToast('Pasted formulas.'); }
+  pasteFormats()                 { this.applyRichPaste('formats');             this.showToast('Pasted formats.'); }
+  pasteNotes()                   { this.applyRichPaste('notes');               this.showToast('Pasted notes.'); }
+  pasteFormulasAndNumberFormats(){ this.applyRichPaste('formulasAndNumbers'); this.showToast('Pasted formulas & number formats.'); }
+  pasteValuesAndNumberFormats()  { this.applyRichPaste('valuesAndNumbers');   this.showToast('Pasted values & number formats.'); }
+  pasteValidation()              { this.applyRichPaste('validation');          this.showToast('Pasted validation rules.'); }
+  pasteExceptNotes()             { this.applyRichPaste('exceptNotes');        this.showToast('Pasted all except notes.'); }
+  pasteExceptBorders()           { this.applyRichPaste('exceptBorders');      this.showToast('Pasted all except borders.'); }
+  pasteTranspose()               { this.applyRichPaste('transpose');           this.showToast('Pasted transposed.'); }
+  pasteLinkToSource()            { this.showToast('Link To Source is not supported for internal pastes.'); this.closeMenus(); }
 
   private forEachSelectedCell(callback: (r: number, c: number) => void) {
     if (this.rangeStart && this.rangeEnd) {
@@ -6505,6 +6627,105 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
        callback(this.selectedRow, this.selectedCol);
     }
   }
+
+  // ── Internal helper: paste rich clipboard to destination ─────────────────
+  private applyRichPaste(
+    mode: 'all' | 'values' | 'formulas' | 'formats' | 'notes' |
+          'formulasAndNumbers' | 'valuesAndNumbers' | 'validation' |
+          'exceptNotes' | 'exceptBorders' | 'transpose'
+  ) {
+    this.pushHistory();
+    const destR = this.selectedRow;
+    const destC = this.selectedCol;
+
+    if (!this.richClipboard) {
+      // Fallback: plain text paste
+      this.pasteCell();
+      return;
+    }
+
+    const { cells, formats: fmts, validations: vals, rows, cols } = this.richClipboard;
+    const pasteRows = mode === 'transpose' ? cols : rows;
+    const pasteCols = mode === 'transpose' ? rows : cols;
+
+    for (let r = 0; r < pasteRows; r++) {
+      for (let c = 0; c < pasteCols; c++) {
+        const srcR = mode === 'transpose' ? c : r;
+        const srcC = mode === 'transpose' ? r : c;
+        const targetR = destR + r;
+        const targetC = destC + c;
+        if (targetR >= this.ROWS || targetC >= this.COLS) continue;
+        const dstKey = `${targetR},${targetC}`;
+        const srcKey = `${srcR},${srcC}`;
+        const srcFmt = fmts[srcKey] || {};
+
+        if (mode === 'values' || mode === 'valuesAndNumbers' || mode === 'transpose') {
+          // Value only — strip formulas (values are already resolved text)
+          this.cells[targetR][targetC] = cells[srcR]?.[srcC] ?? '';
+          if (mode === 'valuesAndNumbers' && (srcFmt as any).numFormat) {
+            (this.formats[dstKey] as any) = { ...(this.formats[dstKey] || {}), numFormat: (srcFmt as any).numFormat };
+          }
+
+        } else if (mode === 'formulas' || mode === 'formulasAndNumbers') {
+          this.cells[targetR][targetC] = cells[srcR]?.[srcC] ?? '';
+          if (mode === 'formulasAndNumbers' && (srcFmt as any).numFormat) {
+            (this.formats[dstKey] as any) = { ...(this.formats[dstKey] || {}), numFormat: (srcFmt as any).numFormat };
+          }
+
+        } else if (mode === 'formats') {
+          // Format only — don't touch cell values
+          const { note, comment, ...visualFmt } = srcFmt as any;
+          this.formats[dstKey] = { ...(this.formats[dstKey] || {}), ...visualFmt };
+
+        } else if (mode === 'notes') {
+          // Note/comment only
+          if ((srcFmt as any).note !== undefined) {
+            (this.formats[dstKey] as any) = { ...(this.formats[dstKey] || {}), note: (srcFmt as any).note };
+          }
+          if ((srcFmt as any).comment !== undefined) {
+            (this.formats[dstKey] as any) = { ...(this.formats[dstKey] || {}), comment: (srcFmt as any).comment };
+          }
+
+        } else if (mode === 'validation') {
+          if (vals[srcKey]) this.validations[dstKey] = { ...vals[srcKey] };
+          else delete this.validations[dstKey];
+
+        } else if (mode === 'exceptNotes') {
+          // All except notes/comments
+          this.cells[targetR][targetC] = cells[srcR]?.[srcC] ?? '';
+          const { note, comment, ...fmtWithoutNotes } = srcFmt as any;
+          if (Object.keys(fmtWithoutNotes).length) this.formats[dstKey] = fmtWithoutNotes;
+          else delete this.formats[dstKey];
+          if (vals[srcKey]) this.validations[dstKey] = { ...vals[srcKey] };
+
+        } else if (mode === 'exceptBorders') {
+          // All except borders
+          this.cells[targetR][targetC] = cells[srcR]?.[srcC] ?? '';
+          const { borders, ...fmtWithoutBorders } = srcFmt as any;
+          if (Object.keys(fmtWithoutBorders).length) this.formats[dstKey] = fmtWithoutBorders;
+          else delete this.formats[dstKey];
+          if (vals[srcKey]) this.validations[dstKey] = { ...vals[srcKey] };
+
+        } else {
+          // 'all' — paste everything
+          this.cells[targetR][targetC] = cells[srcR]?.[srcC] ?? '';
+          if (Object.keys(srcFmt).length) this.formats[dstKey] = { ...srcFmt };
+          else delete this.formats[dstKey];
+          if (vals[srcKey]) this.validations[dstKey] = { ...vals[srcKey] };
+          else delete this.validations[dstKey];
+        }
+      }
+    }
+
+    this.formats = { ...this.formats };
+    // Select the pasted range
+    this.rangeStart = { r: destR, c: destC };
+    this.rangeEnd = { r: Math.min(destR + pasteRows - 1, this.ROWS - 1), c: Math.min(destC + pasteCols - 1, this.COLS - 1) };
+    this.onCellChange();
+    this.updateDisplayCache();
+    this.closeMenus();
+  }
+
 
   clearNotes() {
     this.pushHistory();
@@ -9577,17 +9798,66 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         this.showToast(`Importing ${this.selectedImportFile.name}...`);
         this.api.importFile(this.selectedImportFile, this.docId).subscribe({
           next: (doc: any) => {
-            this.showToast(`${this.selectedImportFile!.name} imported successfully!`);
+            const fileName = this.selectedImportFile!.name;
             this.selectedImportFile = null;
             this.activeModal = null;
-            // Reload the current page to fetch the newly imported data
-            window.location.reload();
+            try {
+              const p = JSON.parse(doc.content || '{}');
+              if (p._importedSheets && p._importedSheets.length > 0) {
+                // Multi-sheet import — expand sparse cells to 2D arrays
+                this.sheets = p._importedSheets.map((sheet: any) => {
+                  let cells2d: string[][];
+                  if (Array.isArray(sheet.cells)) {
+                    cells2d = Array.from({ length: Math.max(this.ROWS, sheet.cells.length) }, (_: any, r: number) =>
+                      Array.from({ length: Math.max(this.COLS, sheet.cells[r]?.length ?? 0) }, (_2: any, c: number) =>
+                        sheet.cells[r]?.[c] ?? ''));
+                  } else {
+                    const sp = sheet.cells || {};
+                    const maxR = Math.max(this.ROWS, ...Object.keys(sp).map(Number).filter((n: number) => !isNaN(n))) + 1;
+                    cells2d = Array.from({ length: maxR }, (_: any, r: number) =>
+                      Array.from({ length: this.COLS }, (_2: any, c: number) => sp[r]?.[c] ?? ''));
+                  }
+                  return { ...sheet, cells: cells2d };
+                });
+                this.currentSheetIdx = 0;
+                const s0 = this.sheets[0];
+                for (let r = 0; r < this.ROWS; r++)
+                  for (let c = 0; c < this.COLS; c++)
+                    this.cells[r][c] = s0.cells[r]?.[c] ?? '';
+                this.formats = { ...(s0.formats || {}) };
+                this.validations = { ...(s0.validations || {}) };
+                if (s0.colWidths) this.sheets[0].colWidths = s0.colWidths;
+                if (s0.rowHeights) this.sheets[0].rowHeights = s0.rowHeights;
+                this.hiddenRows = new Set();
+                this.filterActive = false;
+                this.activeFilterCols = new Set();
+                this.pushHistory();
+                this.updateDisplayCache();
+                this.showToast(`${fileName} imported successfully!`);
+              } else if (p.cells) {
+                // Single-sheet flat format
+                this.pushHistory();
+                for (let r = 0; r < this.ROWS; r++)
+                  for (let c = 0; c < this.COLS; c++)
+                    this.cells[r][c] = p.cells[r]?.[c] ?? '';
+                if (p.formats) this.formats = p.formats;
+                if (p.validations) this.validations = p.validations;
+                this.updateDisplayCache();
+                this.showToast(`${fileName} imported successfully!`);
+              } else {
+                // Nothing parseable — fallback to page reload
+                window.location.reload();
+              }
+            } catch {
+              window.location.reload();
+            }
           },
           error: () => this.showToast('Failed to import file.')
         });
       } else {
         this.showToast('Please select a file first.');
       }
+
     } else if (this.activeModal === 'password') {
       this.showToast('Password protection enabled!');
     } else if (this.activeModal === 'move') {

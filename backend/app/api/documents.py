@@ -161,7 +161,7 @@ async def import_document(
     
     doc_type = "doc"
     filename_lower = filename.lower()
-    if filename_lower.endswith(".xlsx") or filename_lower.endswith(".csv"):
+    if filename_lower.endswith(".xlsx") or filename_lower.endswith(".xls") or filename_lower.endswith(".csv") or filename_lower.endswith(".tsv"):
         doc_type = "sheet"
     elif filename_lower.endswith(".pptx"):
         doc_type = "slide"
@@ -169,13 +169,7 @@ async def import_document(
     title = filename.rsplit(".", 1)[0]
     content_json = "{}"
     
-    if doc_type == "sheet" and filename_lower.endswith(".xlsx"):
-        try:
-            with open("backend/debug_uploaded_sheet.xlsx", "wb") as f_debug:
-                f_debug.write(content_bytes)
-        except Exception as save_err:
-            pass
-            
+    if doc_type == "sheet" and (filename_lower.endswith(".xlsx") or filename_lower.endswith(".xls")):
         try:
             from openpyxl import load_workbook
             from openpyxl.utils import column_index_from_string
@@ -356,12 +350,38 @@ async def import_document(
                 "_importedSheets": sheets
             })
         except Exception as e:
-            try:
-                import traceback
-                with open("c:/Users/Homes247/Desktop/office-suite/backend/import_error.log", "w") as f_log:
-                    f_log.write(f"Global import error: {e}\n{traceback.format_exc()}\n")
-            except:
-                pass
+            import traceback
+            print(f"[IMPORT XLSX ERROR] {e}")
+            print(traceback.format_exc())
+            content_json = _default_content(doc_type, title)
+    elif doc_type == "sheet" and (filename_lower.endswith(".csv") or filename_lower.endswith(".tsv")):
+        try:
+            import csv as _csv
+            delimiter = "\t" if filename_lower.endswith(".tsv") else ","
+            text = content_bytes.decode("utf-8-sig", errors="replace")
+            reader = _csv.reader(text.splitlines(), delimiter=delimiter)
+            rows_data = list(reader)
+            sparse_cells = {}
+            for ri, row in enumerate(rows_data):
+                for ci, val in enumerate(row):
+                    if val.strip():
+                        if ri not in sparse_cells:
+                            sparse_cells[ri] = {}
+                        sparse_cells[ri][ci] = val
+            content_json = json.dumps({
+                "_importedSheets": [{
+                    "name": title,
+                    "cells": sparse_cells,
+                    "formats": {},
+                    "validations": {},
+                    "colWidths": {},
+                    "rowHeights": {}
+                }]
+            })
+        except Exception as e:
+            import traceback
+            print(f"[IMPORT CSV ERROR] {e}")
+            print(traceback.format_exc())
             content_json = _default_content(doc_type, title)
     elif doc_type == "doc":
         parsed = False
@@ -482,6 +502,7 @@ async def import_document(
     await db.commit()
     await db.refresh(doc)
 
+    # Save to R2 storage in background — don't let storage failure block the response
     try:
         storage_res = await asyncio.to_thread(
             DocumentStorage.save, doc.owner_id, doc.id, content_json, doc_type=doc.doc_type
@@ -490,18 +511,14 @@ async def import_document(
         doc.file_size = storage_res["size"]
         doc.content_version = 1
         await db.commit()
-        
-        try:
-            from main import manager
-            import json
-            manager.doc_states.pop(doc.id, None)
-            await manager.broadcast(doc.id, json.dumps({"type": "reload_page"}))
-        except Exception as inner_e:
-            print(f"Error resetting WS state: {inner_e}")
-            
+        print(f"[IMPORT] Saved doc {doc.id} to R2 ({storage_res['size']} bytes)")
     except Exception as e:
-        print(f"Error saving imported document to storage: {e}")
+        import traceback
+        print(f"[IMPORT] R2 save failed for doc {doc.id}: {e}")
+        print(traceback.format_exc())
+        # Still return success — frontend uses response content directly
 
+    # Return the parsed content directly so frontend can apply it without a reload
     return {"id": doc.id, "title": doc.title, "doc_type": doc.doc_type, "content": content_json}
 
 
@@ -571,7 +588,6 @@ async def get_document(
                 raise HTTPException(403, "Access denied")
 
     content = "{}"
-    print(f"[DEBUG] get_document: id={doc_id}, file_path={doc.file_path}, doc_type={doc.doc_type}")
     if doc.file_path:
         try:
             content = await asyncio.to_thread(
@@ -580,12 +596,9 @@ async def get_document(
                 doc_type=doc.doc_type,
                 file_path=doc.file_path,
             )
-            print(f"[DEBUG] R2 load success, content length={len(content)}")
         except Exception as e:
-            print(f"[DEBUG] R2 load FAILED for doc {doc.id}: {e}")
+            print(f"Failed to load doc {doc.id} from storage: {e}")
             pass
-    else:
-        print(f"[DEBUG] file_path is NULL, returning empty content")
 
     return {"id": doc.id, "title": doc.title, "doc_type": doc.doc_type, "content": content}
 
