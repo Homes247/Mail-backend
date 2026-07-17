@@ -5007,9 +5007,67 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.formulaBarValue = '';
   }
 
+  getContiguousDataRange(startR: number, startC: number): { minR: number, maxR: number, minC: number, maxC: number } {
+    let minR = startR, maxR = startR, minC = startC, maxC = startC;
+    let expanded = true;
+
+    while (expanded) {
+      expanded = false;
+      if (minR > 0) {
+        let hasData = false;
+        for (let c = minC; c <= maxC; c++) {
+          if (this.cells[minR - 1] && this.cells[minR - 1][c] && this.cells[minR - 1][c].trim() !== '') { hasData = true; break; }
+        }
+        if (hasData) { minR--; expanded = true; continue; }
+      }
+      if (maxR < this.ROWS - 1) {
+        let hasData = false;
+        for (let c = minC; c <= maxC; c++) {
+          if (this.cells[maxR + 1] && this.cells[maxR + 1][c] && this.cells[maxR + 1][c].trim() !== '') { hasData = true; break; }
+        }
+        if (hasData) { maxR++; expanded = true; continue; }
+      }
+      if (minC > 0) {
+        let hasData = false;
+        for (let r = minR; r <= maxR; r++) {
+          if (this.cells[r] && this.cells[r][minC - 1] && this.cells[r][minC - 1].trim() !== '') { hasData = true; break; }
+        }
+        if (hasData) { minC--; expanded = true; continue; }
+      }
+      if (maxC < this.COLS - 1) {
+        let hasData = false;
+        for (let r = minR; r <= maxR; r++) {
+          if (this.cells[r] && this.cells[r][maxC + 1] && this.cells[r][maxC + 1].trim() !== '') { hasData = true; break; }
+        }
+        if (hasData) { maxC++; expanded = true; continue; }
+      }
+    }
+    return { minR, maxR, minC, maxC };
+  }
+
   selectAll() {
     this.selectedColHeader = null;
     this.selectedRowHeader = null;
+
+    const r = this.selectedRow;
+    const c = this.selectedCol;
+    const isCellEmpty = !this.cells[r] || !this.cells[r][c] || this.cells[r][c].trim() === '';
+
+    if (!isCellEmpty) {
+      const range = this.getContiguousDataRange(r, c);
+      const isAlreadySelected = this.rangeStart && this.rangeEnd &&
+        Math.min(this.rangeStart.r, this.rangeEnd.r) === range.minR &&
+        Math.max(this.rangeStart.r, this.rangeEnd.r) === range.maxR &&
+        Math.min(this.rangeStart.c, this.rangeEnd.c) === range.minC &&
+        Math.max(this.rangeStart.c, this.rangeEnd.c) === range.maxC;
+
+      if (!isAlreadySelected) {
+        this.rangeStart = { r: range.minR, c: range.minC };
+        this.rangeEnd = { r: range.maxR, c: range.maxC };
+        return;
+      }
+    }
+
     this.rangeStart = { r: 0, c: 0 };
     this.rangeEnd = { r: this.ROWS - 1, c: this.COLS - 1 };
     this.selectedRow = 0;
