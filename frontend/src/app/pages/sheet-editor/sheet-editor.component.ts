@@ -2101,8 +2101,8 @@ export interface CellValidation {
            (mouseenter)="keepCtxSubmenu()" (mouseleave)="hideCtxSubmenu()"
            [style.left.px]="ctxSubX" 
            [style.top.px]="ctxSubTop" 
-           [style.bottom.px]="ctxSubBottom" 
-           style="position: fixed; z-index: 100001; min-width: 220px; overflow: visible;">
+           [style.bottom.px]="ctxSubBottom"
+           style="position: fixed; z-index: 100001; min-width: 220px; max-height: calc(100vh - 16px); overflow-y: auto; overflow-x: hidden;">
         
         <ng-container *ngIf="activeCtxSubmenu === 'clear'">
             <div class="ctx-item" (click)="clearAll(); hideCtx()">All <span class="mh" style="margin-left:auto;color:#a0aec0;font-size:11px;">Ctrl+Del</span></div>
@@ -2116,6 +2116,8 @@ export interface CellValidation {
             <div class="ctx-item" (click)="clearDataValidations(); hideCtx()">Data Validations</div>
             <div class="ctx-item" (click)="clearConditionalFormats(); hideCtx()">Conditional Formats</div>
             <div class="ctx-item" (click)="clearRichTextFormats(); hideCtx()">RichText Formats</div>
+            <div class="ctx-sep"></div>
+            <div class="ctx-item" style="color:#ef4444;" (click)="clearAllFilters(); hideCtx()">Clear All Filters</div>
         </ng-container>
 
         <ng-container *ngIf="activeCtxSubmenu === 'insert'">
@@ -2136,6 +2138,102 @@ export interface CellValidation {
             <div class="ctx-item" (click)="filterByTextColor(); hideCtx()">Text Color</div>
         </ng-container>
       </div>
+
+      <!-- Advanced Filter Panel -->
+      <div class="modal-overlay" *ngIf="advFilterVisible" (click)="closeAdvFilter()" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:transparent; z-index:100000;">
+        <div class="modal" (click)="$event.stopPropagation()" [style.left.px]="advFilterX" [style.top.px]="advFilterY" 
+             [style.max-height.px]="advFilterMaxHeight"
+             style="position:fixed; width:280px; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-radius:12px; display:flex; flex-direction:column; font-family:'Inter', sans-serif; z-index:100001; overflow:hidden;"
+             [style.background]="currentTheme === 'dark' ? 'rgba(25,25,30,0.95)' : 'rgba(255,255,255,0.95)'"
+             [style.color]="currentTheme === 'dark' ? '#f3f4f6' : '#111827'"
+             [style.border]="currentTheme === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.1)'"
+             [style.box-shadow]="currentTheme === 'dark' ? '0 20px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)' : '0 20px 40px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)'">
+          
+          <div [style.border-bottom]="currentTheme === 'dark' ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.08)'" style="padding:16px 16px 12px;">
+             <div style="font-weight:600; font-size:15px; display:flex; justify-content:space-between; margin-bottom:12px; align-items:center;">
+                <span>Filter Options</span>
+                <a href="javascript:void(0)" style="color:#10b981; text-decoration:none; font-size:12px; font-weight:500;">Custom Filter</a>
+             </div>
+             <div style="display:flex; gap:8px;">
+                <button (click)="advSort(true)" style="flex:1; border-radius:6px; padding:6px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:6px; font-size:13px; font-weight:500; transition:all 0.2s;"
+                        [style.background]="currentTheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'"
+                        [style.color]="currentTheme === 'dark' ? '#f3f4f6' : '#374151'"
+                        [style.border]="currentTheme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.05)'"
+                        onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'"><span class="material-symbols-outlined" style="font-size:16px; color:#10b981;">sort_by_alpha</span> A-Z</button>
+                <button (click)="advSort(false)" style="flex:1; border-radius:6px; padding:6px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:6px; font-size:13px; font-weight:500; transition:all 0.2s;"
+                        [style.background]="currentTheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'"
+                        [style.color]="currentTheme === 'dark' ? '#f3f4f6' : '#374151'"
+                        [style.border]="currentTheme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.05)'"
+                        onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'"><span class="material-symbols-outlined" style="font-size:16px; color:#ef4444;">sort_by_alpha</span> Z-A</button>
+             </div>
+          </div>
+
+          <div [style.border-bottom]="currentTheme === 'dark' ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.08)'" style="display:flex;">
+             <div (click)="advFilterTab='value'" [style.border-bottom]="advFilterTab==='value'?'2px solid #10b981':''" [style.color]="advFilterTab==='value' ? '#10b981' : (currentTheme === 'dark' ? '#9ca3af' : '#6b7280')" style="flex:1; padding:10px 0; text-align:center; cursor:pointer; font-weight:600; font-size:12px; transition:color 0.2s;">ABC<br>123</div>
+             <div (click)="advFilterTab='cellColor'" [style.border-bottom]="advFilterTab==='cellColor'?'2px solid #10b981':''" style="flex:1; padding:10px 0; text-align:center; cursor:pointer; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-outlined" [style.color]="advFilterTab==='cellColor' ? '#10b981' : (currentTheme === 'dark' ? '#9ca3af' : '#6b7280')" style="transition:color 0.2s;">format_color_fill</span></div>
+             <div (click)="advFilterTab='textColor'" [style.border-bottom]="advFilterTab==='textColor'?'2px solid #10b981':''" style="flex:1; padding:10px 0; text-align:center; cursor:pointer; display:flex; align-items:center; justify-content:center;"><span class="material-symbols-outlined" [style.color]="advFilterTab==='textColor' ? '#10b981' : (currentTheme === 'dark' ? '#9ca3af' : '#6b7280')" style="transition:color 0.2s;">format_color_text</span></div>
+          </div>
+
+          <div style="padding:16px; flex:1; min-height:0; overflow-y:auto; scrollbar-width:thin;" [style.scrollbar-color]="currentTheme === 'dark' ? 'rgba(255,255,255,0.2) transparent' : 'rgba(0,0,0,0.2) transparent'">
+             <div *ngIf="advFilterTab==='value'">
+                <div [style.color]="currentTheme === 'dark' ? '#9ca3af' : '#6b7280'" style="font-size:12px; font-weight:600; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Cell Value</div>
+                <input type="text" placeholder="Search values..." [(ngModel)]="advFilterSearch" 
+                       [style.background]="currentTheme === 'dark' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)'"
+                       [style.color]="currentTheme === 'dark' ? '#f3f4f6' : '#111827'"
+                       [style.border]="currentTheme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.15)'"
+                       style="width:100%; padding:8px 12px; border-radius:6px; margin-bottom:12px; font-size:13px; box-sizing:border-box; outline:none; transition:border-color 0.2s;" onfocus="this.style.borderColor='#10b981'">
+                
+                <label [style.color]="currentTheme === 'dark' ? '#d1d5db' : '#374151'" style="display:flex; align-items:center; gap:10px; font-size:13px; margin-bottom:8px; cursor:pointer;">
+                   <input type="checkbox" [checked]="allAdvFilterSelected('value')" (change)="toggleAllAdvFilter($event)" style="accent-color:#10b981; width:16px; height:16px; cursor:pointer;"> <span style="font-weight:500;">(Select All)</span>
+                </label>
+                <div *ngFor="let it of advFilterValues" [hidden]="!it.val.toLowerCase().includes(advFilterSearch.toLowerCase())">
+                   <label [style.color]="currentTheme === 'dark' ? '#e5e7eb' : '#1f2937'" style="display:flex; align-items:center; gap:10px; font-size:13px; margin-bottom:8px; cursor:pointer;">
+                      <input type="checkbox" [(ngModel)]="it.selected" style="accent-color:#10b981; width:16px; height:16px; cursor:pointer;"> <span style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">{{ it.val || '(Blanks)' }}</span>
+                   </label>
+                </div>
+             </div>
+             
+             <div *ngIf="advFilterTab==='cellColor'">
+                <div [style.color]="currentTheme === 'dark' ? '#9ca3af' : '#6b7280'" style="font-size:12px; font-weight:600; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Cell Color</div>
+                <label [style.color]="currentTheme === 'dark' ? '#d1d5db' : '#374151'" style="display:flex; align-items:center; gap:10px; font-size:13px; margin-bottom:8px; cursor:pointer;">
+                   <input type="checkbox" [checked]="allAdvFilterSelected('cellColor')" (change)="toggleAllAdvFilter($event)" style="accent-color:#10b981; width:16px; height:16px; cursor:pointer;"> <span style="font-weight:500;">(Select All)</span>
+                </label>
+                <div *ngFor="let it of advFilterBgColors">
+                   <label [style.color]="currentTheme === 'dark' ? '#e5e7eb' : '#1f2937'" style="display:flex; align-items:center; gap:10px; font-size:13px; margin-bottom:8px; cursor:pointer;">
+                      <input type="checkbox" [(ngModel)]="it.selected" style="accent-color:#10b981; width:16px; height:16px; cursor:pointer;">
+                      <div [style.background]="it.val || '#ffffff'" [style.border]="currentTheme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)'" style="width:24px; height:24px; border-radius:4px; box-shadow:inset 0 1px 2px rgba(0,0,0,0.1);"></div>
+                      <span>{{ !it.val ? '(Default)' : it.val }}</span>
+                   </label>
+                </div>
+             </div>
+
+             <div *ngIf="advFilterTab==='textColor'">
+                <div [style.color]="currentTheme === 'dark' ? '#9ca3af' : '#6b7280'" style="font-size:12px; font-weight:600; margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;">Text Color</div>
+                <label [style.color]="currentTheme === 'dark' ? '#d1d5db' : '#374151'" style="display:flex; align-items:center; gap:10px; font-size:13px; margin-bottom:8px; cursor:pointer;">
+                   <input type="checkbox" [checked]="allAdvFilterSelected('textColor')" (change)="toggleAllAdvFilter($event)" style="accent-color:#10b981; width:16px; height:16px; cursor:pointer;"> <span style="font-weight:500;">(Select All)</span>
+                </label>
+                <div *ngFor="let it of advFilterTextColors">
+                   <label [style.color]="currentTheme === 'dark' ? '#e5e7eb' : '#1f2937'" style="display:flex; align-items:center; gap:10px; font-size:13px; margin-bottom:8px; cursor:pointer;">
+                      <input type="checkbox" [(ngModel)]="it.selected" style="accent-color:#10b981; width:16px; height:16px; cursor:pointer;">
+                      <div [style.background]="it.val || '#000000'" [style.border]="currentTheme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)'" style="width:24px; height:24px; border-radius:4px; box-shadow:inset 0 1px 2px rgba(0,0,0,0.1);"></div>
+                      <span>{{ !it.val ? '(Default)' : it.val }}</span>
+                   </label>
+                </div>
+             </div>
+          </div>
+
+          <div [style.border-top]="currentTheme === 'dark' ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.08)'" 
+               [style.background]="currentTheme === 'dark' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.4)'"
+               style="padding:12px 16px; display:flex; justify-content:flex-end; gap:8px;">
+             <button (click)="clearAdvFilter()" 
+                     [style.color]="currentTheme === 'dark' ? '#9ca3af' : '#4b5563'"
+                     [style.border]="currentTheme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.15)'"
+                     style="background:transparent; padding:8px 16px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:500; transition:all 0.2s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">Clear</button>
+             <button (click)="applyAdvFilter()" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; border:none; padding:8px 20px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600; box-shadow:0 4px 10px rgba(16,185,129,0.3); transition:all 0.2s;" onmouseover="this.style.opacity='0.9'; this.style.transform='translateY(-1px)'" onmouseout="this.style.opacity='1'; this.style.transform='none'">Apply Filter</button>
+          </div>
+        </div>
+      </div>
+
 
       <!-- Validation / Dropdown Modal (Zoho Picklist Style) -->
       <div class="modal-overlay" *ngIf="validationModalOpen" (click)="validationModalOpen = false">
@@ -3834,19 +3932,37 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const rect = target.getBoundingClientRect();
     
     const submenuWidth = 220;
+    // Decide left/right side based on available space
     if (this.ctxX + 220 + submenuWidth > window.innerWidth) {
-       this.ctxSubX = this.ctxX - submenuWidth + 4; // slight overlap so there's no gap
+       this.ctxSubX = this.ctxX - submenuWidth + 4;
     } else {
-       this.ctxSubX = this.ctxX + 220 - 4; // slight overlap so there's no gap
+       this.ctxSubX = this.ctxX + 220 - 4;
     }
-    
-    const estimatedHeight = 150;
-    if (rect.top + estimatedHeight > window.innerHeight) {
-       this.ctxSubTop = null;
-       this.ctxSubBottom = window.innerHeight - rect.bottom;
+    // Clamp X so submenu never goes off-screen
+    this.ctxSubX = Math.max(4, Math.min(this.ctxSubX, window.innerWidth - submenuWidth - 4));
+
+    // Use accurate estimated height per submenu type
+    const heightMap: Record<string, number> = {
+      clear: 360,   // All + Formats + Contents + sep + Notes + Hyperlinks + Checkboxes + sep + DataValidations + ConditionalFormats + RichText + sep + ClearAllFilters
+      insert: 120,
+      delete: 100,
+      filter: 100
+    };
+    const estimatedHeight = heightMap[type] ?? 200;
+    const margin = 8; // minimum gap from screen edge
+
+    // Try to open downward from the hovered item
+    if (rect.top + estimatedHeight + margin <= window.innerHeight) {
+      this.ctxSubTop = rect.top;
+      this.ctxSubBottom = null;
+    } else if (rect.bottom - estimatedHeight - margin >= 0) {
+      // Not enough space below — open upward
+      this.ctxSubTop = Math.max(margin, rect.bottom - estimatedHeight);
+      this.ctxSubBottom = null;
     } else {
-       this.ctxSubTop = rect.top;
-       this.ctxSubBottom = null;
+      // Not enough space either way — pin to top with margin
+      this.ctxSubTop = margin;
+      this.ctxSubBottom = null;
     }
   }
 
@@ -4265,8 +4381,43 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   dvAlertMsg = '';
   dvAppliesTo = 'Sheet1.A1';
 
+  // Advanced Filter State
+  advFilterVisible = false;
+  advFilterMaxHeight = 360;
+  advFilterCol: number | null = null;
+  advFilterX = 0;
+  advFilterY = 0;
+  advFilterTab: 'value' | 'cellColor' | 'textColor' = 'value';
+  advFilterSearch = '';
+  advFilterValues: {val: string, selected: boolean}[] = [];
+  advFilterBgColors: {val: string, selected: boolean}[] = [];
+  advFilterTextColors: {val: string, selected: boolean}[] = [];
+  advFilterSavedState: Map<number, { tab: 'value' | 'cellColor' | 'textColor', allowedVals: Set<string>, allowedBg: Set<string>, allowedText: Set<string> }> = new Map();
+  
+  serializeAdvFilterState() {
+     return Array.from(this.advFilterSavedState.entries()).map(([k, v]) => [k, { 
+         tab: v.tab, 
+         allowedVals: Array.from(v.allowedVals), 
+         allowedBg: Array.from(v.allowedBg), 
+         allowedText: Array.from(v.allowedText) 
+     }]);
+  }
+
+  deserializeAdvFilterState(stateData: any) {
+     if (!stateData) {
+         this.advFilterSavedState.clear();
+         return;
+     }
+     this.advFilterSavedState = new Map(stateData.map(([k, v]: any) => [k, { 
+         tab: v.tab, 
+         allowedVals: new Set(v.allowedVals || []), 
+         allowedBg: new Set(v.allowedBg || []), 
+         allowedText: new Set(v.allowedText || []) 
+     }]));
+  }
+
   // Multiple sheets
-  sheets: Array<{ name: string, cells: string[][], formats: Record<string, CellFormat>, validations: Record<string, CellValidation>, colWidths?: Record<number, number>, rowHeights?: Record<number, number>, hideGridlines?: boolean, locked?: boolean, hidden?: boolean, tabColor?: string, shapes?: any[], rowGroups?: Array<{ start: number, end: number, collapsed: boolean }>, colGroups?: Array<{ start: number, end: number, collapsed: boolean }>, hiddenRows?: number[], activeFilterCols?: number[], filterActive?: boolean }> = [
+  sheets: Array<{ name: string, cells: string[][], formats: Record<string, CellFormat>, validations: Record<string, CellValidation>, colWidths?: Record<number, number>, rowHeights?: Record<number, number>, hideGridlines?: boolean, locked?: boolean, hidden?: boolean, tabColor?: string, shapes?: any[], rowGroups?: Array<{ start: number, end: number, collapsed: boolean }>, colGroups?: Array<{ start: number, end: number, collapsed: boolean }>, hiddenRows?: number[], activeFilterCols?: number[], filterActive?: boolean, advFilterSavedState?: any, frozenRowsCount?: number, frozenColsCount?: number }> = [
     { name: 'Sheet1', cells: Array.from({ length: this.ROWS }, () => Array(this.COLS).fill('')), formats: {}, validations: {}, shapes: [] }
   ];
   currentSheetIdx = 0;
@@ -4419,11 +4570,25 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
           this.hiddenRows = new Set(s0.hiddenRows || []);
           this.activeFilterCols = new Set(s0.activeFilterCols || []);
           this.filterActive = !!s0.filterActive;
+          this.deserializeAdvFilterState(s0.advFilterSavedState);
+          this.frozenRowsCount = s0.frozenRowsCount || 0;
+          this.frozenColsCount = s0.frozenColsCount || 0;
         }
+        // Always restore root-level filter state (handles new save format where filter is at the root)
+        if (p.filterActive !== undefined) this.filterActive = !!p.filterActive;
+        if (p.activeFilterCols !== undefined) this.activeFilterCols = new Set(p.activeFilterCols);
+        if (p.hiddenRows !== undefined) this.hiddenRows = new Set(p.hiddenRows);
+        if (p.advFilterSavedState !== undefined) this.deserializeAdvFilterState(p.advFilterSavedState);
+        if (p.frozenRowsCount !== undefined) this.frozenRowsCount = p.frozenRowsCount;
+        if (p.frozenColsCount !== undefined) this.frozenColsCount = p.frozenColsCount;
         if (p.calendarNotes) this.calendarNotes = p.calendarNotes;
         if (p.globalNotes) this.globalNotes = p.globalNotes;
         if (p.tasks) this.tasks = p.tasks;
       } catch { }
+      // Re-apply filter after load if it was active, to ensure hidden rows are computed
+      if (this.filterActive && this.advFilterSavedState.size > 0) {
+        this.recalculateAllFilters();
+      }
       this.updateDisplayCache();
     });
 
@@ -4450,9 +4615,40 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
               if (active.validations) this.validations = active.validations;
               if (active.hiddenRows !== undefined) this.hiddenRows = new Set(active.hiddenRows);
               if (active.activeFilterCols !== undefined) this.activeFilterCols = new Set(active.activeFilterCols);
-              if (active.filterActive !== undefined) this.filterActive = active.filterActive;
+              if (active.filterActive !== undefined) {
+                  this.filterActive = active.filterActive;
+                  this.deserializeAdvFilterState(active.advFilterSavedState);
+              }
+              if (active.frozenRowsCount !== undefined) this.frozenRowsCount = active.frozenRowsCount;
+              if (active.frozenColsCount !== undefined) this.frozenColsCount = active.frozenColsCount;
+
+              // When backend sends a full-doc (root object with _importedSheets), the "active" above
+              // is the root doc itself. Read filter state from _importedSheets[idx] if root lacks it.
+              const importedSheet = active._importedSheets?.[this.currentSheetIdx];
+              if (importedSheet) {
+                if (importedSheet.filterActive !== undefined && active.filterActive === undefined) {
+                  this.filterActive = !!importedSheet.filterActive;
+                  this.deserializeAdvFilterState(importedSheet.advFilterSavedState);
+                }
+                if (importedSheet.activeFilterCols !== undefined && active.activeFilterCols === undefined) {
+                  this.activeFilterCols = new Set(importedSheet.activeFilterCols);
+                }
+                if (importedSheet.hiddenRows !== undefined && active.hiddenRows === undefined) {
+                  this.hiddenRows = new Set(importedSheet.hiddenRows);
+                }
+                if (importedSheet.frozenRowsCount !== undefined && active.frozenRowsCount === undefined) {
+                  this.frozenRowsCount = importedSheet.frozenRowsCount;
+                }
+                if (importedSheet.frozenColsCount !== undefined && active.frozenColsCount === undefined) {
+                  this.frozenColsCount = importedSheet.frozenColsCount;
+                }
+              }
             }
           } catch { }
+          // Re-apply filter logic after remote update
+          if (this.filterActive && this.advFilterSavedState.size > 0) {
+            this.recalculateAllFilters();
+          }
           this.updateDisplayCache();
         }
         setTimeout(() => this.applyingRemote = false, 50);
@@ -5655,7 +5851,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.activeMenu = this.activeMenu === menu ? null : menu;
   }
 
-  closeMenus() { this.activeMenu = null; this.profileOpen = false; this.activeBorderSubmenu = null; this.activeSheetMenuIdx = null; }
+  closeMenus() { this.activeMenu = null; this.profileOpen = false; this.activeBorderSubmenu = null; this.activeSheetMenuIdx = null; this.advFilterVisible = false; }
 
   newDoc() {
     this.api.createDocument('Untitled spreadsheet', 'sheet')
@@ -6189,7 +6385,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       cells: this.cells, formats: this.formats,
       hiddenRows: Array.from(this.hiddenRows),
       activeFilterCols: Array.from(this.activeFilterCols),
-      filterActive: this.filterActive
+      filterActive: this.filterActive,
+      advFilterSavedState: this.serializeAdvFilterState()
     }));
     if (this.history.length > 50) this.history.shift();
     this.future = [];
@@ -6201,14 +6398,27 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       cells: this.cells, formats: this.formats,
       hiddenRows: Array.from(this.hiddenRows),
       activeFilterCols: Array.from(this.activeFilterCols),
-      filterActive: this.filterActive
+      filterActive: this.filterActive,
+      advFilterSavedState: this.serializeAdvFilterState()
     }));
     const prev = JSON.parse(this.history.pop()!);
     if (prev.cells) for (let r = 0; r < this.ROWS; r++) for (let c = 0; c < this.COLS; c++) this.cells[r][c] = prev.cells[r]?.[c] ?? '';
     if (prev.formats) this.formats = { ...prev.formats };
     if (prev.hiddenRows !== undefined) this.hiddenRows = new Set(prev.hiddenRows);
     if (prev.activeFilterCols !== undefined) this.activeFilterCols = new Set(prev.activeFilterCols);
-    if (prev.filterActive !== undefined) this.filterActive = prev.filterActive;
+    if (prev.filterActive !== undefined) {
+        this.filterActive = prev.filterActive;
+        this.deserializeAdvFilterState(prev.advFilterSavedState);
+    }
+    // If filter is no longer active after undo, clear all hidden rows
+    if (!this.filterActive) {
+        this.hiddenRows.clear();
+        this.advFilterSavedState.clear();
+        this.activeFilterCols.clear();
+    } else if (this.advFilterSavedState.size > 0) {
+        // Re-evaluate hidden rows from the restored filter criteria
+        this.recalculateAllFilters();
+    }
     this.closeMenus();
     this.updateDisplayCache();
     this.showToast('Undo.');
@@ -6220,14 +6430,27 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       cells: this.cells, formats: this.formats,
       hiddenRows: Array.from(this.hiddenRows),
       activeFilterCols: Array.from(this.activeFilterCols),
-      filterActive: this.filterActive
+      filterActive: this.filterActive,
+      advFilterSavedState: this.serializeAdvFilterState()
     }));
     const next = JSON.parse(this.future.pop()!);
     if (next.cells) for (let r = 0; r < this.ROWS; r++) for (let c = 0; c < this.COLS; c++) this.cells[r][c] = next.cells[r]?.[c] ?? '';
     if (next.formats) this.formats = { ...next.formats };
     if (next.hiddenRows !== undefined) this.hiddenRows = new Set(next.hiddenRows);
     if (next.activeFilterCols !== undefined) this.activeFilterCols = new Set(next.activeFilterCols);
-    if (next.filterActive !== undefined) this.filterActive = next.filterActive;
+    if (next.filterActive !== undefined) {
+        this.filterActive = next.filterActive;
+        this.deserializeAdvFilterState(next.advFilterSavedState);
+    }
+    // If filter is no longer active after redo, clear all hidden rows
+    if (!this.filterActive) {
+        this.hiddenRows.clear();
+        this.advFilterSavedState.clear();
+        this.activeFilterCols.clear();
+    } else if (this.advFilterSavedState.size > 0) {
+        // Re-evaluate hidden rows from the restored filter criteria
+        this.recalculateAllFilters();
+    }
     this.closeMenus();
     this.updateDisplayCache();
     this.showToast('Redo.');
@@ -6377,6 +6600,16 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.save();
     this.showToast('Cleared rich text formatting.');
     this.closeMenus();
+  }
+
+  clearAllFilters() {
+    this.pushHistory();
+    this.filterActive = false;
+    this.activeFilterCols.clear();
+    this.advFilterSavedState.clear();
+    this.hiddenRows.clear();
+    this.onCellChange(undefined, undefined, true);
+    this.showToast('All filters cleared.');
   }
 
   shapeTab: 'text' | 'shape' | 'diagram' = 'diagram';
@@ -8205,6 +8438,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       hiddenRows: Array.from(this.hiddenRows),
       activeFilterCols: Array.from(this.activeFilterCols),
       filterActive: this.filterActive,
+      advFilterSavedState: this.serializeAdvFilterState()
     };
   }
 
@@ -8219,6 +8453,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.hiddenRows = new Set(s.hiddenRows || []);
     this.activeFilterCols = new Set(s.activeFilterCols || []);
     this.filterActive = !!s.filterActive;
+    this.deserializeAdvFilterState(s.advFilterSavedState);
+    this.frozenRowsCount = s.frozenRowsCount || 0;
+    this.frozenColsCount = s.frozenColsCount || 0;
     this.rangeStart = null; this.rangeEnd = null;
     this.selectedRow = 0; this.selectedCol = 0;
     this.formulaBarValue = '';
@@ -8506,6 +8743,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       hiddenRows: Array.from(this.hiddenRows),
       activeFilterCols: Array.from(this.activeFilterCols),
       filterActive: this.filterActive,
+      advFilterSavedState: this.serializeAdvFilterState(),
+      frozenRowsCount: this.frozenRowsCount,
+      frozenColsCount: this.frozenColsCount,
     };
 
     // Convert every sheet's cells 2D array to sparse format to avoid huge payloads
@@ -8532,6 +8772,13 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       tasks: this.tasks,
       colWidths: this.sheets[this.currentSheetIdx].colWidths,
       rowHeights: this.sheets[this.currentSheetIdx].rowHeights,
+      // Root-level filter state — makes filter persist through both the HTTP and WebSocket load paths
+      filterActive: this.filterActive,
+      activeFilterCols: Array.from(this.activeFilterCols),
+      hiddenRows: Array.from(this.hiddenRows),
+      advFilterSavedState: this.serializeAdvFilterState(),
+      frozenRowsCount: this.frozenRowsCount,
+      frozenColsCount: this.frozenColsCount,
       _importedSheets: sparseSheets
     };
   }
@@ -8820,11 +9067,72 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (!this.filterActive) {
       this.hiddenRows.clear();
       this.activeFilterCols.clear();
+      this.advFilterSavedState.clear();
       this.showToast('Filter cleared.');
     } else {
       this.showToast('Filter activated. Use column options to filter.');
     }
-    this.onCellChange();
+    this.onCellChange(undefined, undefined, true);
+  }
+
+  filterByCellValue() {
+    this.pushHistory();
+    this.filterActive = true;
+    const rClick = this.ctxRow !== null ? this.ctxRow : this.selectedRow;
+    const cClick = this.ctxCol !== null ? this.ctxCol : this.selectedCol;
+    this.activeFilterCols.add(cClick);
+    const targetVal = this.cells[rClick][cClick];
+    this.advFilterSavedState.set(cClick, {
+        tab: 'value',
+        allowedVals: new Set([targetVal]),
+        allowedBg: new Set(),
+        allowedText: new Set()
+    });
+    
+    this.recalculateAllFilters();
+    this.showToast(`Filtered by value: "${targetVal}"`);
+    this.onCellChange(undefined, undefined, true);
+  }
+
+  filterByCellColor() {
+    this.pushHistory();
+    this.filterActive = true;
+    const rClick = this.ctxRow !== null ? this.ctxRow : this.selectedRow;
+    const cClick = this.ctxCol !== null ? this.ctxCol : this.selectedCol;
+    this.activeFilterCols.add(cClick);
+    const targetRef = `${rClick},${cClick}`;
+    const targetColor = this.formats[targetRef]?.bg || '';
+    this.advFilterSavedState.set(cClick, {
+        tab: 'cellColor',
+        allowedVals: new Set(),
+        allowedBg: new Set([targetColor]),
+        allowedText: new Set()
+    });
+    
+    this.recalculateAllFilters();
+    this.showToast(targetColor ? 'Filtered by cell color.' : 'Filtered by empty cell color.');
+    this.onCellChange(undefined, undefined, true);
+  }
+
+  filterByTextColor() {
+    this.pushHistory();
+    this.filterActive = true;
+    const rClick = this.ctxRow !== null ? this.ctxRow : this.selectedRow;
+    const cClick = this.ctxCol !== null ? this.ctxCol : this.selectedCol;
+    this.activeFilterCols.add(cClick);
+    const targetRef = `${rClick},${cClick}`;
+    const targetColor = this.formats[targetRef]?.color || '';
+    
+    this.advFilterSavedState.set(cClick, {
+        tab: 'textColor',
+        allowedVals: new Set(),
+        allowedBg: new Set(),
+        allowedText: new Set([targetColor])
+    });
+    
+    this.recalculateAllFilters();
+    this.showToast(targetColor ? 'Filtered by text color.' : 'Filtered by default text color.');
+    this.onCellChange(undefined, undefined, true);
   }
 
   isFilterHeaderCell(r: number, c: number): boolean {
@@ -8840,17 +9148,84 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   openFilterMenu(event: MouseEvent, r: number, c: number) {
     this.selectCell(r, c);
-    this.ctxRow = r;
-    this.ctxCol = c;
-    this.ctxVisible = true;
-    this.activeCtxSubmenu = 'filter';
+    this.closeMenus();
+    this.advFilterCol = c;
+    this.advFilterVisible = true;
+    this.advFilterTab = 'value';
+    this.advFilterSearch = '';
     
-    // Position the submenu exactly under the filter icon
     const target = event.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
-    this.ctxSubX = rect.left;
-    this.ctxSubTop = rect.bottom + 4; // slight offset
-    this.ctxSubBottom = 0;
+    this.advFilterX = rect.left;
+    
+    // Estimate panel height based on design bounds
+    const estimatedHeight = 450; 
+    
+    // Smart Positioning: If it overflows the bottom edge, align it upwards from the filter icon instead
+    if (rect.bottom + estimatedHeight > window.innerHeight && rect.top - estimatedHeight > 0) {
+        this.advFilterY = rect.top - estimatedHeight;
+        this.advFilterMaxHeight = Math.max(rect.top - 10, 300);
+    } else {
+        // Standard placement exactly underneath
+        this.advFilterY = rect.bottom + 4;
+        
+        // Dynamic shrinking: if the screen is small, force it to fit perfectly within the visible area
+        const availableHeight = window.innerHeight - this.advFilterY - 10;
+        this.advFilterMaxHeight = Math.min(estimatedHeight, Math.max(availableHeight, 300)); 
+    }
+
+    this.populateAdvFilter(c);
+  }
+
+  populateAdvFilter(c: number) {
+    const lastRow = this.getLastUsedRow();
+    const startRow = Math.max(1, this.frozenRowsCount || 0);
+
+    const uniqueVals = new Set<string>();
+    const uniqueBg = new Set<string>();
+    const uniqueText = new Set<string>();
+
+    for (let r = startRow; r <= lastRow; r++) {
+       uniqueVals.add(this.cells[r][c] || '');
+       const ref = `${r},${c}`;
+       uniqueBg.add(this.formats[ref]?.bg || '');
+       uniqueText.add(this.formats[ref]?.color || '');
+    }
+
+    const savedState = this.advFilterSavedState.get(c);
+
+    this.advFilterValues = Array.from(uniqueVals).sort().map(val => ({ val, selected: savedState ? savedState.allowedVals.has(val) : true }));
+    this.advFilterBgColors = Array.from(uniqueBg).sort().map(val => ({ val, selected: savedState ? savedState.allowedBg.has(val) : true }));
+    this.advFilterTextColors = Array.from(uniqueText).sort().map(val => ({ val, selected: savedState ? savedState.allowedText.has(val) : true }));
+    
+    if (savedState) {
+       this.advFilterTab = savedState.tab;
+    } else {
+       this.advFilterTab = 'value';
+    }
+  }
+
+  closeAdvFilter() {
+    this.advFilterVisible = false;
+  }
+
+  allAdvFilterSelected(tab: string): boolean {
+    if (tab === 'value') {
+       let allSelected = true;
+       for (const x of this.advFilterValues) if (!x.selected) allSelected = false;
+       return this.advFilterValues.length > 0 && allSelected;
+    }
+    if (tab === 'cellColor') {
+       let allSelected = true;
+       for (const x of this.advFilterBgColors) if (!x.selected) allSelected = false;
+       return this.advFilterBgColors.length > 0 && allSelected;
+    }
+    if (tab === 'textColor') {
+       let allSelected = true;
+       for (const x of this.advFilterTextColors) if (!x.selected) allSelected = false;
+       return this.advFilterTextColors.length > 0 && allSelected;
+    }
+    return false;
   }
 
   getLastUsedRow(): number {
@@ -8870,88 +9245,136 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     return lastDataRow;
   }
 
-  filterByCellValue() {
-    this.pushHistory();
-    this.filterActive = true;
-    const rClick = this.ctxRow !== null ? this.ctxRow : this.selectedRow;
-    const cClick = this.ctxCol !== null ? this.ctxCol : this.selectedCol;
-    this.activeFilterCols.add(cClick);
-    const targetVal = this.cells[rClick][cClick];
-    const lastRow = this.getLastUsedRow();
-    const startRow = Math.max(1, this.frozenRowsCount || 0);
-    for (let r = 0; r < startRow; r++) {
-       this.hiddenRows.delete(r);
+  toggleAllAdvFilter(event: any) {
+    const checked = event.target.checked;
+    if (this.advFilterTab === 'value') {
+       this.advFilterValues.forEach(x => x.selected = checked);
+    } else if (this.advFilterTab === 'cellColor') {
+       this.advFilterBgColors.forEach(x => x.selected = checked);
+    } else if (this.advFilterTab === 'textColor') {
+       this.advFilterTextColors.forEach(x => x.selected = checked);
     }
-    for (let r = startRow; r <= lastRow; r++) {
-       if (this.cells[r][cClick] !== targetVal) {
-          this.hiddenRows.add(r);
-       } else {
-          this.hiddenRows.delete(r);
-       }
-    }
-    for (let r = lastRow + 1; r < this.ROWS; r++) {
-       this.hiddenRows.delete(r);
-    }
-    this.showToast(`Filtered by value: "${targetVal}"`);
-    this.onCellChange();
   }
 
-  filterByCellColor() {
-    this.pushHistory();
-    this.filterActive = true;
-    const rClick = this.ctxRow !== null ? this.ctxRow : this.selectedRow;
-    const cClick = this.ctxCol !== null ? this.ctxCol : this.selectedCol;
-    this.activeFilterCols.add(cClick);
-    const targetRef = `${rClick},${cClick}`;
-    const targetColor = this.formats[targetRef]?.bg || '';
-    const lastRow = this.getLastUsedRow();
-    const startRow = Math.max(1, this.frozenRowsCount || 0);
-    for (let r = 0; r < startRow; r++) {
-       this.hiddenRows.delete(r);
-    }
-    for (let r = startRow; r <= lastRow; r++) {
-       const ref = `${r},${cClick}`;
-       const color = this.formats[ref]?.bg || '';
-       if (color !== targetColor) {
-          this.hiddenRows.add(r);
-       } else {
-          this.hiddenRows.delete(r);
-       }
-    }
-    for (let r = lastRow + 1; r < this.ROWS; r++) {
-       this.hiddenRows.delete(r);
-    }
-    this.showToast(targetColor ? 'Filtered by cell color.' : 'Filtered by empty cell color.');
-    this.onCellChange();
+  applyAdvFilter() {
+     this.pushHistory();
+     this.filterActive = true;
+     this.activeFilterCols.add(this.advFilterCol!);
+     const c = this.advFilterCol!;
+
+     const allowedVals = new Set(this.advFilterValues.filter(x => x.selected).map(x => x.val));
+     const allowedBg = new Set(this.advFilterBgColors.filter(x => x.selected).map(x => x.val));
+     const allowedText = new Set(this.advFilterTextColors.filter(x => x.selected).map(x => x.val));
+
+     this.advFilterSavedState.set(c, {
+         tab: this.advFilterTab,
+         allowedVals,
+         allowedBg,
+         allowedText
+     });
+
+     this.recalculateAllFilters();
+     this.showToast('Filter applied.');
+     this.onCellChange(undefined, undefined, true);
+     this.closeAdvFilter();
   }
 
-  filterByTextColor() {
+  clearAdvFilter() {
+     this.pushHistory();
+     this.activeFilterCols.delete(this.advFilterCol!);
+     this.advFilterSavedState.delete(this.advFilterCol!);
+     
+     if (this.activeFilterCols.size === 0) {
+         this.hiddenRows.clear();
+         this.filterActive = false;
+     } else {
+         this.recalculateAllFilters();
+     }
+     
+     this.showToast('Filter cleared.');
+     this.onCellChange(undefined, undefined, true);
+     this.closeAdvFilter();
+  }
+
+  private recalculateAllFilters() {
+     const lastRow = this.getLastUsedRow();
+     const startRow = Math.max(1, this.frozenRowsCount || 0);
+     for (let r = 0; r < startRow; r++) this.hiddenRows.delete(r);
+
+     for (let r = startRow; r <= lastRow; r++) {
+         let hide = false;
+         for (const [colIndex, state] of this.advFilterSavedState.entries()) {
+             const val = this.cells[r][colIndex] || '';
+             const ref = `${r},${colIndex}`;
+             const bg = this.formats[ref]?.bg || '';
+             const text = this.formats[ref]?.color || '';
+
+             if (state.tab === 'value') {
+                if (!state.allowedVals.has(val)) hide = true;
+             } else if (state.tab === 'cellColor') {
+                if (!state.allowedBg.has(bg)) hide = true;
+             } else if (state.tab === 'textColor') {
+                if (!state.allowedText.has(text)) hide = true;
+             }
+             if (hide) break;
+         }
+         if (hide) {
+            this.hiddenRows.add(r);
+         } else {
+            this.hiddenRows.delete(r);
+         }
+     }
+     for (let r = lastRow + 1; r < this.ROWS; r++) this.hiddenRows.delete(r);
+  }
+
+  advSort(asc: boolean) {
     this.pushHistory();
-    this.filterActive = true;
-    const rClick = this.ctxRow !== null ? this.ctxRow : this.selectedRow;
-    const cClick = this.ctxCol !== null ? this.ctxCol : this.selectedCol;
-    this.activeFilterCols.add(cClick);
-    const targetRef = `${rClick},${cClick}`;
-    const targetColor = this.formats[targetRef]?.color || '';
+    const c = this.advFilterCol!;
     const lastRow = this.getLastUsedRow();
     const startRow = Math.max(1, this.frozenRowsCount || 0);
-    for (let r = 0; r < startRow; r++) {
-       this.hiddenRows.delete(r);
+
+    const rowsData = [];
+    for(let r = startRow; r <= lastRow; r++) {
+       const rowCells = [...this.cells[r]];
+       const rowFormats: Record<string, CellFormat> = {};
+       const rowValidations: Record<string, CellValidation> = {};
+       
+       for (let i = 0; i < this.COLS; i++) {
+         if (this.formats[`${r},${i}`]) rowFormats[`${r},${i}`] = this.formats[`${r},${i}`];
+         if (this.validations[`${r},${i}`]) rowValidations[`${r},${i}`] = this.validations[`${r},${i}`];
+       }
+       
+       rowsData.push({ r, val: this.cells[r][c] || '', rowCells, rowFormats, rowValidations });
     }
-    for (let r = startRow; r <= lastRow; r++) {
-       const ref = `${r},${cClick}`;
-       const color = this.formats[ref]?.color || '';
-       if (color !== targetColor) {
-          this.hiddenRows.add(r);
-       } else {
-          this.hiddenRows.delete(r);
+
+    rowsData.sort((a,b) => {
+       const cmp = a.val.localeCompare(b.val, undefined, {numeric: true});
+       return asc ? cmp : -cmp;
+    });
+
+    for(let i = 0; i < rowsData.length; i++) {
+       const r = startRow + i;
+       this.cells[r] = rowsData[i].rowCells;
+       
+       for (let j = 0; j < this.COLS; j++) {
+          delete this.formats[`${r},${j}`];
+          delete this.validations[`${r},${j}`];
+       }
+       
+       const oldR = rowsData[i].r;
+       for (let j = 0; j < this.COLS; j++) {
+          if (rowsData[i].rowFormats[`${oldR},${j}`]) {
+             this.formats[`${r},${j}`] = rowsData[i].rowFormats[`${oldR},${j}`];
+          }
+          if (rowsData[i].rowValidations[`${oldR},${j}`]) {
+             this.validations[`${r},${j}`] = rowsData[i].rowValidations[`${oldR},${j}`];
+          }
        }
     }
-    for (let r = lastRow + 1; r < this.ROWS; r++) {
-       this.hiddenRows.delete(r);
-    }
-    this.showToast(targetColor ? 'Filtered by text color.' : 'Filtered by default text color.');
-    this.onCellChange();
+    
+    this.showToast(asc ? 'Sorted A to Z' : 'Sorted Z to A');
+    this.onCellChange(undefined, undefined, true);
+    this.closeAdvFilter();
   }
 
 
