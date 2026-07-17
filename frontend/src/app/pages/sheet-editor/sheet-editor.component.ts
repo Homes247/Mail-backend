@@ -265,8 +265,8 @@ export interface CellValidation {
                 <div class="mdi" (click)="deleteShiftLeft()">Shift Cells Left</div>
                 <div class="mdi" (click)="deleteShiftUp()">Shift Cells Up</div>
                 <div class="mds"></div>
-                <div class="mdi" (click)="deleteRow()">Delete Row</div>
-                <div class="mdi" (click)="deleteCol()">Delete Column</div>
+                <div class="mdi" (click)="deleteRow()">Delete {{ selectedRowCount }} Row{{ selectedRowCount > 1 ? 's' : '' }}</div>
+                <div class="mdi" (click)="deleteCol()">Delete {{ selectedColCount }} Column{{ selectedColCount > 1 ? 's' : '' }}</div>
               </div>
             </div>
             <div class="mds"></div>
@@ -383,14 +383,14 @@ export interface CellValidation {
           <div class="mdd" *ngIf="activeMenu==='insert'">
             <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">data_table</span>Row <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
               <div class="mdi-sub">
-                <div class="mdi" (click)="insertRowAbove()">Row Above</div>
-                <div class="mdi" (click)="insertRowBelow()">Row Below</div>
+                <div class="mdi" (click)="insertRowAbove()">{{ selectedRowCount }} Row{{ selectedRowCount > 1 ? 's' : '' }} Above</div>
+                <div class="mdi" (click)="insertRowBelow()">{{ selectedRowCount }} Row{{ selectedRowCount > 1 ? 's' : '' }} Below</div>
               </div>
             </div>
             <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">view_column</span>Column <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
               <div class="mdi-sub">
-                <div class="mdi" (click)="insertColLeft()">Column Before</div>
-                <div class="mdi" (click)="insertColRight()">Column After</div>
+                <div class="mdi" (click)="insertColLeft()">{{ selectedColCount }} Column{{ selectedColCount > 1 ? 's' : '' }} Before</div>
+                <div class="mdi" (click)="insertColRight()">{{ selectedColCount }} Column{{ selectedColCount > 1 ? 's' : '' }} After</div>
                 <div class="mdi" (click)="customInsertCol()">Custom...</div>
               </div>
             </div>
@@ -2078,13 +2078,13 @@ export interface CellValidation {
         <div class="ctx-item" (click)="sortColAZ(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort A to Z</div>
         <div class="ctx-item" (click)="sortColZA(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort Z to A</div>
         <div class="ctx-sep"></div>
-        <div class="ctx-item" (click)="insertRowAbove(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert row above</div>
-        <div class="ctx-item" (click)="insertRowBelow(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert row below</div>
-        <div class="ctx-item" (click)="insertColLeft(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert column left</div>
-        <div class="ctx-item" (click)="insertColRight(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert column right</div>
+        <div class="ctx-item" (click)="insertRowAbove(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert {{ selectedRowCount }} row{{ selectedRowCount > 1 ? 's' : '' }} above</div>
+        <div class="ctx-item" (click)="insertRowBelow(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert {{ selectedRowCount }} row{{ selectedRowCount > 1 ? 's' : '' }} below</div>
+        <div class="ctx-item" (click)="insertColLeft(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert {{ selectedColCount }} column{{ selectedColCount > 1 ? 's' : '' }} left</div>
+        <div class="ctx-item" (click)="insertColRight(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add</span> Insert {{ selectedColCount }} column{{ selectedColCount > 1 ? 's' : '' }} right</div>
         <div class="ctx-sep"></div>
-        <div class="ctx-item danger" (click)="deleteRow(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">delete</span> Delete row</div>
-        <div class="ctx-item danger" (click)="deleteCol(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">delete</span> Delete column</div>
+        <div class="ctx-item danger" (click)="deleteRow(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">delete</span> Delete {{ selectedRowCount }} row{{ selectedRowCount > 1 ? 's' : '' }}</div>
+        <div class="ctx-item danger" (click)="deleteCol(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">delete</span> Delete {{ selectedColCount }} column{{ selectedColCount > 1 ? 's' : '' }}</div>
         <div class="ctx-item danger" (click)="clearRangeData(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">backspace</span> Clear selection</div>
       </div>
 
@@ -3775,6 +3775,17 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   goHome() {
     window.location.href = '/';
   }
+
+  get selectedRowCount(): number {
+    if (!this.rangeStart || !this.rangeEnd) return 1;
+    return Math.abs(this.rangeEnd.r - this.rangeStart.r) + 1;
+  }
+
+  get selectedColCount(): number {
+    if (!this.rangeStart || !this.rangeEnd) return 1;
+    return Math.abs(this.rangeEnd.c - this.rangeStart.c) + 1;
+  }
+
   COLS = 30;
   ROWS = 1000;
   visibleRowRange: number[] = [];
@@ -6160,56 +6171,72 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   insertRowAbove() {
     this.pushHistory();
-    const r = this.selectedRow;
-    this.cells.splice(r, 0, Array(this.COLS).fill(''));
-    if (this.cells.length > this.ROWS) this.cells.pop();
+    const count = this.selectedRowCount;
+    const r = this.rangeStart && this.rangeEnd ? Math.min(this.rangeStart.r, this.rangeEnd.r) : this.selectedRow;
+    for (let i = 0; i < count; i++) {
+      this.cells.splice(r, 0, Array(this.COLS).fill(''));
+    }
+    while (this.cells.length > this.ROWS) this.cells.pop();
     this.onCellChange(); this.closeMenus();
-    this.showToast('Row inserted above.');
+    this.showToast(`${count} Row${count > 1 ? 's' : ''} inserted above.`);
   }
 
   insertRowBelow() {
     this.pushHistory();
-    const r = this.selectedRow + 1;
-    this.cells.splice(r, 0, Array(this.COLS).fill(''));
-    if (this.cells.length > this.ROWS) this.cells.pop();
+    const count = this.selectedRowCount;
+    const r = (this.rangeStart && this.rangeEnd ? Math.max(this.rangeStart.r, this.rangeEnd.r) : this.selectedRow) + 1;
+    for (let i = 0; i < count; i++) {
+      this.cells.splice(r, 0, Array(this.COLS).fill(''));
+    }
+    while (this.cells.length > this.ROWS) this.cells.pop();
     this.onCellChange(); this.closeMenus();
-    this.showToast('Row inserted below.');
+    this.showToast(`${count} Row${count > 1 ? 's' : ''} inserted below.`);
   }
 
   insertColLeft() {
     this.pushHistory();
-    const c = this.selectedCol;
-    for (const row of this.cells) { row.splice(c, 0, ''); if (row.length > this.COLS) row.pop(); }
+    const count = this.selectedColCount;
+    const c = this.rangeStart && this.rangeEnd ? Math.min(this.rangeStart.c, this.rangeEnd.c) : this.selectedCol;
+    for (const row of this.cells) { 
+      for (let i = 0; i < count; i++) row.splice(c, 0, '');
+      while (row.length > this.COLS) row.pop();
+    }
     this.onCellChange(); this.closeMenus();
-    this.showToast('Column inserted.');
+    this.showToast(`${count} Column${count > 1 ? 's' : ''} inserted.`);
   }
 
   insertColRight() {
     this.pushHistory();
-    const c = this.selectedCol + 1;
-    for (const row of this.cells) { row.splice(c, 0, ''); if (row.length > this.COLS) row.pop(); }
+    const count = this.selectedColCount;
+    const c = (this.rangeStart && this.rangeEnd ? Math.max(this.rangeStart.c, this.rangeEnd.c) : this.selectedCol) + 1;
+    for (const row of this.cells) {
+      for (let i = 0; i < count; i++) row.splice(c, 0, '');
+      while (row.length > this.COLS) row.pop();
+    }
     this.onCellChange(); this.closeMenus();
-    this.showToast('Column inserted.');
+    this.showToast(`${count} Column${count > 1 ? 's' : ''} inserted.`);
   }
 
   deleteRow() {
     this.pushHistory();
-    const r = this.selectedRow;
-    this.cells.splice(r, 1);
-    this.cells.push(Array(this.COLS).fill('')); // Maintain row count
+    const count = this.selectedRowCount;
+    const r = this.rangeStart && this.rangeEnd ? Math.min(this.rangeStart.r, this.rangeEnd.r) : this.selectedRow;
+    this.cells.splice(r, count);
+    for (let i = 0; i < count; i++) this.cells.push(Array(this.COLS).fill(''));
     this.onCellChange(); this.closeMenus();
-    this.showToast('Row deleted.');
+    this.showToast(`${count} Row${count > 1 ? 's' : ''} deleted.`);
   }
 
   deleteCol() {
     this.pushHistory();
-    const c = this.selectedCol;
+    const count = this.selectedColCount;
+    const c = this.rangeStart && this.rangeEnd ? Math.min(this.rangeStart.c, this.rangeEnd.c) : this.selectedCol;
     for (const row of this.cells) {
-      row.splice(c, 1);
-      row.push(''); // Maintain column count
+      row.splice(c, count);
+      for (let i = 0; i < count; i++) row.push('');
     }
     this.onCellChange(); this.closeMenus();
-    this.showToast('Column deleted.');
+    this.showToast(`${count} Column${count > 1 ? 's' : ''} deleted.`);
   }
 
   shiftCellsDown() {
