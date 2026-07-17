@@ -4699,6 +4699,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   // ── Range selection helpers ──────────────────────────────────────────────
   onCellMouseDown(e: MouseEvent, r: number, c: number) {
     if ((e.target as HTMLElement).classList.contains('fill-handle')) return;
+    if (e.button === 2 && this.isCellInRange(r, c)) return;
+
     this.isDraggingRange = true;
     this.rangeStart = { r, c };
     this.rangeEnd = { r, c };
