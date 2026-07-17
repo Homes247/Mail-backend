@@ -5010,38 +5010,40 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   getContiguousDataRange(startR: number, startC: number): { minR: number, maxR: number, minC: number, maxC: number } {
     let minR = startR, maxR = startR, minC = startC, maxC = startC;
     let expanded = true;
+    console.log('--- getContiguousDataRange start ---', startR, startC);
 
     while (expanded) {
       expanded = false;
       if (minR > 0) {
         let hasData = false;
         for (let c = minC; c <= maxC; c++) {
-          if (this.cells[minR - 1] && this.cells[minR - 1][c] && this.cells[minR - 1][c].trim() !== '') { hasData = true; break; }
+          if (this.cells[minR - 1] && this.cells[minR - 1][c] != null && String(this.cells[minR - 1][c]).trim() !== '') { hasData = true; break; }
         }
         if (hasData) { minR--; expanded = true; continue; }
       }
       if (maxR < this.ROWS - 1) {
         let hasData = false;
         for (let c = minC; c <= maxC; c++) {
-          if (this.cells[maxR + 1] && this.cells[maxR + 1][c] && this.cells[maxR + 1][c].trim() !== '') { hasData = true; break; }
+          if (this.cells[maxR + 1] && this.cells[maxR + 1][c] != null && String(this.cells[maxR + 1][c]).trim() !== '') { hasData = true; break; }
         }
         if (hasData) { maxR++; expanded = true; continue; }
       }
       if (minC > 0) {
         let hasData = false;
         for (let r = minR; r <= maxR; r++) {
-          if (this.cells[r] && this.cells[r][minC - 1] && this.cells[r][minC - 1].trim() !== '') { hasData = true; break; }
+          if (this.cells[r] && this.cells[r][minC - 1] != null && String(this.cells[r][minC - 1]).trim() !== '') { hasData = true; break; }
         }
         if (hasData) { minC--; expanded = true; continue; }
       }
       if (maxC < this.COLS - 1) {
         let hasData = false;
         for (let r = minR; r <= maxR; r++) {
-          if (this.cells[r] && this.cells[r][maxC + 1] && this.cells[r][maxC + 1].trim() !== '') { hasData = true; break; }
+          if (this.cells[r] && this.cells[r][maxC + 1] != null && String(this.cells[r][maxC + 1]).trim() !== '') { hasData = true; break; }
         }
         if (hasData) { maxC++; expanded = true; continue; }
       }
     }
+    console.log('--- getContiguousDataRange result ---', {minR, maxR, minC, maxC});
     return { minR, maxR, minC, maxC };
   }
 
@@ -5051,7 +5053,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
     const r = this.selectedRow;
     const c = this.selectedCol;
-    const isCellEmpty = !this.cells[r] || !this.cells[r][c] || this.cells[r][c].trim() === '';
+    const cellValue = this.cells[r] && this.cells[r][c];
+    const isCellEmpty = cellValue == null || String(cellValue).trim() === '';
+    
+    console.log('selectAll called. active cell:', r, c, 'value:', cellValue, 'isEmpty:', isCellEmpty);
 
     if (!isCellEmpty) {
       const range = this.getContiguousDataRange(r, c);
@@ -5060,6 +5065,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         Math.max(this.rangeStart.r, this.rangeEnd.r) === range.maxR &&
         Math.min(this.rangeStart.c, this.rangeEnd.c) === range.minC &&
         Math.max(this.rangeStart.c, this.rangeEnd.c) === range.maxC;
+
+      console.log('isAlreadySelected:', isAlreadySelected, 'current range:', this.rangeStart, this.rangeEnd);
 
       if (!isAlreadySelected) {
         this.rangeStart = { r: range.minR, c: range.minC };
@@ -5075,21 +5082,46 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.formulaBarValue = this.isImageCell(0, 0) ? '[IMAGE]' : this.cells[0][0] || '';
   }
 
-  isColHeaderSelected(c: number): boolean { return this.selectedColHeader === c; }
-  isRowHeaderSelected(r: number): boolean { return this.selectedRowHeader === r; }
+  isColHeaderSelected(c: number): boolean {
+    if (this.selectedColHeader === c) return true;
+    if (this.rangeStart && this.rangeEnd) {
+      const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+      const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+      const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+      const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+      return minR === 0 && maxR === this.ROWS - 1 && c >= minC && c <= maxC;
+    }
+    return false;
+  }
+  isRowHeaderSelected(r: number): boolean {
+    if (this.selectedRowHeader === r) return true;
+    if (this.rangeStart && this.rangeEnd) {
+      const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+      const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+      const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+      const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+      return minC === 0 && maxC === this.COLS - 1 && r >= minR && r <= maxR;
+    }
+    return false;
+  }
 
   // ── Right-click context menu ──────────────────────────────────────────────
   onHeaderRightClick(e: MouseEvent, type: 'row' | 'col', idx: number) {
     e.preventDefault();
-    if (type === 'col') this.selectEntireCol(idx);
-    else this.selectEntireRow(idx);
+    if (type === 'col') {
+      if (!this.isColHeaderSelected(idx)) this.selectEntireCol(idx);
+    } else {
+      if (!this.isRowHeaderSelected(idx)) this.selectEntireRow(idx);
+    }
 
     this.showContextMenu(e);
   }
 
   onCellRightClick(e: MouseEvent, r: number, c: number) {
     e.preventDefault();
-    this.selectCell(r, c);
+    if (!this.isCellInRange(r, c)) {
+      this.selectCell(r, c);
+    }
     
     this.showContextMenu(e);
   }
