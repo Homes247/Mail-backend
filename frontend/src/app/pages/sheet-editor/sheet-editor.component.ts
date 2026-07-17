@@ -3773,7 +3773,7 @@ export interface CellValidation {
 export class SheetEditorComponent implements OnInit, OnDestroy {
 
   goHome() {
-    window.location.href = '/';
+    window.location.href = 'https://sheets.vsnaptechnology.com/';
   }
 
   get selectedRowCount(): number {
@@ -4699,7 +4699,18 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   // ── Range selection helpers ──────────────────────────────────────────────
   onCellMouseDown(e: MouseEvent, r: number, c: number) {
     if ((e.target as HTMLElement).classList.contains('fill-handle')) return;
-    if (e.button === 2 && this.isCellInRange(r, c)) return;
+    
+    // Support right-click on Windows (button===2) and Mac (ctrlKey)
+    const isRightClick = e.button === 2 || (e.button === 0 && e.ctrlKey);
+    if (isRightClick) {
+      if (this.isCellInRange(r, c)) {
+        return; // Clicked inside existing selection, keep it
+      } else {
+        // Right-clicked outside selection, select this single cell
+        this.selectCell(r, c);
+        return;
+      }
+    }
 
     this.isDraggingRange = true;
     this.rangeStart = { r, c };
@@ -5050,6 +5061,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   selectAll() {
+    this.closeMenus();
+    this.isEditingCell = false;
+
     this.selectedColHeader = null;
     this.selectedRowHeader = null;
 
@@ -5068,11 +5082,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         Math.min(this.rangeStart.c, this.rangeEnd.c) === range.minC &&
         Math.max(this.rangeStart.c, this.rangeEnd.c) === range.maxC;
 
-      console.log('isAlreadySelected:', isAlreadySelected, 'current range:', this.rangeStart, this.rangeEnd);
-
       if (!isAlreadySelected) {
         this.rangeStart = { r: range.minR, c: range.minC };
         this.rangeEnd = { r: range.maxR, c: range.maxC };
+        this.selectedRow = range.minR;
+        this.selectedCol = range.minC;
         return;
       }
     }
@@ -5087,11 +5101,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   isColHeaderSelected(c: number): boolean {
     if (this.selectedColHeader === c) return true;
     if (this.rangeStart && this.rangeEnd) {
-      const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
-      const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
       const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
       const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
-      return minR === 0 && maxR === this.ROWS - 1 && c >= minC && c <= maxC;
+      return c >= minC && c <= maxC;
     }
     return false;
   }
@@ -5100,9 +5112,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (this.rangeStart && this.rangeEnd) {
       const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
       const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
-      const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
-      const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
-      return minC === 0 && maxC === this.COLS - 1 && r >= minR && r <= maxR;
+      return r >= minR && r <= maxR;
     }
     return false;
   }

@@ -3060,7 +3060,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
   };
   
   goHome() {
-    window.location.href = '/';
+    window.location.href = 'https://docs.vsnaptechnology.com/';
   }
 
   ngOnInit() {

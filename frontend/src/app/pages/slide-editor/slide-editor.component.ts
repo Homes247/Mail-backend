@@ -525,7 +525,7 @@ interface SlideData { id: string; title: string; pages: Record<string, Page>; pa
 })
 export class SlideEditorComponent implements OnInit, OnDestroy {
   goHome() {
-    window.location.href = '/';
+    window.location.href = 'https://show.vsnaptechnology.com/';
   }
   activeWidget: string | null = null;
   toggleWidget(w: string) {
