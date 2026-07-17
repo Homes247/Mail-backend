@@ -1,5 +1,9 @@
 import json
 import uuid
+import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from typing import Optional
 import asyncio
 
@@ -682,27 +686,176 @@ async def share_document(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+
     doc = await db.get(Document, doc_id)
     if not doc or doc.owner_id != current_user.id:
         raise HTTPException(404, "Not found or not owner")
-    
-    # Find user by email
+
+    # Try to find user by email in the vmail users table
     result = await db.execute(select(User).where(User.email == body.email))
     target_user = result.scalar_one_or_none()
-    if not target_user:
-        raise HTTPException(404, "User not found")
-        
-    # Check if already shared
-    existing = await db.execute(select(DocumentShare).where(
-        DocumentShare.document_id == doc_id,
-        DocumentShare.user_id == target_user.id
-    ))
-    share = existing.scalar_one_or_none()
-    if share:
-        share.permission = body.permission
+
+    if target_user:
+        # --- Internal user: share via user_id as before ---
+        existing = await db.execute(select(DocumentShare).where(
+            DocumentShare.document_id == doc_id,
+            DocumentShare.user_id == target_user.id
+        ))
+        share = existing.scalar_one_or_none()
+        if share:
+            share.permission = body.permission
+        else:
+            share = DocumentShare(
+                document_id=doc_id,
+                user_id=target_user.id,
+                permission=body.permission,
+            )
+            db.add(share)
+        await db.commit()
+        # Send internal notification email
+        _send_share_email(
+            to_email=body.email,
+            to_name=target_user.name,
+            from_name=current_user.name,
+            from_email=current_user.email,
+            doc_title=doc.title,
+            doc_type=doc.doc_type,
+            doc_id=doc_id,
+            permission=body.permission,
+            is_external=False,
+        )
+        return {"shared": True, "permission": body.permission, "user_id": target_user.id, "external": False}
     else:
-        share = DocumentShare(document_id=doc_id, user_id=target_user.id, permission=body.permission)
-        db.add(share)
-    
-    await db.commit()
-    return {"shared": True, "permission": body.permission, "user_id": target_user.id}
+        # --- External user: share via external_email, no user_id ---
+        existing = await db.execute(select(DocumentShare).where(
+            DocumentShare.document_id == doc_id,
+            DocumentShare.external_email == body.email,
+        ))
+        share = existing.scalar_one_or_none()
+        if share:
+            share.permission = body.permission
+        else:
+            # Also make the doc public so the link is accessible without login
+            doc.is_public = True
+            share = DocumentShare(
+                document_id=doc_id,
+                user_id=None,
+                external_email=body.email,
+                permission=body.permission,
+            )
+            db.add(share)
+        await db.commit()
+        # Send external notification email
+        _send_share_email(
+            to_email=body.email,
+            to_name=body.email.split("@")[0],
+            from_name=current_user.name,
+            from_email=current_user.email,
+            doc_title=doc.title,
+            doc_type=doc.doc_type,
+            doc_id=doc_id,
+            permission=body.permission,
+            is_external=True,
+        )
+        return {"shared": True, "permission": body.permission, "user_id": None, "external": True}
+
+
+def _send_share_email(
+    to_email: str,
+    to_name: str,
+    from_name: str,
+    from_email: str,
+    doc_title: str,
+    doc_type: str,
+    doc_id: str,
+    permission: str,
+    is_external: bool,
+):
+    """Send a share notification email via SMTP. Silently fails if SMTP not configured."""
+    smtp_host     = os.getenv("SMTP_HOST", "")
+    smtp_port     = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user     = os.getenv("SMTP_USER", "")
+    smtp_password = os.getenv("SMTP_PASSWORD", "")
+    smtp_from     = os.getenv("SMTP_FROM", smtp_user)
+    frontend_url  = os.getenv("SHEETS_URL", os.getenv("FRONTEND_URL", "https://sheets.vsnaptechnology.com"))
+
+    if not smtp_host or not smtp_user or not smtp_password:
+        print(f"[SHARE EMAIL] SMTP not configured — skipping email to {to_email}")
+        return
+
+    # Build the doc URL based on doc_type
+    if doc_type == "sheet":
+        base_url = os.getenv("SHEETS_URL", "https://sheets.vsnaptechnology.com")
+        doc_url = f"{base_url}/sheet/{doc_id}"
+    elif doc_type == "doc":
+        base_url = os.getenv("DOCS_URL", "https://docs.vsnaptechnology.com")
+        doc_url = f"{base_url}/doc/{doc_id}"
+    else:
+        base_url = os.getenv("SHOW_URL", "https://show.vsnaptechnology.com")
+        doc_url = f"{base_url}/slide/{doc_id}"
+
+    subject = f"{from_name} has shared a file with you"
+
+    type_label = {"sheet": "Spreadsheet", "doc": "Document", "slide": "Presentation"}.get(doc_type, "File")
+
+    html_body = f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, sans-serif; background:#f5f5f5; margin:0; padding:20px;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center">
+      <table width="560" style="background:#ffffff; border-radius:8px; padding:32px; border:1px solid #e0e0e0;">
+        <tr>
+          <td style="padding-bottom:24px; border-bottom:1px solid #eeeeee;">
+            <span style="font-size:22px; font-weight:700; color:#1a73e8;">VSNap Office Suite</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-top:24px; padding-bottom:16px; font-size:15px; color:#333;">
+            Hello <strong>{to_name}</strong>,
+          </td>
+        </tr>
+        <tr>
+          <td style="padding-bottom:24px; font-size:15px; color:#333; line-height:1.6;">
+            <strong>{from_name}</strong>
+            (<a href="mailto:{from_email}" style="color:#1a73e8; text-decoration:none;">{from_email}</a>)
+            {'— External user ' if is_external else ''}has shared the {type_label}
+            <strong>"{doc_title}"</strong> with you with
+            <strong>{permission.capitalize()}</strong> permission.
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding-bottom:32px;">
+            <a href="{doc_url}" style="background:#1a73e8; color:#fff; text-decoration:none; padding:12px 32px; border-radius:4px; font-size:15px; font-weight:500; display:inline-block;">
+              View {type_label}
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:12px; color:#999; border-top:1px solid #eeeeee; padding-top:16px;">
+            This email was sent by VSNap Office Suite on behalf of {from_name}.
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+"""
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"]    = f"{from_name} (via VSNap Office Suite) <{smtp_from}>"
+        msg["To"]      = to_email
+        msg.attach(MIMEText(html_body, "html"))
+
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_from, [to_email], msg.as_string())
+        print(f"[SHARE EMAIL] Sent to {to_email} successfully")
+    except Exception as e:
+        print(f"[SHARE EMAIL] Failed to send to {to_email}: {e}")

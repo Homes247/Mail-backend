@@ -248,17 +248,17 @@ export interface CellValidation {
             </div>
             <div class="mdi has-sub">Clear <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
               <div class="mdi-sub">
-                <div class="mdi" (click)="clearAll()">All<span class="mh">Ctrl+Del</span></div>
-                <div class="mdi" (click)="clearAllFormats()">Formats<span class="mh">Shift+Del</span></div>
-                <div class="mdi" (click)="clearRangeData()">Contents<span class="mh">Del</span></div>
+                <div class="mdi" (click)="clearAll();closeMenus()">All<span class="mh">Ctrl+Del</span></div>
+                <div class="mdi" (click)="clearAllFormats();closeMenus()">Formats<span class="mh">Shift+Del</span></div>
+                <div class="mdi" (click)="clearRangeData();closeMenus()">Contents<span class="mh">Del</span></div>
                 <div class="mds"></div>
-                <div class="mdi" (click)="clearNotes()">Notes</div>
-                <div class="mdi" (click)="clearHyperlinks()">Hyperlinks</div>
-                <div class="mdi" (click)="clearCheckboxes()">Checkboxes</div>
+                <div class="mdi" (click)="clearNotes();closeMenus()">Notes</div>
+                <div class="mdi" (click)="clearHyperlinks();closeMenus()">Hyperlinks</div>
+                <div class="mdi" (click)="clearCheckboxes();closeMenus()">Checkboxes</div>
                 <div class="mds"></div>
-                <div class="mdi" (click)="clearDataValidations()">Data Validations</div>
-                <div class="mdi" (click)="clearConditionalFormats()">Conditional Formats</div>
-                <div class="mdi" (click)="clearRichTextFormats()">RichText Formats</div>
+                <div class="mdi" (click)="clearDataValidations();closeMenus()">Data Validations</div>
+                <div class="mdi" (click)="clearConditionalFormats();closeMenus()">Conditional Formats</div>
+                <div class="mdi" (click)="clearRichTextFormats();closeMenus()">RichText Formats</div>
               </div>
             </div>
             <div class="mdi has-sub">Delete <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
@@ -2732,7 +2732,7 @@ export interface CellValidation {
       </div>
 
       <!-- Feature Modals -->
-        <div class="modal-overlay" *ngIf="activeModal !== null" (click)="activeModal = null" style="z-index: 10000;">
+        <div class="modal-overlay" *ngIf="activeModal !== null && activeModal !== 'goto'" (click)="activeModal = null" style="z-index: 10000;">
           <div class="modal" (click)="$event.stopPropagation()" style="background:#fff; color:#333; border:1px solid #e2e8f0; box-shadow:0 8px 32px rgba(0,0,0,0.15); width:460px; padding:24px; border-radius:8px; position:relative;">
             <button (click)="activeModal = null" style="position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;color:#888;display:flex;align-items:center;justify-content:center;">
               <span class="material-symbols-outlined" style="font-size:20px;">close</span>
@@ -3097,8 +3097,12 @@ export interface CellValidation {
 
         <!-- Selected Cell Count -->
         <div *ngIf="selectedNonEmptyCount > 1" 
-             style="margin-left: auto; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); padding: 4px 12px; border-radius: 4px; font-size: 13px; font-weight: 500; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); user-select: none;">
-          Count : {{ selectedNonEmptyCount }}
+             style="margin-left: 12px; display: flex; align-items: center; justify-content: center; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.1); user-select: none; border: 1px solid; cursor: default;"
+             [style.background]="currentTheme === 'dark' ? '#374151' : '#ffffff'"
+             [style.color]="currentTheme === 'dark' ? '#f3f4f6' : '#374151'"
+             [style.border-color]="currentTheme === 'dark' ? '#4b5563' : '#d1d5db'">
+          Count = {{ selectedNonEmptyCount }}
+          <span class="material-symbols-outlined" style="font-size: 14px; margin-left: 4px; opacity: 0.6;">unfold_more</span>
         </div>
       </div>
 
@@ -3143,25 +3147,86 @@ export interface CellValidation {
 
 
       <!-- Find & Replace Modal -->
-      <div class="modal-overlay" *ngIf="findModalOpen" (click)="findModalOpen = false">
-        <div class="modal" (click)="$event.stopPropagation()" style="width:440px;">
-          <button (click)="findModalOpen = false" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;color:#5f6368;">&#x00D7;</button>
-          <h3 style="margin-top:0;color:#202124;font-size:16px;">🔍 Find &amp; Replace</h3>
-          <div style="margin-bottom:10px;">
-            <label style="font-size:12px;color:#5f6368;display:block;margin-bottom:4px;">Find</label>
-            <input [(ngModel)]="findQuery" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #dadce0;border-radius:4px;font-size:13px;outline:none;" placeholder="Search...">
+      <div class="modal-overlay" *ngIf="findModalOpen" (click)="findModalOpen = false" style="z-index: 10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:420px; background:#fff; color:#333; border-radius:8px; padding:20px; box-shadow:0 8px 32px rgba(0,0,0,0.15); border:1px solid #e2e8f0; font-family:'Roboto',sans-serif;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h3 style="margin:0; font-size:16px; font-weight:600; color:#333;">Find and Replace</h3>
+            <button (click)="findModalOpen = false" style="background:none; border:none; color:#5f6368; font-size:20px; cursor:pointer; padding:0; line-height:1;">&times;</button>
           </div>
-          <div style="margin-bottom:14px;">
-            <label style="font-size:12px;color:#5f6368;display:block;margin-bottom:4px;">Replace with</label>
-            <input [(ngModel)]="replaceQuery" style="width:100%;box-sizing:border-box;padding:8px;border:1px solid #dadce0;border-radius:4px;font-size:13px;outline:none;" placeholder="Replace...">
+          
+          <div style="display:flex; align-items:center; margin-bottom:16px;">
+            <label style="width:90px; font-size:13px; color:#5f6368; font-weight:500;">Find:</label>
+            <div style="position:relative; flex:1;">
+               <input [(ngModel)]="findQuery" style="width:100%; box-sizing:border-box; padding:8px 40px 8px 12px; border:1px solid #dadce0; border-radius:4px; font-size:14px; outline:none;" (keydown.enter)="findNext()">
+               <span style="position:absolute; right:12px; top:8px; font-size:12px; color:#5f6368;">{{ findMatches.length ? (findMatchIdx + 1) + '/' + findMatches.length : '0/0' }}</span>
+            </div>
           </div>
-          <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
-            <button class="btn outline" (click)="findNext()">Find Next</button>
-            <button class="btn outline" (click)="findAll()">Find All</button>
-            <button class="btn" (click)="replaceOne()">Replace</button>
-            <button class="btn" style="background:#ea4335;" (click)="replaceAll()">Replace All</button>
+          
+          <div style="display:flex; align-items:center; margin-bottom:20px;">
+            <label style="width:90px; font-size:13px; color:#5f6368; font-weight:500;">Replace with:</label>
+            <input [(ngModel)]="replaceQuery" style="flex:1; box-sizing:border-box; padding:8px 12px; border:1px solid #dadce0; border-radius:4px; font-size:14px; outline:none;">
           </div>
-          <div style="margin-top:10px;font-size:12px;color:#5f6368;">{{ findStatus }}</div>
+          
+          <div style="display:flex; align-items:center; margin-bottom:16px;">
+            <label style="width:90px; font-size:13px; color:#5f6368; font-weight:500;">Search in:</label>
+            <select [(ngModel)]="findSearchIn" style="flex:1; padding:8px; border:1px solid #dadce0; border-radius:4px; font-size:14px; outline:none; appearance:auto; background:#fff;">
+              <option value="sheet">This sheet</option>
+              <option value="workbook">All sheets</option>
+            </select>
+          </div>
+          
+          <div style="display:flex; margin-bottom:16px; padding-left:90px; gap:24px;">
+            <label style="display:flex; align-items:center; font-size:13px; color:#333; cursor:pointer;">
+              <input type="checkbox" [(ngModel)]="findMatchCase" style="margin-right:6px; accent-color:#10b981;"> Match case
+            </label>
+            <label style="display:flex; align-items:center; font-size:13px; color:#333; cursor:pointer;">
+              <input type="checkbox" [(ngModel)]="findMatchEntireCell" style="margin-right:6px; accent-color:#10b981;"> Match entire cell
+            </label>
+          </div>
+          
+          <div style="display:flex; margin-bottom:24px; padding-left:90px;">
+             <label style="display:flex; align-items:center; font-size:13px; color:#333; cursor:pointer;">
+              <input type="checkbox" [(ngModel)]="findIncludeFormulas" style="margin-right:6px; accent-color:#10b981;"> Include formulas
+            </label>
+          </div>
+          
+          <div style="display:flex; align-items:center; margin-bottom:24px;">
+            <label style="width:90px; font-size:13px; color:#5f6368; font-weight:500;">Direction:</label>
+            <div style="display:flex; gap:16px;">
+              <label style="display:flex; align-items:center; font-size:13px; color:#333; cursor:pointer;">
+                <input type="radio" name="findDir" value="up" [(ngModel)]="findDirection" style="margin-right:4px; accent-color:#10b981;"> Up
+              </label>
+              <label style="display:flex; align-items:center; font-size:13px; color:#333; cursor:pointer;">
+                <input type="radio" name="findDir" value="down" [(ngModel)]="findDirection" style="margin-right:4px; accent-color:#10b981;"> Down
+              </label>
+            </div>
+          </div>
+          
+          <div style="display:flex; justify-content:center; gap:8px;">
+            <button (click)="findNext()" style="background:#10b981; color:#fff; border:none; border-radius:4px; font-size:14px; font-weight:600; padding:8px 16px; cursor:pointer;">Find</button>
+            <button (click)="replaceOne()" style="background:#f1f5f9; color:#333; border:1px solid #e2e8f0; border-radius:4px; font-size:14px; font-weight:500; padding:8px 16px; cursor:pointer;">Replace</button>
+            <button (click)="replaceAll()" style="background:#f1f5f9; color:#333; border:1px solid #e2e8f0; border-radius:4px; font-size:14px; font-weight:500; padding:8px 16px; cursor:pointer;">Replace All</button>
+            <button (click)="findModalOpen = false" style="background:#f1f5f9; color:#333; border:1px solid #e2e8f0; border-radius:4px; font-size:14px; font-weight:500; padding:8px 16px; cursor:pointer;">Close</button>
+          </div>
+          <div *ngIf="findStatus" style="margin-top:12px; text-align:center; font-size:13px; color:#ef4444;">{{ findStatus }}</div>
+        </div>
+      </div>
+
+      <!-- Go To Modal -->
+      <div class="modal-overlay" *ngIf="activeModal === 'goto'" (click)="activeModal = null" style="z-index: 10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:360px; background:#fff; color:#333; border-radius:8px; padding:24px; box-shadow:0 8px 32px rgba(0,0,0,0.15); border:1px solid #e2e8f0; font-family:'Roboto',sans-serif;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="margin:0; font-size:16px; font-weight:600; color:#333;">Go To</h3>
+            <button (click)="activeModal = null" style="background:none; border:none; color:#5f6368; font-size:20px; cursor:pointer; padding:0; line-height:1;">&times;</button>
+          </div>
+          <div style="margin-bottom:24px;">
+            <label style="font-size:13px; color:#5f6368; display:block; margin-bottom:8px; font-weight:500;">Reference (e.g. A1, Sheet2!B5)</label>
+            <input [(ngModel)]="gotoQuery" (keydown.enter)="executeGoto()" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #dadce0;border-radius:4px;font-size:14px;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#10b981'" onblur="this.style.borderColor='#dadce0'" placeholder="Enter cell reference...">
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button (click)="activeModal = null" style="background:#f1f5f9; border:1px solid #e2e8f0; color:#333; font-size:14px; font-weight:500; padding:8px 16px; border-radius:4px; cursor:pointer;">Cancel</button>
+            <button (click)="executeGoto()" style="background:#10b981; color:#fff; border:none; border-radius:4px; font-weight:600; font-size:14px; padding:8px 16px; cursor:pointer;">OK</button>
+          </div>
         </div>
       </div>
 
@@ -3173,6 +3238,18 @@ export interface CellValidation {
           <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
             <button (click)="closePrompt()" style="background:#f1f5f9; border:1px solid #e2e8f0; color:#333; font-size:14px; font-weight:500; cursor:pointer; padding:8px 20px; border-radius:4px;">Cancel</button>
             <button (click)="submitPrompt()" style="background:#10b981; color:#fff; border:none; border-radius:4px; font-weight:600; font-size:14px; padding:8px 24px; cursor:pointer;">OK</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Confirm Modal -->
+      <div class="modal-overlay" *ngIf="confirmModalOpen" (click)="closeConfirm(false)" style="z-index: 10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="background:#fff; color:#333; border-radius:8px; padding:24px; width:400px; box-shadow:0 8px 32px rgba(0,0,0,0.15); border:1px solid #e2e8f0; max-width:90vw; text-align:center;">
+          <span class="material-symbols-outlined" style="font-size:36px; color:#ef4444; margin-bottom:12px;">delete_forever</span>
+          <h3 style="margin-top:0; font-size:16px; font-weight:600; color:#333; margin-bottom:16px; line-height: 1.4;">{{confirmModalMessage}}</h3>
+          <div style="display:flex; justify-content:center; gap:12px; margin-top:24px;">
+            <button (click)="closeConfirm(false)" style="background:#f1f5f9; border:1px solid #e2e8f0; color:#333; font-size:14px; font-weight:500; cursor:pointer; padding:8px 24px; border-radius:4px; transition: background 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">Cancel</button>
+            <button (click)="closeConfirm(true)" style="background:#ef4444; color:#fff; border:none; border-radius:4px; font-weight:600; font-size:14px; padding:8px 24px; cursor:pointer; transition: background 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Delete</button>
           </div>
         </div>
       </div>
@@ -4338,6 +4415,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   promptModalTitle = '';
   promptModalValue = '';
   private promptResolve: ((value: string | null) => void) | null = null;
+  confirmModalOpen = false;
+  confirmModalMessage = '';
+  private confirmResolve: ((value: boolean) => void) | null = null;
   filterActive = false;
   activeFilterCols: Set<number> = new Set();
   frozenRowsCount: number = 0;
@@ -4506,8 +4586,16 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   findQuery = '';
   replaceQuery = '';
   findStatus = '';
-  private findMatches: { r: number, c: number }[] = [];
-  private findMatchIdx = -1;
+  findMatchCase = false;
+  findMatchEntireCell = false;
+  findIncludeFormulas = false;
+  findDirection: 'up' | 'down' = 'down';
+  findSearchIn = 'sheet';
+  findMatches: { r: number, c: number, sIdx: number }[] = [];
+  findMatchIdx = -1;
+
+  // Go To
+  gotoQuery = '';
 
   themeColorsTop = [
     '#000000', '#434343', '#666666', '#999999', '#cccccc', '#efefef', '#f3f3f3', '#ffffff', '#ff0000', '#00ff00'
@@ -5923,6 +6011,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   toggleMenu(menu: string, e: Event) {
     e.stopPropagation();
+    const target = e.target as HTMLElement;
+    if (target.closest('.mdd')) return;
     this.activePalette = null;
     this.activeMenu = this.activeMenu === menu ? null : menu;
   }
@@ -7998,73 +8088,89 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   // ── Fill Down / Fill Right ─────────────────────────────────────────────────
   fillDown() {
-    if (!this.rangeStart || !this.rangeEnd) return;
-    const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
-    const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
-    const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
-    const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
-    if (minR === maxR) return; // Need a range to fill down into
+    let minR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    let maxR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    const maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    if (minR === maxR) {
+        if (minR === 0) { this.showToast('Cannot fill down from the first row.'); return; }
+        minR = minR - 1;
+    }
     this.pushHistory();
     for (let c = minC; c <= maxC; c++) {
-      const v = this.cells[minR][c];
+      const srcFmt = this.formats[`${minR},${c}`];
       for (let r = minR + 1; r <= maxR; r++) {
-        this.cells[r][c] = v;
+        this.cells[r][c] = this.cells[minR][c];
+        if (srcFmt) this.formats[`${r},${c}`] = { ...srcFmt };
       }
     }
+    this.formats = { ...this.formats };
     this.onCellChange(); this.save();
     this.showToast('Filled down.');
   }
 
   fillRight() {
-    if (!this.rangeStart || !this.rangeEnd) return;
-    const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
-    const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
-    const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
-    const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
-    if (minC === maxC) return;
+    const minR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const maxR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    let minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    let maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    if (minC === maxC) {
+        if (minC === 0) { this.showToast('Cannot fill right from the first column.'); return; }
+        minC = minC - 1;
+    }
     this.pushHistory();
     for (let r = minR; r <= maxR; r++) {
-      const v = this.cells[r][minC];
+      const srcFmt = this.formats[`${r},${minC}`];
       for (let c = minC + 1; c <= maxC; c++) {
-        this.cells[r][c] = v;
+        this.cells[r][c] = this.cells[r][minC];
+        if (srcFmt) this.formats[`${r},${c}`] = { ...srcFmt };
       }
     }
+    this.formats = { ...this.formats };
     this.onCellChange(); this.save();
     this.showToast('Filled right.');
   }
 
   fillUp() {
-    if (!this.rangeStart || !this.rangeEnd) return;
-    const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
-    const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
-    const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
-    const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
-    if (minR === maxR) return;
+    let minR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    let maxR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    const maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    if (minR === maxR) {
+        if (maxR === this.ROWS - 1) { this.showToast('Cannot fill up from the last row.'); return; }
+        maxR = maxR + 1;
+    }
     this.pushHistory();
     for (let c = minC; c <= maxC; c++) {
-      const v = this.cells[maxR][c];
+      const srcFmt = this.formats[`${maxR},${c}`];
       for (let r = maxR - 1; r >= minR; r--) {
-        this.cells[r][c] = v;
+        this.cells[r][c] = this.cells[maxR][c];
+        if (srcFmt) this.formats[`${r},${c}`] = { ...srcFmt };
       }
     }
+    this.formats = { ...this.formats };
     this.onCellChange(); this.save();
     this.showToast('Filled up.');
   }
 
   fillLeft() {
-    if (!this.rangeStart || !this.rangeEnd) return;
-    const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
-    const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
-    const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
-    const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
-    if (minC === maxC) return;
+    const minR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const maxR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    let minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    let maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    if (minC === maxC) {
+        if (maxC === this.COLS - 1) { this.showToast('Cannot fill left from the last column.'); return; }
+        maxC = maxC + 1;
+    }
     this.pushHistory();
     for (let r = minR; r <= maxR; r++) {
-      const v = this.cells[r][maxC];
+      const srcFmt = this.formats[`${r},${maxC}`];
       for (let c = maxC - 1; c >= minC; c--) {
-        this.cells[r][c] = v;
+        this.cells[r][c] = this.cells[r][maxC];
+        if (srcFmt) this.formats[`${r},${c}`] = { ...srcFmt };
       }
     }
+    this.formats = { ...this.formats };
     this.onCellChange(); this.save();
     this.showToast('Filled left.');
   }
@@ -8595,11 +8701,44 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   private buildFindMatches() {
     this.findMatches = [];
     if (!this.findQuery) return;
-    const q = this.findQuery.toLowerCase();
-    for (let r = 0; r < this.ROWS; r++)
-      for (let c = 0; c < this.COLS; c++)
-        if (this.cells[r][c].toLowerCase().includes(q))
-          this.findMatches.push({ r, c });
+    
+    const targetSheets = this.findSearchIn === 'workbook' ? this.sheets.map((_, i) => i) : [this.currentSheetIdx];
+    
+    for (const sIdx of targetSheets) {
+      const sheetCells = sIdx === this.currentSheetIdx ? this.cells : this.sheets[sIdx].cells;
+      const rows = sheetCells.length;
+      const cols = rows > 0 ? sheetCells[0].length : 0;
+      
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          let cellVal = sheetCells[r][c] || '';
+          if (!cellVal) continue;
+          
+          let match = false;
+          let query = this.findQuery;
+          let target = cellVal;
+          
+          if (!this.findMatchCase) {
+            query = query.toLowerCase();
+            target = target.toLowerCase();
+          }
+          
+          if (this.findMatchEntireCell) {
+            match = target === query;
+          } else {
+            match = target.includes(query);
+          }
+          
+          if (match) {
+            this.findMatches.push({ r, c, sIdx });
+          }
+        }
+      }
+    }
+    
+    if (this.findDirection === 'up') {
+      this.findMatches.reverse();
+    }
   }
 
   findNext() {
@@ -8607,6 +8746,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (!this.findMatches.length) { this.findStatus = 'No matches found.'; return; }
     this.findMatchIdx = (this.findMatchIdx + 1) % this.findMatches.length;
     const m = this.findMatches[this.findMatchIdx];
+    
+    if (m.sIdx !== this.currentSheetIdx) {
+      this.switchSheet(m.sIdx);
+    }
     this.selectCell(m.r, m.c);
     this.findStatus = `Match ${this.findMatchIdx + 1} of ${this.findMatches.length}`;
   }
@@ -8614,10 +8757,13 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   findAll() {
     this.buildFindMatches();
     if (!this.findMatches.length) { this.findStatus = 'No matches found.'; return; }
-    // Select entire range of matches
-    const rows = this.findMatches.map(m => m.r), cols = this.findMatches.map(m => m.c);
-    this.rangeStart = { r: Math.min(...rows), c: Math.min(...cols) };
-    this.rangeEnd = { r: Math.max(...rows), c: Math.max(...cols) };
+    // Only select matches in current sheet if "Find All" is clicked
+    const currentSheetMatches = this.findMatches.filter(m => m.sIdx === this.currentSheetIdx);
+    if (currentSheetMatches.length) {
+      const rows = currentSheetMatches.map(m => m.r), cols = currentSheetMatches.map(m => m.c);
+      this.rangeStart = { r: Math.min(...rows), c: Math.min(...cols) };
+      this.rangeEnd = { r: Math.max(...rows), c: Math.max(...cols) };
+    }
     this.findStatus = `Found ${this.findMatches.length} matches.`;
   }
 
@@ -8626,9 +8772,21 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (!this.findMatches.length) { this.findStatus = 'No matches found.'; return; }
     this.findMatchIdx = (this.findMatchIdx + 1) % this.findMatches.length;
     const m = this.findMatches[this.findMatchIdx];
+    
+    if (m.sIdx !== this.currentSheetIdx) {
+      this.switchSheet(m.sIdx);
+    }
+    
     this.pushHistory();
-    const q = new RegExp(this.findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    this.cells[m.r][m.c] = this.cells[m.r][m.c].replace(q, this.replaceQuery);
+    const flags = this.findMatchCase ? 'g' : 'gi';
+    const q = new RegExp(this.findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+    
+    if (this.findMatchEntireCell) {
+       this.cells[m.r][m.c] = this.replaceQuery;
+    } else {
+       this.cells[m.r][m.c] = this.cells[m.r][m.c].replace(q, this.replaceQuery);
+    }
+    
     this.onCellChange(); this.save();
     this.findStatus = `Replaced 1 instance.`;
   }
@@ -8636,16 +8794,74 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   replaceAll() {
     this.buildFindMatches();
     if (!this.findMatches.length) { this.findStatus = 'No matches found.'; return; }
+    
     this.pushHistory();
-    const q = new RegExp(this.findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    const flags = this.findMatchCase ? 'g' : 'gi';
+    const q = new RegExp(this.findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
     let count = 0;
+    
     for (const m of this.findMatches) {
-      this.cells[m.r][m.c] = this.cells[m.r][m.c].replace(q, this.replaceQuery);
+      const sheetCells = m.sIdx === this.currentSheetIdx ? this.cells : this.sheets[m.sIdx].cells;
+      if (this.findMatchEntireCell) {
+         sheetCells[m.r][m.c] = this.replaceQuery;
+      } else {
+         sheetCells[m.r][m.c] = sheetCells[m.r][m.c].replace(q, this.replaceQuery);
+      }
       count++;
     }
+    
     this.findMatches = []; this.findMatchIdx = -1;
     this.onCellChange(); this.save();
     this.findStatus = `Replaced ${count} instances.`;
+  }
+
+  executeGoto() {
+    if (!this.gotoQuery) return;
+    const q = this.gotoQuery.trim().toUpperCase();
+    let sheetName = '';
+    let cellRef = q;
+    
+    if (q.includes('!')) {
+      const parts = q.split('!');
+      sheetName = parts[0];
+      cellRef = parts[1];
+    }
+    
+    // Parse cell ref like "A1", "AB12"
+    const match = cellRef.match(/^([A-Z]+)(\d+)$/);
+    if (!match) {
+      this.showToast('Invalid cell reference. Use format like A1 or AB12.');
+      return;
+    }
+    
+    const colStr = match[1];
+    const rowStr = match[2];
+    
+    let colIdx = 0;
+    for (let i = 0; i < colStr.length; i++) {
+      colIdx = colIdx * 26 + (colStr.charCodeAt(i) - 64);
+    }
+    colIdx -= 1; // 0-based
+    const rowIdx = parseInt(rowStr, 10) - 1; // 0-based
+    
+    if (sheetName) {
+      const cleanSheetName = sheetName.replace(/^'|'$/g, '');
+      const sIdx = this.sheets.findIndex(s => s.name.toUpperCase() === cleanSheetName);
+      if (sIdx !== -1 && sIdx !== this.currentSheetIdx) {
+        this.switchSheet(sIdx);
+      } else if (sIdx === -1) {
+         this.showToast(`Sheet '${cleanSheetName}' not found.`);
+         return;
+      }
+    }
+    
+    if (rowIdx >= 0 && rowIdx < this.ROWS && colIdx >= 0 && colIdx < this.COLS) {
+      this.selectCell(rowIdx, colIdx);
+      this.activeModal = null;
+      this.gotoQuery = '';
+    } else {
+      this.showToast('Reference out of bounds.');
+    }
   }
 
   // ── Multiple Sheets ───────────────────────────────────────────────────────
@@ -8701,9 +8917,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (name && name.trim()) { this.sheets[idx] = { ...this.sheets[idx], name: name.trim() }; this.save(); }
   }
 
-  deleteSheet(idx: number) {
+  async deleteSheet(idx: number) {
     if (this.sheets.length <= 1) { this.showToast('Cannot delete the only sheet.'); return; }
-    if (!window.confirm(`Delete "${this.sheets[idx].name}"?`)) return;
+    const confirmed = await this.openConfirm(`Are you sure you want to delete "${this.sheets[idx].name}"?`);
+    if (!confirmed) return;
     this.sheets.splice(idx, 1);
     this.currentSheetIdx = Math.min(this.currentSheetIdx, this.sheets.length - 1);
     this.switchSheet(this.currentSheetIdx);
@@ -9705,7 +9922,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }, 100);
   }
 
-  activeModal: 'template' | 'open' | 'import' | 'move' | 'audit' | 'version' | 'workflow' | 'password' | 'form' | 'view_form' | 'macro' | 'edit_macro' | 'functions' | 'merge' | null = null;
+  activeModal: 'template' | 'open' | 'import' | 'move' | 'audit' | 'version' | 'workflow' | 'password' | 'form' | 'view_form' | 'macro' | 'edit_macro' | 'functions' | 'merge' | 'goto' | null = null;
   previewImageUrl: string | null = null;
   saveStatus: 'saved' | 'saving' | 'error' = 'saved';
   lastSavedTime: string = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
@@ -9872,37 +10089,43 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   performShare() {
     const queryEmails = this.shareQuery ? this.shareQuery.split(/[,;\s]+/).map(e => e.trim()).filter(e => e.length > 0) : [];
     const allEmails = Array.from(new Set([...this.selectedShareEmails, ...queryEmails]));
-    
+
     if (allEmails.length === 0) return;
 
     let successCount = 0;
+    let externalCount = 0;
     let failCount = 0;
     const total = allEmails.length;
 
     allEmails.forEach(email => {
       this.api.shareDocument(this.docId, email, this.shareRole.toLowerCase()).subscribe({
-        next: () => {
+        next: (res: any) => {
           successCount++;
-          if (successCount + failCount === total) this.finishShare(successCount, failCount, total);
+          if (res?.external) externalCount++;
+          if (successCount + failCount === total) this.finishShare(successCount, externalCount, failCount, total);
         },
         error: () => {
           failCount++;
-          if (successCount + failCount === total) this.finishShare(successCount, failCount, total);
+          if (successCount + failCount === total) this.finishShare(successCount, externalCount, failCount, total);
         }
       });
     });
   }
 
-  finishShare(success: number, fail: number, total: number) {
+  finishShare(success: number, external: number, fail: number, total: number) {
     if (success === total) {
-      this.showToast(`Shared successfully with ${success} user(s).`);
+      if (external > 0) {
+        this.showToast(`Shared successfully! Invitation email sent to ${external} external user(s).`);
+      } else {
+        this.showToast(`Shared successfully with ${success} user(s).`);
+      }
       this.shareQuery = '';
       this.selectedShareEmails = [];
       this.shareModalOpen = false;
     } else if (success > 0) {
-      this.showToast(`Shared with ${success} user(s). Failed for ${fail} user(s).`);
+      this.showToast(`Shared with ${success} user(s). ${fail} failed.`);
     } else {
-      this.showToast(`Failed to share: User(s) not found.`);
+      this.showToast(`Failed to share. Please check the email address and try again.`);
     }
   }
 
@@ -9944,6 +10167,22 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (this.promptResolve) {
       this.promptResolve(this.promptModalValue);
       this.promptResolve = null;
+    }
+  }
+
+  openConfirm(message: string): Promise<boolean> {
+    this.confirmModalMessage = message;
+    this.confirmModalOpen = true;
+    return new Promise((resolve) => {
+      this.confirmResolve = resolve;
+    });
+  }
+
+  closeConfirm(result: boolean) {
+    this.confirmModalOpen = false;
+    if (this.confirmResolve) {
+      this.confirmResolve(result);
+      this.confirmResolve = null;
     }
   }
 
