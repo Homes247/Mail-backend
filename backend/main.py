@@ -91,11 +91,7 @@ class ConnectionManager:
         # Send initial full state
         state = self.doc_states[doc_id]
         
-        doc_type = state.get("doc_info", {}).get("doc_type", "sheet")
-        if doc_type in ("writer", "doc"):
-            content_str = json.dumps(state["data"][0]) if isinstance(state["data"], list) and state["data"] else json.dumps(state["data"])
-        else:
-            content_str = json.dumps(state["data"])
+        content_str = json.dumps(state["data"][0]) if isinstance(state["data"], list) and state["data"] else json.dumps(state["data"])
 
         payload = json.dumps({
             "type": "update",
@@ -112,7 +108,52 @@ class ConnectionManager:
             del room[client_id]
             if not room:
                 del self.rooms[doc_id]
-                self.doc_states.pop(doc_id, None)
+                # IMPORTANT: Do NOT pop doc_states here immediately.
+                # Schedule a final save task before clearing it to prevent data loss.
+                asyncio.create_task(self._save_and_evict(doc_id))
+
+    async def _save_and_evict(self, doc_id: str):
+        """Save dirty state to R2 immediately on last-user-disconnect, then evict from RAM."""
+        state = self.doc_states.get(doc_id)
+        if not state:
+            return
+        # Always save on eviction if there's any data, even if not dirty,
+        # to avoid any edge case where the flag was cleared but data wasn't saved.
+        doc_info = state.get("doc_info", {})
+        owner_id = doc_info.get("owner_id", 0)
+        doc_id_str = doc_info.get("id", doc_id)
+        doc_type = doc_info.get("doc_type", "sheet")
+        if owner_id and doc_id_str and state.get("data"):
+            try:
+                content_str = json.dumps(state["data"][0]) if isinstance(state["data"], list) and state["data"] else json.dumps(state["data"])
+
+                # SAFETY: Don't save empty sheet data over real R2 content.
+                if doc_type == "sheet" and not state.get("dirty"):
+                    # If state was never dirtied, the loaded R2 data hasn't changed — skip save.
+                    logger.info(f"[EVICT] State not dirty for {doc_id}, skipping R2 write.")
+                else:
+                    result = await asyncio.to_thread(
+                        DocumentStorage.save,
+                        owner_id, doc_id_str,
+                        content_str, doc_type=doc_type
+                    )
+                    # Also update the DB file_path and file_size so the next load always
+                    # resolves to the correct R2 key, even if the HTTP save was never called.
+                    try:
+                        async with SessionLocal() as db:
+                            doc = await db.get(Document, doc_id_str)
+                            if doc:
+                                doc.file_path = result["relative_path"]
+                                doc.file_size = result["size"]
+                                doc.content_version = (doc.content_version or 1) + 1
+                                await db.commit()
+                    except Exception as db_err:
+                        logger.warning(f"[EVICT] DB update failed for {doc_id}: {db_err}")
+                    logger.info(f"[EVICT] Final save on disconnect for doc {doc_id} ({result['size']} bytes)")
+            except Exception as e:
+                logger.error(f"[EVICT] Failed to save doc {doc_id} on disconnect: {e}")
+        # Now it's safe to evict from RAM
+        self.doc_states.pop(doc_id, None)
 
     async def broadcast(self, doc_id: str, message: str, sender_id: str | None = None):
         room = self.rooms.get(doc_id)
@@ -145,11 +186,7 @@ class ConnectionManager:
         state["last_save"] = now
         
         doc_info = state["doc_info"]
-        doc_type = doc_info.get("doc_type", "sheet")
-        if doc_type in ("writer", "doc"):
-            content_str = json.dumps(state["data"][0]) if isinstance(state["data"], list) and state["data"] else json.dumps(state["data"])
-        else:
-            content_str = json.dumps(state["data"])
+        content_str = json.dumps(state["data"][0]) if isinstance(state["data"], list) and state["data"] else json.dumps(state["data"])
         try:
             await asyncio.to_thread(
                 DocumentStorage.save,
@@ -255,6 +292,41 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: str):
                 if state:
                     try:
                         parsed = json.loads(content_payload)
+                        # SAFETY: Don't overwrite existing state with empty sheet data.
+                        # This prevents the race condition where the frontend sends empty
+                        # cells before it has loaded the real data from the HTTP API.
+                        existing_data = state.get("data", [])
+                        if existing_data and isinstance(existing_data, list) and len(existing_data) > 0:
+                            existing_first = existing_data[0] if isinstance(existing_data[0], dict) else {}
+                            existing_sheets = existing_first.get("_importedSheets", [])
+                            existing_has_cells = False
+                            for es in existing_sheets:
+                                sc = es.get("cells", {})
+                                if isinstance(sc, dict) and sc:
+                                    existing_has_cells = True
+                                    break
+                            if existing_has_cells:
+                                # Check if incoming data has cells
+                                new_sheets = parsed.get("_importedSheets", [])
+                                new_has_cells = False
+                                for ns in new_sheets:
+                                    nsc = ns.get("cells", {})
+                                    if isinstance(nsc, dict) and nsc:
+                                        new_has_cells = True
+                                        break
+                                if not new_has_cells:
+                                    logger.warning(f"[WS GUARD] Blocked empty sheet update for {doc_id} (existing has data)")
+                                    # Still broadcast so other clients see the attempted change,
+                                    # but do NOT update doc_states or mark dirty
+                                    payload = json.dumps({
+                                        "type":    "update",
+                                        "content": content_payload,
+                                        "title":   msg.get("title"),
+                                        "users":   manager.user_count(doc_id),
+                                    })
+                                    await manager.broadcast(doc_id, payload, sender_id=client_id)
+                                    continue
+
                         state["data"] = [parsed]
                         if msg.get("autosave", True):
                             state["dirty"] = True

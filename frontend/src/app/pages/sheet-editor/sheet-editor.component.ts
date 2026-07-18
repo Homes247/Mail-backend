@@ -297,25 +297,38 @@ export interface CellValidation {
               <div class="mdi-sub">
                 <div class="mdi" (click)="hideRows();closeMenus()">Hide Rows<span class="mh">Ctrl+Alt+9</span></div>
                 <div class="mdi" (click)="hideCols();closeMenus()">Hide Columns<span class="mh">Ctrl+Alt+0</span></div>
-                <div class="mdi disabled">Hide Sheet</div>
+                <div class="mdi" [class.disabled]="getVisibleSheetCount() <= 1" (click)="hideSheet(currentSheetIdx); closeMenus()">Hide Sheet</div>
                 <div class="mds"></div>
                 <div class="mdi" (click)="unhideRows();closeMenus()">Unhide Rows<span class="mh">Ctrl+Shift+9</span></div>
                 <div class="mdi" (click)="unhideCols();closeMenus()">Unhide Columns<span class="mh">Ctrl+Shift+0</span></div>
                 <div class="mds"></div>
-                <div class="mdi disabled">Hidden Sheets <span class="mdi-arrow material-symbols-outlined">chevron_right</span></div>
+                <div class="mdi has-sub" [class.disabled]="hiddenSheetsList.length === 0">
+                  Hidden Sheets <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+                  <div class="mdi-sub" *ngIf="hiddenSheetsList.length > 0">
+                    <div class="mdi" *ngFor="let hs of hiddenSheetsList" (click)="unhideSheetAndSwitch(hs.idx); closeMenus()">{{ hs.s.name }}</div>
+                    <div class="mds"></div>
+                    <div class="mdi" (click)="unhideAllSheets(); closeMenus()">Unhide All Sheets</div>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">grid_on</span>Gridlines <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
               <div class="mdi-sub" style="width:240px; padding:8px;">
                 <div class="mdi" (click)="toggleGridlines();closeMenus()" style="padding:6px 8px; margin-bottom:8px;"><span class="material-symbols-outlined" style="font-size:16px; margin-right:8px; vertical-align:-3px;">{{showGridlines?'visibility_off':'visibility'}}</span>{{showGridlines?'Hide Gridlines':'Show Gridlines'}}</div>
                 <div class="mdi" (click)="setGridlineColor('#d0d0d0');closeMenus()" style="padding:6px 8px;"><div style="width:16px; height:16px; border-radius:50%; background:#000; display:inline-block; vertical-align:-3px; margin-right:8px;"></div>Default Color</div>
-                <div style="font-size:12px; color:#e8eaed; margin:8px 8px 4px;">Theme Colors</div>
+                <div style="font-size:12px; color:#5f6368; font-weight: 500; margin:8px 8px 4px;">Theme Colors</div>
                 <div class="cp-grid" style="padding:0 8px;"><div *ngFor="let c of themeColorsTop" class="cp-sw" [style.background]="c" (click)="setGridlineColor(c); closeMenus()"></div></div>
                 <div class="cp-grid" style="padding:0 8px;"><div *ngFor="let c of themeColorsGrid" class="cp-sw" [style.background]="c" (click)="setGridlineColor(c); closeMenus()"></div></div>
-                <div style="font-size:12px; color:#e8eaed; margin:12px 8px 4px;">Standard Colors</div>
+                <div style="font-size:12px; color:#5f6368; font-weight: 500; margin:12px 8px 4px;">Standard Colors</div>
                 <div class="cp-grid" style="padding:0 8px;"><div *ngFor="let c of standardColors" class="cp-sw" [style.background]="c" (click)="setGridlineColor(c); closeMenus()"></div></div>
                 <div class="mds" style="margin:8px 0;"></div>
-                <div class="mdi" style="padding:6px 8px;" (click)="showToast('More Colors opening...');closeMenus()">More Colors <span class="mdi-arrow material-symbols-outlined">chevron_right</span></div>
+                <div class="mdi has-sub" style="padding:6px 8px;">
+                  More Colors <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
+                  <div class="mdi-sub" style="padding: 12px; min-width: 160px; width: 160px;">
+                    <div style="font-size: 12px; color: #5f6368; font-weight: 500; margin-bottom: 8px;">Custom Color</div>
+                    <input type="color" [ngModel]="gridlineColor === '#d0d0d0' ? '#000000' : gridlineColor" (ngModelChange)="setGridlineColor($event)" (change)="closeMenus()" style="width: 100%; height: 32px; border: 1px solid #d1d5db; border-radius: 4px; padding: 2px; cursor: pointer; background: transparent;">
+                  </div>
+                </div>
               </div>
             </div>
             <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">swap_horiz</span>Grid Direction <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
@@ -377,7 +390,9 @@ export interface CellValidation {
             </div>
             <div class="mdi" (click)="toggleFullScreen();closeMenus()"><span class="mdi-icon material-symbols-outlined">fullscreen</span>Full Screen</div>
             <div class="mds"></div>
-            <div class="mdi disabled"><span class="mdi-icon material-symbols-outlined">web_stories</span>Navigation</div>
+            <div class="mdi" (click)="openApp('navigation'); closeMenus()">
+              <span class="mdi-icon material-symbols-outlined">web_stories</span>Navigation
+            </div>
           </div>
         </div>
         <div class="mi" (click)="toggleMenu('insert',$event)" [class.mi-open]="activeMenu==='insert'">Insert
@@ -1831,7 +1846,7 @@ export interface CellValidation {
                 <div class="row-resizer" (mousedown)="startRowResize($event, r)"></div>
               </td>
               <ng-container *ngFor="let c of colRange; trackBy: trackByCol">
-                <td *ngIf="!isMergedSlave(r, c)" class="cell"
+                <td *ngIf="!isMergedSlave(r, c)" class="cell" [attr.id]="'cell-' + r + '-' + c"
                   [style.display]="hiddenCols.has(c) ? 'none' : ''"
                   [style.min-width.px]="getColWidth(c)" [style.width.px]="getColWidth(c)" [style.max-width.px]="getColWidth(c)"
                   [style.position]="r < frozenRowsCount || c < frozenColsCount ? 'sticky' : ''"
@@ -1871,8 +1886,12 @@ export interface CellValidation {
 (click)="selectCell(r,c); previewImageUrl = cells[r][c]">
                   </ng-container>
                 <ng-template #textCell>
-                  <ng-container *ngIf="hasCellDropdown(r, c); else plainInput">
-                    <!-- Custom Picklist rendering -->
+                  <ng-container *ngIf="isSparklineCell(r, c); else dropdownCell">
+                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; pointer-events: none;" [innerHTML]="getSparklineSvgSafe(r, c)"></div>
+                  </ng-container>
+                  <ng-template #dropdownCell>
+                    <ng-container *ngIf="hasCellDropdown(r, c); else plainInput">
+                      <!-- Custom Picklist rendering -->
                     <div class="cell-dropdown-ui" (click)="openCustomDropdown($event, r, c)" [style.background]="getDropdownColor(r, c, cells[r][c]) || '#fff'" [style.color]="getDropdownColor(r, c, cells[r][c]) ? '#fff' : '#000'" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; cursor:pointer; padding: 0 6px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; box-sizing: border-box; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; user-select: none;">
                       <span style="overflow: hidden; text-overflow: ellipsis;">{{ cells[r][c] }}</span>
                       <span class="material-symbols-outlined" style="font-size: 16px;">arrow_drop_down</span>
@@ -1897,6 +1916,7 @@ export interface CellValidation {
                       </div>
                     </ng-template>
                   </ng-template>
+                  </ng-template>
                 </ng-template>
                 <!-- Fill handle: only show on the bottom-right cell of the selection -->
                 <div *ngIf="isFillHandleCell(r, c)"
@@ -1916,12 +1936,12 @@ export interface CellValidation {
       <div class="side-panel" *ngIf="sidePanelApp">
         <div class="sp-head">
           <div class="sp-head-left">
-            <div class="sp-icon-wrap" [class.sp-icon-cal]="sidePanelApp==='calendar'" [class.sp-icon-notes]="sidePanelApp==='notes'" [class.sp-icon-tasks]="sidePanelApp==='tasks'" [class.sp-icon-pivot]="sidePanelApp==='pivot'" [style.background]="sidePanelApp==='pivot'?'#10b981':'inherit'">
-              <span class="material-symbols-outlined sp-head-icon">{{sidePanelApp==='pivot'?'pivot_table_chart':sidePanelApp==='calendar'?'calendar_month':sidePanelApp==='notes'?'sticky_note_2':'task_alt'}}</span>
+            <div class="sp-icon-wrap" [class.sp-icon-cal]="sidePanelApp==='calendar'" [class.sp-icon-notes]="sidePanelApp==='notes'" [class.sp-icon-tasks]="sidePanelApp==='tasks'" [class.sp-icon-pivot]="sidePanelApp==='pivot'" [style.background]="sidePanelApp==='pivot'?'#10b981':(sidePanelApp==='navigation'?'#1a73e8':'inherit')">
+              <span class="material-symbols-outlined sp-head-icon" [style.color]="sidePanelApp==='navigation'?'#fff':''">{{sidePanelApp==='pivot'?'pivot_table_chart':sidePanelApp==='calendar'?'calendar_month':sidePanelApp==='notes'?'sticky_note_2':sidePanelApp==='navigation'?'web_stories':'task_alt'}}</span>
             </div>
             <div>
-              <div class="sp-title">{{sidePanelApp==='pivot'?'Pivot Table Editor':sidePanelApp==='calendar'?'Calendar':sidePanelApp==='notes'?'Notes':'Tasks'}}</div>
-              <div class="sp-subtitle">{{sidePanelApp==='pivot'?'Configure rows and values':sidePanelApp==='calendar'?'Schedule & meeting notes':sidePanelApp==='notes'?'Quick capture':'Track your work'}}</div>
+              <div class="sp-title">{{sidePanelApp==='pivot'?'Pivot Table Editor':sidePanelApp==='calendar'?'Calendar':sidePanelApp==='notes'?'Notes':sidePanelApp==='navigation'?'Navigation':'Tasks'}}</div>
+              <div class="sp-subtitle">{{sidePanelApp==='pivot'?'Configure rows and values':sidePanelApp==='calendar'?'Schedule & meeting notes':sidePanelApp==='notes'?'Quick capture':sidePanelApp==='navigation'?'Manage objects and charts':'Track your work'}}</div>
             </div>
           </div>
           <button class="sp-close-btn" (click)="closeSidePanel()">
@@ -2048,6 +2068,132 @@ export interface CellValidation {
               </div>
               <div class="sp-empty-title">All clear!</div>
               <div class="sp-empty-sub">Add your first task above to get started.</div>
+            </div>
+          </ng-container>
+
+          <!-- ── NAVIGATION ────────────────────────────────────────────── -->
+          <ng-container *ngIf="sidePanelApp === 'navigation'">
+            <!-- Sheets Section -->
+            <div style="margin-bottom: 24px;">
+              <div class="sp-card-label" style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: #5f6368; letter-spacing: 0.8px; margin-bottom: 12px;">Sheets</div>
+              <div class="sp-task-item" *ngFor="let s of sheets; let i = index" (click)="switchSheet(i)" [style.display]="s.hidden ? 'none' : 'flex'" style="cursor: pointer; padding: 8px 12px; border-radius: 6px;" [style.background]="i === currentSheetIdx ? '#e8f0fe' : 'transparent'">
+                <span class="material-symbols-outlined sp-check-icon" [style.color]="i === currentSheetIdx ? '#1a73e8' : '#5f6368'">grid_on</span>
+                <span class="sp-task-text" style="margin-left: 12px; font-weight: 500;" [style.color]="i === currentSheetIdx ? '#1a73e8' : '#202124'">{{ s.name }}</span>
+                <span *ngIf="i === currentSheetIdx" class="material-symbols-outlined" style="color: #1a73e8; font-size: 18px; margin-left: auto;">check</span>
+              </div>
+
+              <!-- Hidden Sheets -->
+              <div *ngIf="hiddenSheetsList.length > 0" style="margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+                <div class="sp-task-item" *ngFor="let hs of hiddenSheetsList" (click)="unhideSheetAndSwitch(hs.idx)" style="cursor: pointer; opacity: 0.6; padding: 8px 12px; border-radius: 6px;">
+                  <span class="material-symbols-outlined sp-check-icon" style="color: #5f6368;">visibility_off</span>
+                  <span class="sp-task-text" style="margin-left: 12px; font-weight: 500;">{{ hs.s.name }} (Hidden)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Objects Section -->
+            <div>
+              <div class="sp-card-label" style="font-weight: 600; font-size: 11px; text-transform: uppercase; color: #5f6368; letter-spacing: 0.8px; margin-bottom: 12px;">Objects in {{ sheets[currentSheetIdx].name }}</div>
+              
+              <div class="sp-task-item" *ngFor="let s of sheets[currentSheetIdx].shapes; let i = index">
+                <span class="material-symbols-outlined sp-check-icon" style="color: #5f6368;">{{ s.type.includes('chart') ? 'insert_chart' : (s.type.includes('image') ? 'image' : 'category') }}</span>
+                <span class="sp-task-text" style="margin-left: 12px; font-weight: 500;">{{ s.text || (s.type.includes('chart') ? 'Chart ' + (i+1) : 'Object ' + (i+1)) }}</span>
+                <button class="sp-task-del" (click)="deleteShape(i)" title="Delete Object">
+                  <span class="material-symbols-outlined" style="font-size: 20px;">delete_outline</span>
+                </button>
+              </div>
+              
+              <div class="sp-empty" *ngIf="!sheets[currentSheetIdx].shapes?.length" style="margin-top: 0; padding-top: 24px; border: none;">
+                <div class="sp-empty-icon">
+                  <span class="material-symbols-outlined">category</span>
+                </div>
+                <div class="sp-empty-title" style="font-size: 14px;">No Objects Found</div>
+                <div class="sp-empty-sub">Add charts or shapes to see them listed here.</div>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- ── SPARKLINE ────────────────────────────────────────────── -->
+          <ng-container *ngIf="sidePanelApp === 'sparkline'">
+            <div style="display:flex; flex-direction:column; gap:16px;">
+              <div class="sp-card-label">Source Range</div>
+              <input type="text" [(ngModel)]="sparklineConfig.source" (blur)="saveSparkline()" style="width:100%; padding:8px; border:1px solid #e2e8f0; border-radius:4px; outline:none;" placeholder="e.g. A1:D1">
+              <div *ngIf="sparklineConfig.error" style="color: #ef4444; font-size: 11px;">{{ sparklineConfig.error }}</div>
+              
+              <div class="sp-card-label" style="margin-top: 8px;">Location</div>
+              <div style="font-size: 13px; color: #5f6368; padding: 4px 0;">{{ sparklineConfig.locationLabel }}</div>
+
+              <div class="sp-card-label" style="margin-top: 8px;">Sparkline Type</div>
+              <div style="display:flex; gap:8px;">
+                <button (click)="sparklineConfig.type = 'line'; saveSparkline()" [style.background]="sparklineConfig.type === 'line' ? '#e8f0fe' : '#fff'" [style.color]="sparklineConfig.type === 'line' ? '#1a73e8' : '#5f6368'" style="flex:1; padding:8px; border:1px solid #dadce0; border-radius:4px; cursor:pointer; display:flex; justify-content:center;"><span class="material-symbols-outlined">show_chart</span></button>
+                <button (click)="sparklineConfig.type = 'column'; saveSparkline()" [style.background]="sparklineConfig.type === 'column' ? '#e8f0fe' : '#fff'" [style.color]="sparklineConfig.type === 'column' ? '#1a73e8' : '#5f6368'" style="flex:1; padding:8px; border:1px solid #dadce0; border-radius:4px; cursor:pointer; display:flex; justify-content:center;"><span class="material-symbols-outlined">bar_chart</span></button>
+                <button (click)="sparklineConfig.type = 'winloss'; saveSparkline()" [style.background]="sparklineConfig.type === 'winloss' ? '#e8f0fe' : '#fff'" [style.color]="sparklineConfig.type === 'winloss' ? '#1a73e8' : '#5f6368'" style="flex:1; padding:8px; border:1px solid #dadce0; border-radius:4px; cursor:pointer; display:flex; justify-content:center;"><span class="material-symbols-outlined">waterfall_chart</span></button>
+              </div>
+
+              <div class="sp-card-label" style="margin-top: 8px;">Default Color</div>
+              <input type="color" [(ngModel)]="sparklineConfig.color" (change)="saveSparkline()" style="width: 32px; height: 32px; border: none; padding: 0; cursor: pointer; border-radius: 4px;">
+
+              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 12px 0;">
+
+              <div class="sp-card-label">Highlight Points</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <!-- High -->
+                <div style="display:flex; align-items:center; justify-content: space-between;">
+                  <label style="display:flex; align-items:center; font-size:12px; cursor:pointer; gap:4px;">
+                    <input type="checkbox" [checked]="!!sparklineConfig.highColor" (change)="sparklineConfig.highColor = $any($event.target).checked ? '#34a853' : ''; saveSparkline()"> High
+                  </label>
+                  <input type="color" *ngIf="sparklineConfig.highColor" [(ngModel)]="sparklineConfig.highColor" (change)="saveSparkline()" style="width:24px; height:24px; border:none; padding:0; cursor:pointer;">
+                </div>
+                <!-- Low -->
+                <div style="display:flex; align-items:center; justify-content: space-between;">
+                  <label style="display:flex; align-items:center; font-size:12px; cursor:pointer; gap:4px;">
+                    <input type="checkbox" [checked]="!!sparklineConfig.lowColor" (change)="sparklineConfig.lowColor = $any($event.target).checked ? '#ea4335' : ''; saveSparkline()"> Low
+                  </label>
+                  <input type="color" *ngIf="sparklineConfig.lowColor" [(ngModel)]="sparklineConfig.lowColor" (change)="saveSparkline()" style="width:24px; height:24px; border:none; padding:0; cursor:pointer;">
+                </div>
+                <!-- First -->
+                <div style="display:flex; align-items:center; justify-content: space-between;">
+                  <label style="display:flex; align-items:center; font-size:12px; cursor:pointer; gap:4px;">
+                    <input type="checkbox" [checked]="!!sparklineConfig.firstColor" (change)="sparklineConfig.firstColor = $any($event.target).checked ? '#4285f4' : ''; saveSparkline()"> First
+                  </label>
+                  <input type="color" *ngIf="sparklineConfig.firstColor" [(ngModel)]="sparklineConfig.firstColor" (change)="saveSparkline()" style="width:24px; height:24px; border:none; padding:0; cursor:pointer;">
+                </div>
+                <!-- Last -->
+                <div style="display:flex; align-items:center; justify-content: space-between;">
+                  <label style="display:flex; align-items:center; font-size:12px; cursor:pointer; gap:4px;">
+                    <input type="checkbox" [checked]="!!sparklineConfig.lastColor" (change)="sparklineConfig.lastColor = $any($event.target).checked ? '#4285f4' : ''; saveSparkline()"> Last
+                  </label>
+                  <input type="color" *ngIf="sparklineConfig.lastColor" [(ngModel)]="sparklineConfig.lastColor" (change)="saveSparkline()" style="width:24px; height:24px; border:none; padding:0; cursor:pointer;">
+                </div>
+                <!-- Negative -->
+                <div style="display:flex; align-items:center; justify-content: space-between;">
+                  <label style="display:flex; align-items:center; font-size:12px; cursor:pointer; gap:4px;">
+                    <input type="checkbox" [checked]="!!sparklineConfig.negativeColor" (change)="sparklineConfig.negativeColor = $any($event.target).checked ? '#ea4335' : ''; saveSparkline()"> Negative
+                  </label>
+                  <input type="color" *ngIf="sparklineConfig.negativeColor" [(ngModel)]="sparklineConfig.negativeColor" (change)="saveSparkline()" style="width:24px; height:24px; border:none; padding:0; cursor:pointer;">
+                </div>
+                <!-- Markers (Line only) -->
+                <div style="display:flex; align-items:center; justify-content: space-between;" *ngIf="sparklineConfig.type === 'line'">
+                  <label style="display:flex; align-items:center; font-size:12px; cursor:pointer; gap:4px;">
+                    <input type="checkbox" [checked]="!!sparklineConfig.markerColor" (change)="sparklineConfig.markerColor = $any($event.target).checked ? '#000000' : ''; saveSparkline()"> Markers
+                  </label>
+                  <input type="color" *ngIf="sparklineConfig.markerColor" [(ngModel)]="sparklineConfig.markerColor" (change)="saveSparkline()" style="width:24px; height:24px; border:none; padding:0; cursor:pointer;">
+                </div>
+              </div>
+
+              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 12px 0;">
+
+              <div class="sp-card-label">Show Empty Cells</div>
+              <div style="display: flex; gap: 12px; font-size: 12px; flex-wrap: wrap;">
+                <label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="radio" name="emptyCells" value="gap" [(ngModel)]="sparklineConfig.emptyCells" (change)="saveSparkline()"> Gap</label>
+                <label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="radio" name="emptyCells" value="zero" [(ngModel)]="sparklineConfig.emptyCells" (change)="saveSparkline()"> Zero</label>
+                <label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="radio" name="emptyCells" value="connect" [(ngModel)]="sparklineConfig.emptyCells" (change)="saveSparkline()"> Connect</label>
+                <label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="radio" name="emptyCells" value="skip" [(ngModel)]="sparklineConfig.emptyCells" (change)="saveSparkline()"> Skip</label>
+              </div>
+
+              <div style="margin-top: 16px; display: flex; justify-content: space-between;">
+                <button (click)="deleteSparklineConfig()" style="background: none; border: 1px solid #ea4335; color: #ea4335; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Delete</button>
+              </div>
             </div>
           </ng-container>
 
@@ -3082,14 +3228,16 @@ export interface CellValidation {
             </div>
           </div>
         </div>
-      <!-- Sheet Tabs -->
-      <div class="sheet-tabs" *ngIf="showStatusBar">
-        <div class="sheet-tab" *ngFor="let sheet of sheets; let i = index"
-          [style.display]="sheet.hidden ? 'none' : ''"
-          [style.border-bottom]="sheet.tabColor ? '3px solid ' + sheet.tabColor : ''"
-          [class.active-tab]="i === currentSheetIdx"
-          (click)="switchSheet(i)"
-          (dblclick)="renameSheet(i)">
+      <!-- Footer Container -->
+      <div class="footer-container" *ngIf="showStatusBar">
+        <!-- Sheet Tabs -->
+        <div class="sheet-tabs">
+          <div class="sheet-tab" *ngFor="let sheet of sheets; let i = index"
+            [style.display]="sheet.hidden ? 'none' : ''"
+            [style.border-bottom]="sheet.tabColor ? '3px solid ' + sheet.tabColor : ''"
+            [class.active-tab]="i === currentSheetIdx"
+            (click)="switchSheet(i)"
+            (dblclick)="renameSheet(i)">
           {{ sheet.name }}
           <span class="tab-menu-icon material-symbols-outlined" (click)="openSheetMenu(i, $event)" style="font-size: 16px; margin-left: 4px; border-radius: 4px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.1)'" onmouseout="this.style.background='transparent'">arrow_drop_down</span>
         </div>
@@ -3097,12 +3245,72 @@ export interface CellValidation {
 
         <!-- Selected Cell Count -->
         <div *ngIf="selectedNonEmptyCount > 1" 
-             style="margin-left: 12px; display: flex; align-items: center; justify-content: center; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.1); user-select: none; border: 1px solid; cursor: default;"
+             style="margin-left: 12px; display: flex; align-items: center; justify-content: center; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.1); user-select: none; border: 1px solid; cursor: default; flex-shrink: 0;"
              [style.background]="currentTheme === 'dark' ? '#374151' : '#ffffff'"
              [style.color]="currentTheme === 'dark' ? '#f3f4f6' : '#374151'"
              [style.border-color]="currentTheme === 'dark' ? '#4b5563' : '#d1d5db'">
           Count = {{ selectedNonEmptyCount }}
           <span class="material-symbols-outlined" style="font-size: 14px; margin-left: 4px; opacity: 0.6;">unfold_more</span>
+        </div>
+        </div> <!-- end of sheet-tabs -->
+        <div class="footer-tools-container" [style.background]="currentTheme === 'dark' ? '#202124' : '#ffffff'" [style.border-color]="currentTheme === 'dark' ? '#5f6368' : '#dadce0'">
+          <!-- Appearance -->
+          <button class="footer-btn" (click)="appearance = appearance === 'dark' ? 'light' : 'dark'" title="Toggle Theme">
+            <span class="material-symbols-outlined" style="font-size: 18px;">{{ appearance === 'dark' ? 'light_mode' : 'dark_mode' }}</span>
+          </button>
+
+          <div class="footer-sep" [style.background]="currentTheme === 'dark' ? '#5f6368' : '#dadce0'"></div>
+
+          <!-- View Settings -->
+          <div style="position: relative;">
+            <button type="button" class="footer-btn" title="View Settings" (click)="toggleFooterMenu('viewSettings', $event)">
+              <span class="material-symbols-outlined" style="font-size: 18px;">settings_suggest</span>
+            </button>
+            <div class="ctx-menu" *ngIf="activeFooterMenu === 'viewSettings'" style="position: absolute; bottom: 100%; right: 0; margin-bottom: 8px;" (click)="$event.stopPropagation()">
+                <div class="ctx-item" (click)="toggleViewSetting('topBar')"><span class="material-symbols-outlined" style="font-size:16px; visibility:{{showTopBar?'visible':'hidden'}}; margin-right:8px;">check</span>Top Bar</div>
+                <div class="ctx-item" (click)="toggleViewSetting('formulaBar')"><span class="material-symbols-outlined" style="font-size:16px; visibility:{{showFormulaBar?'visible':'hidden'}}; margin-right:8px;">check</span>Formula Bar</div>
+                <div class="ctx-sep"></div>
+                <div class="ctx-item" (click)="toggleViewSetting('notes')"><span class="material-symbols-outlined" style="font-size:16px; visibility:{{showNotes?'visible':'hidden'}}; margin-right:8px;">check</span>Notes</div>
+                <div class="ctx-item" (click)="toggleViewSetting('userPresence')"><span class="material-symbols-outlined" style="font-size:16px; visibility:{{showUserPresence?'visible':'hidden'}}; margin-right:8px;">check</span>User Presence</div>
+                <div class="ctx-item" (click)="toggleViewSetting('lockPattern')"><span class="material-symbols-outlined" style="font-size:16px; visibility:{{showLockPattern?'visible':'hidden'}}; margin-right:8px;">check</span>Lock Pattern</div>
+                <div class="ctx-item" (click)="toggleViewSetting('printArea')"><span class="material-symbols-outlined" style="font-size:16px; visibility:{{showHighlightPrintArea?'visible':'hidden'}}; margin-right:8px;">check</span>Highlight Print Area</div>
+            </div>
+          </div>
+
+          <div class="footer-sep" [style.background]="currentTheme === 'dark' ? '#5f6368' : '#dadce0'"></div>
+
+          <!-- Navigation -->
+          <div style="position: relative;">
+            <button type="button" class="footer-btn" title="Navigation" (click)="openApp('navigation'); activeFooterMenu=null">
+              <span class="material-symbols-outlined" style="font-size: 18px;">web_stories</span>
+            </button>
+          </div>
+
+          <div class="footer-sep" [style.background]="currentTheme === 'dark' ? '#5f6368' : '#dadce0'"></div>
+          
+          <!-- Zoom -->
+          <div style="display: flex; align-items: center;">
+            <button type="button" class="footer-btn" (click)="zoomOut()" style="padding: 2px 4px;"><span class="material-symbols-outlined" style="font-size: 16px;">remove</span></button>
+            <div style="position: relative;">
+              <button type="button" class="footer-btn" style="font-size: 12px; font-weight: 500; min-width: 44px; padding: 2px 0;" (click)="toggleFooterMenu('zoom', $event)">{{ zoomLevel }}%</button>
+              <div class="ctx-menu" *ngIf="activeFooterMenu === 'zoom'" style="position: absolute; bottom: 100%; right: 0; margin-bottom: 8px;" (click)="$event.stopPropagation()">
+                <div class="ctx-item" (click)="setZoom(200); activeFooterMenu=null"><span class="material-symbols-outlined" style="font-size:16px; visibility:{{zoomLevel===200?'visible':'hidden'}}; margin-right:8px;">check</span>200%</div>
+                <div class="ctx-item" (click)="setZoom(150); activeFooterMenu=null"><span class="material-symbols-outlined" style="font-size:16px; visibility:{{zoomLevel===150?'visible':'hidden'}}; margin-right:8px;">check</span>150%</div>
+                <div class="ctx-item" (click)="setZoom(125); activeFooterMenu=null"><span class="material-symbols-outlined" style="font-size:16px; visibility:{{zoomLevel===125?'visible':'hidden'}}; margin-right:8px;">check</span>125%</div>
+                <div class="ctx-item" (click)="setZoom(100); activeFooterMenu=null"><span class="material-symbols-outlined" style="font-size:16px; visibility:{{zoomLevel===100?'visible':'hidden'}}; margin-right:8px;">check</span>100%</div>
+                <div class="ctx-item" (click)="setZoom(75); activeFooterMenu=null"><span class="material-symbols-outlined" style="font-size:16px; visibility:{{zoomLevel===75?'visible':'hidden'}}; margin-right:8px;">check</span>75%</div>
+                <div class="ctx-item" (click)="setZoom(50); activeFooterMenu=null"><span class="material-symbols-outlined" style="font-size:16px; visibility:{{zoomLevel===50?'visible':'hidden'}}; margin-right:8px;">check</span>50%</div>
+              </div>
+            </div>
+            <button class="footer-btn" (click)="zoomIn()" style="padding: 2px 4px;"><span class="material-symbols-outlined" style="font-size: 16px;">add</span></button>
+          </div>
+
+          <div class="footer-sep" [style.background]="currentTheme === 'dark' ? '#5f6368' : '#dadce0'"></div>
+
+          <!-- Full Screen -->
+          <button class="footer-btn" (click)="toggleFullScreen()" title="Full Screen">
+            <span class="material-symbols-outlined" style="font-size: 18px;">fullscreen</span>
+          </button>
         </div>
       </div>
 
@@ -3147,8 +3355,11 @@ export interface CellValidation {
 
 
       <!-- Find & Replace Modal -->
-      <div class="modal-overlay" *ngIf="findModalOpen" (click)="findModalOpen = false" style="z-index: 10000;">
-        <div class="modal" (click)="$event.stopPropagation()" style="width:420px; background:#fff; color:#333; border-radius:8px; padding:20px; box-shadow:0 8px 32px rgba(0,0,0,0.15); border:1px solid #e2e8f0; font-family:'Roboto',sans-serif;">
+      <div class="modal-overlay" *ngIf="findModalOpen" (click)="findModalOpen = false" style="z-index: 10000; background: transparent; pointer-events: none;">
+        <div class="modal" (click)="$event.stopPropagation()" 
+             [style.right.px]="findModalPosition === 'right' ? 40 : null"
+             [style.left.px]="findModalPosition === 'left' ? 40 : null"
+             style="position: absolute; top: 100px; width:420px; background:#fff; color:#333; border-radius:8px; padding:20px; box-shadow:0 8px 32px rgba(0,0,0,0.15); border:1px solid #e2e8f0; font-family:'Roboto',sans-serif; pointer-events: auto; transition: right 0.3s, left 0.3s;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h3 style="margin:0; font-size:16px; font-weight:600; color:#333;">Find and Replace</h3>
             <button (click)="findModalOpen = false" style="background:none; border:none; color:#5f6368; font-size:20px; cursor:pointer; padding:0; line-height:1;">&times;</button>
@@ -3213,7 +3424,7 @@ export interface CellValidation {
       </div>
 
       <!-- Go To Modal -->
-      <div class="modal-overlay" *ngIf="activeModal === 'goto'" (click)="activeModal = null" style="z-index: 10000;">
+      <div class="modal-overlay" *ngIf="activeModal === 'goto'" (click)="activeModal = null" style="z-index: 10000; background: transparent;">
         <div class="modal" (click)="$event.stopPropagation()" style="width:360px; background:#fff; color:#333; border-radius:8px; padding:24px; box-shadow:0 8px 32px rgba(0,0,0,0.15); border:1px solid #e2e8f0; font-family:'Roboto',sans-serif;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <h3 style="margin:0; font-size:16px; font-weight:600; color:#333;">Go To</h3>
@@ -3838,7 +4049,8 @@ export interface CellValidation {
     ::ng-deep .custom-dropdown-item:hover { filter: brightness(0.95); }
 
     /* ── SHEET TABS ─────────────────────────────────────────────────────── */
-    .sheet-tabs { display:flex; align-items:center; gap:2px; padding:0 14px; background:#f1f3f4; border-top:2px solid #dadce0; min-height:34px; overflow-x:auto; flex-shrink:0; }
+    .footer-container { display: flex; align-items: center; justify-content: space-between; background: #f1f3f4; border-top: 2px solid #dadce0; min-height: 34px; width: 100%; box-sizing: border-box; }
+    .sheet-tabs { display:flex; align-items:center; gap:2px; padding:0 14px; min-height:34px; overflow-x:auto; flex-shrink:1; min-width:0; }
     .sheet-tab { align-items:center; background:transparent; border-radius:4px 4px 0 0; border:1px solid transparent; border-bottom:none; color:#5f6368; cursor:pointer; display:flex; font-size:12px; gap:6px; padding:6px 14px; white-space:nowrap; }
     .sheet-tab.active-tab { background:#fff; border-color:#dadce0; color:#1a73e8; font-weight:600; }
     .sheet-tab:hover:not(.active-tab) { background:#e8eaed; }
@@ -3846,6 +4058,10 @@ export interface CellValidation {
     .tab-close:hover { color:#d93025; }
     .tab-add { background:none; border:none; color:#5f6368; cursor:pointer; font-size:20px; padding:2px 8px; border-radius:4px; line-height:1; }
     .tab-add:hover { background:#e0e0e0; }
+    .footer-tools-container { display: flex; align-items: center; background: #ffffff; border: 1px solid #dadce0; border-radius: 8px; padding: 2px 4px; gap: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-left: auto; margin-right: 14px; height: 28px; flex-shrink: 0; }
+    .footer-btn { background:transparent; border:none; border-radius:4px; color:#5f6368; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:4px 6px; transition:all 0.2s; height: 24px; }
+    .footer-btn:hover { background:rgba(0,0,0,0.06); color:#202124; }
+    .footer-sep { width: 1px; height: 16px; background: #dadce0; margin: 0 4px; }
 
     /* ── MODALS ─────────────────────────────────────────────────────────── */
     .modal-overlay { align-items:center; background:rgba(0,0,0,.5); bottom:0; display:flex; justify-content:center; left:0; position:fixed; right:0; top:0; z-index:999; }
@@ -3990,7 +4206,7 @@ export interface CellValidation {
     .theme-light .fx-label { color: #5f6368; }
     .theme-light .formula-bar { background: #ffffff; border: 1px solid #dadce0; color: #202124; }
     .theme-light .formula-bar:focus { border-color: #1a73e8; }
-    .theme-light .sheet-tabs { background: #f8f9fa; border-top: 1px solid #dadce0; }
+    .theme-light .footer-container { background: #f8f9fa; border-top: 1px solid #dadce0; }
     .theme-light .sheet-tab { background: #ffffff; color: #5f6368; border: 1px solid #dadce0; border-bottom: none; }
     .theme-light .sheet-tab.active-tab { background: #ffffff; color: #1a73e8; border-top: 2px solid #1a73e8; font-weight:600; }
     .theme-light .sheet-tab:hover:not(.active-tab) { background: #f1f3f4; }
@@ -4019,6 +4235,9 @@ export interface CellValidation {
     .theme-dark .formula-bar { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.3); color: #fff; }
     .theme-dark .formula-bar:focus { border-color: #10b981; }
     .theme-dark .corner, .theme-dark .col-head, .theme-dark .row-head { background: #202124; border-color: #5f6368; color: #e8eaed; }
+    .theme-dark .footer-btn { color:#f3f4f6; }
+    .theme-dark .footer-btn:hover { background:rgba(255,255,255,0.1); color:#fff; }
+    .theme-dark .footer-container { background: #1e1e1e; border-top: 1px solid #333; }
   `]
 })
 export class SheetEditorComponent implements OnInit, OnDestroy {
@@ -4437,6 +4656,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   showLockPattern = false;
   showHighlightPrintArea = false;
   appearance: 'light' | 'dark' | 'system' = 'light';
+  dataLoaded = false;
 
   get currentTheme(): string {
     if (this.appearance === 'system') {
@@ -4482,6 +4702,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   selectedRowHeader: number | null = null;
 
   // Context menu
+  activeFooterMenu: string | null = null;
   ctxVisible = false;
   ctxRow: number | null = null;
   ctxCol: number | null = null;
@@ -4562,8 +4783,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   // Multiple sheets
-  sheets: Array<{ name: string, cells: string[][], formats: Record<string, CellFormat>, validations: Record<string, CellValidation>, colWidths?: Record<number, number>, rowHeights?: Record<number, number>, hideGridlines?: boolean, locked?: boolean, hidden?: boolean, tabColor?: string, shapes?: any[], rowGroups?: Array<{ start: number, end: number, collapsed: boolean }>, colGroups?: Array<{ start: number, end: number, collapsed: boolean }>, hiddenRows?: number[], activeFilterCols?: number[], filterActive?: boolean, advFilterSavedState?: any, frozenRowsCount?: number, frozenColsCount?: number }> = [
-    { name: 'Sheet1', cells: Array.from({ length: this.ROWS }, () => Array(this.COLS).fill('')), formats: {}, validations: {}, shapes: [] }
+  sheets: Array<{ name: string, cells: string[][], formats: Record<string, CellFormat>, validations: Record<string, CellValidation>, sparklines?: Record<string, any>, colWidths?: Record<number, number>, rowHeights?: Record<number, number>, hideGridlines?: boolean, gridlineColor?: string, locked?: boolean, hidden?: boolean, tabColor?: string, shapes?: any[], rowGroups?: Array<{ start: number, end: number, collapsed: boolean }>, colGroups?: Array<{ start: number, end: number, collapsed: boolean }>, hiddenRows?: number[], activeFilterCols?: number[], filterActive?: boolean, advFilterSavedState?: any, frozenRowsCount?: number, frozenColsCount?: number }> = [
+    { name: 'Sheet1', cells: Array.from({ length: this.ROWS }, () => Array(this.COLS).fill('')), formats: {}, validations: {}, shapes: [], sparklines: {} }
   ];
   currentSheetIdx = 0;
   activeSheetMenuIdx: number | null = null;
@@ -4583,6 +4804,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   // Find & Replace
   findModalOpen = false;
+  findModalPosition: 'left' | 'right' = 'right';
   findQuery = '';
   replaceQuery = '';
   findStatus = '';
@@ -4653,6 +4875,23 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   sidePanelApp: string | null = null;
   sidePanelUrl: SafeResourceUrl | null = null;
 
+  sparklineConfig = {
+    source: '',
+    locationR: 0,
+    locationC: 0,
+    locationLabel: '',
+    type: 'line' as 'line'|'column'|'winloss',
+    color: '#4285f4',
+    emptyCells: 'gap' as 'gap'|'zero'|'connect'|'skip',
+    highColor: '',
+    lowColor: '',
+    firstColor: '',
+    lastColor: '',
+    negativeColor: '',
+    markerColor: '',
+    error: ''
+  };
+
   // Embedded Side Panel Apps Data
   calendarNotes: Record<string, string> = {};
   selectedCalDate = new Date().toISOString().split('T')[0];
@@ -4681,7 +4920,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       this.docDetails = doc;
       this.title = doc.title;
       try {
-        const p = JSON.parse(doc.content || '{}');
+        let p = JSON.parse(doc.content || '{}');
+        if (Array.isArray(p) && p.length > 0) p = p[0];
         if (p.cells) {
           for (let r = 0; r < this.ROWS; r++)
             for (let c = 0; c < this.COLS; c++)
@@ -4737,7 +4977,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         if (p.calendarNotes) this.calendarNotes = p.calendarNotes;
         if (p.globalNotes) this.globalNotes = p.globalNotes;
         if (p.tasks) this.tasks = p.tasks;
-      } catch { }
+      } catch (err) { console.error('[SheetEditor] Error parsing document content:', err); }
+      this.dataLoaded = true;
       // Re-apply filter after load if it was active, to ensure hidden rows are computed
       if (this.filterActive && this.advFilterSavedState.size > 0) {
         this.recalculateAllFilters();
@@ -6017,7 +6258,28 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.activeMenu = this.activeMenu === menu ? null : menu;
   }
 
-  closeMenus() { this.activeMenu = null; this.profileOpen = false; this.activeBorderSubmenu = null; this.activeSheetMenuIdx = null; this.advFilterVisible = false; }
+  toggleFooterMenu(menu: string, e: Event) {
+    e.stopPropagation();
+    if (this.activeFooterMenu === menu) {
+      this.activeFooterMenu = null;
+    } else {
+      this.closeMenus();
+      this.activeFooterMenu = menu;
+    }
+    if (this.cdr) this.cdr.detectChanges();
+  }
+
+  toggleViewSetting(setting: string) {
+    if (setting === 'topBar') this.showTopBar = !this.showTopBar;
+    if (setting === 'formulaBar') this.showFormulaBar = !this.showFormulaBar;
+    if (setting === 'notes') this.showNotes = !this.showNotes;
+    if (setting === 'userPresence') this.showUserPresence = !this.showUserPresence;
+    if (setting === 'lockPattern') this.showLockPattern = !this.showLockPattern;
+    if (setting === 'printArea') this.showHighlightPrintArea = !this.showHighlightPrintArea;
+    if (this.cdr) this.cdr.detectChanges();
+  }
+
+  closeMenus() { this.activeMenu = null; this.profileOpen = false; this.activeBorderSubmenu = null; this.activeSheetMenuIdx = null; this.advFilterVisible = false; this.activeFooterMenu = null; }
 
   newDoc() {
     this.api.createDocument('Untitled spreadsheet', 'sheet')
@@ -7187,33 +7449,80 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.showToast(`Inserted ${count} column(s).`);
   }
 
-  async createSparkline() {
+  createSparkline() {
     this.closeMenus();
-    const range = await this.openPrompt('Enter data range for sparkline (e.g., A1:A10):');
-    if (range) {
-      this.cells[this.selectedRow][this.selectedCol] = `=SPARKLINE(${range})`;
-      this.formulaBarValue = `=SPARKLINE(${range})`;
-      this.onCellChange();
-      this.showToast('Sparkline created.');
-    }
+    this.sparklineConfig = {
+      source: '',
+      locationR: this.selectedRow,
+      locationC: this.selectedCol,
+      locationLabel: `'${this.sheets[this.currentSheetIdx].name}'.${this.colLabel(this.selectedCol)}${this.selectedRow + 1}`,
+      type: 'line',
+      color: '#4285f4',
+      emptyCells: 'gap',
+      highColor: '',
+      lowColor: '',
+      firstColor: '',
+      lastColor: '',
+      negativeColor: '',
+      markerColor: '',
+      error: ''
+    };
+    this.openApp('sparkline');
   }
 
-  async editSparkline() {
+  editSparkline() {
     this.closeMenus();
-    const val = this.cells[this.selectedRow][this.selectedCol];
-    if (val && val.toString().toUpperCase().startsWith('=SPARKLINE(')) {
-      const match = val.toString().match(/=SPARKLINE\((.*)\)/i);
-      const currentRange = match ? match[1] : '';
-      const range = await this.openPrompt(`Edit sparkline data range:`, currentRange);
-      if (range) {
-        this.cells[this.selectedRow][this.selectedCol] = `=SPARKLINE(${range})`;
-        this.formulaBarValue = `=SPARKLINE(${range})`;
-        this.onCellChange();
-        this.showToast('Sparkline updated.');
-      }
+    const sheet = this.sheets[this.currentSheetIdx];
+    const key = `${this.selectedRow},${this.selectedCol}`;
+    if (sheet.sparklines && sheet.sparklines[key]) {
+      this.sparklineConfig = JSON.parse(JSON.stringify(sheet.sparklines[key]));
+      this.sparklineConfig.locationR = this.selectedRow;
+      this.sparklineConfig.locationC = this.selectedCol;
+      this.sparklineConfig.locationLabel = `'${sheet.name}'.${this.colLabel(this.selectedCol)}${this.selectedRow + 1}`;
+      this.openApp('sparkline');
     } else {
       this.showToast('Selected cell does not contain a sparkline.');
     }
+  }
+
+  saveSparkline() {
+    const data = this.getSparklineData(this.sparklineConfig.source);
+    if (!data.hasNumbers || data.values.length < 2) {
+      this.sparklineConfig.error = 'Invalid range. Please select a valid 1D range with numeric values.';
+      return;
+    }
+    this.sparklineConfig.error = '';
+
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (!sheet.sparklines) sheet.sparklines = {};
+    const key = `${this.sparklineConfig.locationR},${this.sparklineConfig.locationC}`;
+    
+    // Store it
+    sheet.sparklines[key] = {
+      source: this.sparklineConfig.source,
+      type: this.sparklineConfig.type,
+      color: this.sparklineConfig.color,
+      emptyCells: this.sparklineConfig.emptyCells,
+      highColor: this.sparklineConfig.highColor,
+      lowColor: this.sparklineConfig.lowColor,
+      firstColor: this.sparklineConfig.firstColor,
+      lastColor: this.sparklineConfig.lastColor,
+      negativeColor: this.sparklineConfig.negativeColor,
+      markerColor: this.sparklineConfig.markerColor
+    };
+
+    this.onCellChange();
+    this.showToast('Sparkline saved.');
+  }
+
+  deleteSparklineConfig() {
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (!sheet.sparklines) return;
+    const key = `${this.sparklineConfig.locationR},${this.sparklineConfig.locationC}`;
+    delete sheet.sparklines[key];
+    this.onCellChange();
+    this.closeSidePanel();
+    this.showToast('Sparkline deleted.');
   }
 
   insertButton() {
@@ -7524,6 +7833,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   setGridlineColor(color: string) {
     this.gridlineColor = color;
+    this.updateDisplayCache();
+    this.save();
   }
 
   setGridDirection(dir: 'ltr' | 'rtl') {
@@ -7725,8 +8036,21 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       style['background-color'] = '#fff';
     }
 
-    if (this.highlightRowColColor && this.highlightRowColColor !== 'transparent' && (r === this.selectedRow || c === this.selectedCol)) {
-      style['background-color'] = this.highlightRowColColor;
+    if (this.highlightRowColColor && this.highlightRowColColor !== 'transparent') {
+      let rMatch = (r === this.selectedRow);
+      let cMatch = (c === this.selectedCol);
+      if (this.rangeStart && this.rangeEnd) {
+        const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+        const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+        const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+        const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+        rMatch = (r >= minR && r <= maxR);
+        cMatch = (c >= minC && c <= maxC);
+      }
+      
+      if (rMatch || cMatch) {
+        style['background-color'] = this.highlightRowColColor;
+      }
     }
 
     if (!fmt) return style;
@@ -8637,7 +8961,13 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   // ── Find & Replace ────────────────────────────────────────────────────────
-  openFind() { this.findModalOpen = true; this.findQuery = ''; this.replaceQuery = ''; this.findStatus = ''; }
+  openFind() { 
+    this.findModalOpen = true; 
+    this.findQuery = ''; 
+    this.replaceQuery = ''; 
+    this.findStatus = ''; 
+    this.findModalPosition = 'right';
+  }
 
   // ── Inline Search ────────────────────────────────────────────────────────
   inlineSearchQuery = '';
@@ -8711,12 +9041,13 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          let cellVal = sheetCells[r][c] || '';
-          if (!cellVal) continue;
+          let cellVal = sheetCells[r][c];
+          if (cellVal === null || cellVal === undefined || cellVal === '') continue;
+          if (typeof cellVal === 'string' && cellVal.startsWith('data:image')) continue;
           
           let match = false;
           let query = this.findQuery;
-          let target = cellVal;
+          let target = String(cellVal);
           
           if (!this.findMatchCase) {
             query = query.toLowerCase();
@@ -8752,6 +9083,19 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }
     this.selectCell(m.r, m.c);
     this.findStatus = `Match ${this.findMatchIdx + 1} of ${this.findMatches.length}`;
+    
+    setTimeout(() => {
+      const el = document.getElementById(`cell-${m.r}-${m.c}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        const rect = el.getBoundingClientRect();
+        if (rect.left > window.innerWidth / 2) {
+          this.findModalPosition = 'left';
+        } else {
+          this.findModalPosition = 'right';
+        }
+      }
+    }, 50);
   }
 
   findAll() {
@@ -8789,6 +9133,19 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     
     this.onCellChange(); this.save();
     this.findStatus = `Replaced 1 instance.`;
+    
+    setTimeout(() => {
+      const el = document.getElementById(`cell-${m.r}-${m.c}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        const rect = el.getBoundingClientRect();
+        if (rect.left > window.innerWidth / 2) {
+          this.findModalPosition = 'left';
+        } else {
+          this.findModalPosition = 'right';
+        }
+      }
+    }, 50);
   }
 
   replaceAll() {
@@ -8859,16 +9216,38 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       this.selectCell(rowIdx, colIdx);
       this.activeModal = null;
       this.gotoQuery = '';
+      setTimeout(() => {
+        const el = document.getElementById(`cell-${rowIdx}-${colIdx}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        }
+      }, 50);
     } else {
       this.showToast('Reference out of bounds.');
     }
   }
 
   // ── Multiple Sheets ───────────────────────────────────────────────────────
+  
+  get hiddenSheetsList(): {s: any, idx: number}[] {
+    return this.sheets.map((s, idx) => ({s, idx})).filter(x => x.s.hidden);
+  }
+
+  unhideAllSheets() {
+    this.sheets.forEach(s => s.hidden = false);
+    this.save();
+  }
+
+  unhideSheetAndSwitch(idx: number) {
+    this.unhideSheet(idx);
+    this.switchSheet(idx);
+  }
+
   private saveCurrentSheet() {
     const existing = this.sheets[this.currentSheetIdx];
     this.sheets[this.currentSheetIdx] = {
       ...existing,
+      gridlineColor: this.gridlineColor,
       cells: this.cells.map(row => [...row]),
       formats: { ...this.formats },
       validations: { ...this.validations },
@@ -8890,6 +9269,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.hiddenRows = new Set(s.hiddenRows || []);
     this.activeFilterCols = new Set(s.activeFilterCols || []);
     this.filterActive = !!s.filterActive;
+    this.gridlineColor = s.gridlineColor || '#d0d0d0';
     this.deserializeAdvFilterState(s.advFilterSavedState);
     this.frozenRowsCount = s.frozenRowsCount || 0;
     this.frozenColsCount = s.frozenColsCount || 0;
@@ -9138,6 +9518,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }
 
     if (this.applyingRemote) return;
+    // CRITICAL: Never send data to the backend before the initial load is complete.
+    // Sending empty cells would overwrite the real data stored in R2.
+    if (!this.dataLoaded) return;
     if (forceBulk) {
       this.api.sendUpdate(JSON.stringify(this.getSparse()), this.title);
     } else {
@@ -9223,6 +9606,12 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
 
   save() {
+    // CRITICAL: Refuse to queue a save before data has been loaded from the server.
+    // This prevents the race condition where empty cells overwrite real R2 data.
+    if (!this.dataLoaded) {
+      console.warn('[SheetEditor] Ignoring save() — data not yet loaded from server.');
+      return;
+    }
     this.saveStatus = 'saving';
     this.hasPendingChanges = true;
     // Push to subject instead of hitting the backend immediately
@@ -9231,6 +9620,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   // The actual HTTP call to the backend
   private executeSave() {
+    // Prevent saving empty data before initial load completes
+    if (!this.dataLoaded) {
+      console.warn('[SheetEditor] Skipping save — data not yet loaded.');
+      return;
+    }
     this.api.saveDocument(this.docId, this.title, JSON.stringify(this.getSparse())).subscribe({
       next: () => {
         this.saveStatus = 'saved';
@@ -10019,7 +10413,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
             this.selectedImportFile = null;
             this.activeModal = null;
             try {
-              const p = JSON.parse(doc.content || '{}');
+              let p = JSON.parse(doc.content || '{}');
+              if (Array.isArray(p) && p.length > 0) p = p[0];
               if (p._importedSheets && p._importedSheets.length > 0) {
                 // Multi-sheet import — expand sparse cells to 2D arrays
                 this.sheets = p._importedSheets.map((sheet: any) => {
@@ -10383,7 +10778,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.syncSub?.unsubscribe();
     this.api.disconnectSync();
     if (this.saveSubscription) this.saveSubscription.unsubscribe();
-    if (this.hasPendingChanges) this.executeSave();
+    if (this.hasPendingChanges && this.dataLoaded) this.executeSave();
   }
 
   showEditHistoryPanel = false;
@@ -10446,6 +10841,225 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         out = numStr;
     }
     return out;
+  }
+
+  colNameToIndex(name: string): number {
+    let result = 0;
+    for (let i = 0; i < name.length; i++) {
+      result = result * 26 + (name.toUpperCase().charCodeAt(i) - 64);
+    }
+    return result - 1;
+  }
+
+  parseCellRef(ref: string): {r: number, c: number} | null {
+    const match = ref.match(/^([A-Za-z]+)(\d+)$/);
+    if (!match) return null;
+    return { c: this.colNameToIndex(match[1]), r: parseInt(match[2], 10) - 1 };
+  }
+
+  parseRangeStr(range: string): {minR: number, maxR: number, minC: number, maxC: number} | null {
+    let rStr = range.split('!').pop() || range;
+    rStr = rStr.replace(/['"]/g, ''); // strip quotes
+    const parts = rStr.split(':');
+    if (parts.length === 1) { // Single cell range (which shouldn't be allowed for sparkline but parsed anyway)
+      const p = this.parseCellRef(parts[0]);
+      if (!p) return null;
+      return { minR: p.r, maxR: p.r, minC: p.c, maxC: p.c };
+    }
+    if (parts.length !== 2) return null;
+    const p1 = this.parseCellRef(parts[0]);
+    const p2 = this.parseCellRef(parts[1]);
+    if (!p1 || !p2) return null;
+    return {
+      minR: Math.min(p1.r, p2.r),
+      maxR: Math.max(p1.r, p2.r),
+      minC: Math.min(p1.c, p2.c),
+      maxC: Math.max(p1.c, p2.c)
+    };
+  }
+
+  getSparklineData(sourceRange: string, sheetIdx: number = this.currentSheetIdx): { values: (number|null)[], hasNumbers: boolean } {
+    const range = this.parseRangeStr(sourceRange);
+    if (!range) return { values: [], hasNumbers: false };
+    
+    // Validate that it's a 1D range (single row or single column)
+    if (range.minR !== range.maxR && range.minC !== range.maxC) {
+      return { values: [], hasNumbers: false }; // 2D not allowed for sparklines usually
+    }
+
+    const cells = this.sheets[sheetIdx].cells;
+    const values: (number|null)[] = [];
+    let hasNumbers = false;
+
+    for (let r = range.minR; r <= range.maxR; r++) {
+      for (let c = range.minC; c <= range.maxC; c++) {
+        if (r >= this.ROWS || c >= this.COLS) continue;
+        const val = cells[r][c];
+        if (val === '' || val === null || val === undefined) {
+          values.push(null);
+        } else {
+          const num = parseFloat(val);
+          if (!isNaN(num)) {
+            values.push(num);
+            hasNumbers = true;
+          } else {
+            values.push(null);
+          }
+        }
+      }
+    }
+    
+    if (values.length < 2) {
+      return { values, hasNumbers: false };
+    }
+
+    return { values, hasNumbers };
+  }
+
+  isSparklineCell(r: number, c: number): boolean {
+    const sheet = this.sheets[this.currentSheetIdx];
+    return !!(sheet.sparklines && sheet.sparklines[`${r},${c}`]);
+  }
+
+  getSparklineSvgSafe(r: number, c: number): any {
+    const sheet = this.sheets[this.currentSheetIdx];
+    const config = sheet.sparklines![`${r},${c}`];
+    const data = this.getSparklineData(config.source);
+    
+    if (!data.hasNumbers) {
+      return this.sanitizer.bypassSecurityTrustHtml(`<span style="color:#ef4444;font-size:10px;font-weight:bold;">#ERROR!</span>`);
+    }
+
+    let rawValues = data.values;
+    if (config.emptyCells === 'skip') {
+      rawValues = rawValues.filter(v => v !== null);
+    } else if (config.emptyCells === 'zero') {
+      rawValues = rawValues.map(v => v === null ? 0 : v);
+    }
+
+    if (rawValues.filter(v => v !== null).length < 2) {
+      return this.sanitizer.bypassSecurityTrustHtml(`<span style="color:#ef4444;font-size:10px;font-weight:bold;">#ERROR!</span>`);
+    }
+
+    const w = this.getColWidth(c);
+    const h = this.getRowHeight(r);
+    const padX = 2;
+    const padY = 4;
+    const innerW = w - padX * 2;
+    const innerH = h - padY * 2;
+    
+    let svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block;">`;
+
+    const nums = rawValues.filter(v => v !== null) as number[];
+    const min = Math.min(...nums);
+    const max = Math.max(...nums);
+    const range = max - min || 1;
+
+    const getX = (i: number) => padX + (i / (rawValues.length - 1)) * innerW;
+    const getY = (val: number) => padY + innerH - ((val - min) / range) * innerH;
+
+    const baseColor = config.color || '#4285f4';
+    
+    let firstIdx = -1, lastIdx = -1, highIdx = -1, lowIdx = -1;
+    let currentHigh = -Infinity, currentLow = Infinity;
+    
+    for (let i = 0; i < rawValues.length; i++) {
+      const v = rawValues[i];
+      if (v !== null) {
+        if (firstIdx === -1) firstIdx = i;
+        lastIdx = i;
+        if (v > currentHigh) { currentHigh = v; highIdx = i; }
+        if (v < currentLow) { currentLow = v; lowIdx = i; }
+      }
+    }
+
+    const getColor = (i: number, val: number) => {
+      if (val < 0 && config.negativeColor) return config.negativeColor;
+      if (i === highIdx && config.highColor) return config.highColor;
+      if (i === lowIdx && config.lowColor) return config.lowColor;
+      if (i === firstIdx && config.firstColor) return config.firstColor;
+      if (i === lastIdx && config.lastColor) return config.lastColor;
+      return baseColor;
+    };
+
+    if (config.type === 'line') {
+      let path = '';
+      let drawing = false;
+      for (let i = 0; i < rawValues.length; i++) {
+        const v = rawValues[i];
+        if (v === null) {
+          if (config.emptyCells === 'gap') drawing = false;
+          continue;
+        }
+        const vNum = v as number;
+        const x = getX(i);
+        const y = getY(vNum);
+        if (!drawing) {
+          path += `M${x},${y} `;
+          drawing = true;
+        } else {
+          path += `L${x},${y} `;
+        }
+      }
+      svg += `<path d="${path.trim()}" fill="none" stroke="${baseColor}" stroke-width="1.5" stroke-linejoin="round" />`;
+
+      for (let i = 0; i < rawValues.length; i++) {
+        const v = rawValues[i];
+        if (v !== null) {
+          const vNum = v as number;
+          let markColor = null;
+          if (config.markerColor) markColor = config.markerColor;
+          if (vNum < 0 && config.negativeColor) markColor = config.negativeColor;
+          if (i === highIdx && config.highColor) markColor = config.highColor;
+          if (i === lowIdx && config.lowColor) markColor = config.lowColor;
+          if (i === firstIdx && config.firstColor) markColor = config.firstColor;
+          if (i === lastIdx && config.lastColor) markColor = config.lastColor;
+          
+          if (markColor) svg += `<circle cx="${getX(i)}" cy="${getY(vNum)}" r="2" fill="${markColor}" />`;
+        }
+      }
+
+    } else if (config.type === 'column') {
+      const barW = Math.max(1, (innerW / rawValues.length) * 0.8);
+      const space = innerW / rawValues.length;
+      const cMin = Math.min(min, 0);
+      const cMax = Math.max(max, 0);
+      const cRange = cMax - cMin || 1;
+      const cGetY = (val: number) => padY + innerH - ((val - cMin) / cRange) * innerH;
+      const zeroY = cGetY(0);
+
+      for (let i = 0; i < rawValues.length; i++) {
+        const v = rawValues[i];
+        if (v === null) continue;
+        const vNum = v as number;
+        const x = padX + i * space + (space - barW) / 2;
+        let y = cGetY(vNum);
+        let barH = Math.abs(y - zeroY);
+        if (vNum < 0) y = zeroY;
+        if (barH < 1 && vNum !== 0) barH = 1;
+        
+        const col = getColor(i, vNum);
+        svg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${col}" />`;
+      }
+    } else if (config.type === 'winloss') {
+      const barW = Math.max(1, (innerW / rawValues.length) * 0.8);
+      const space = innerW / rawValues.length;
+      const midY = padY + innerH / 2;
+      const barH = innerH / 2 - 2;
+
+      for (let i = 0; i < rawValues.length; i++) {
+        const v = rawValues[i];
+        if (v === null || v === 0) continue;
+        const vNum = v as number;
+        const x = padX + i * space + (space - barW) / 2;
+        let y = vNum > 0 ? midY - barH : midY;
+        const col = getColor(i, vNum);
+        svg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${col}" />`;
+      }
+    }
+
+    svg += `</svg>`;
+    return this.sanitizer.bypassSecurityTrustHtml(svg);
   }
 }
 

@@ -633,15 +633,41 @@ async def update_document(
     if body.title is not None:
         doc.title = body.title
     if body.content is not None:
-        try:
-            storage_res = await asyncio.to_thread(
-                DocumentStorage.save, doc.owner_id, doc.id, body.content, doc_type=doc.doc_type
-            )
-            doc.file_path = storage_res["relative_path"]
-            doc.file_size = storage_res["size"]
-            doc.content_version = (doc.content_version or 1) + 1
-        except Exception as e:
-            print(f"Failed to save document {doc.id} to storage: {e}")
+        # SAFETY: Refuse to overwrite substantial existing content with empty data.
+        # This prevents the frontend race condition where empty cells are saved
+        # before the real document data has finished loading from R2.
+        skip_save = False
+        if doc.doc_type == "sheet" and doc.file_size and doc.file_size > 500:
+            try:
+                parsed_new = json.loads(body.content)
+                has_cell_data = False
+                sheets = parsed_new.get("_importedSheets", [])
+                if not sheets and parsed_new.get("cells"):
+                    has_cell_data = any(parsed_new["cells"].values()) if isinstance(parsed_new["cells"], dict) else bool(parsed_new["cells"])
+                for s in sheets:
+                    sc = s.get("cells", {})
+                    if isinstance(sc, dict) and sc:
+                        has_cell_data = True
+                        break
+                    elif isinstance(sc, list) and any(any(cell for cell in row) for row in sc if row):
+                        has_cell_data = True
+                        break
+                if not has_cell_data:
+                    skip_save = True
+                    print(f"[SAVE GUARD] Blocked saving empty sheet content for doc {doc.id} (existing size: {doc.file_size} bytes)")
+            except Exception:
+                pass  # If we can't parse, allow the save
+
+        if not skip_save:
+            try:
+                storage_res = await asyncio.to_thread(
+                    DocumentStorage.save, doc.owner_id, doc.id, body.content, doc_type=doc.doc_type
+                )
+                doc.file_path = storage_res["relative_path"]
+                doc.file_size = storage_res["size"]
+                doc.content_version = (doc.content_version or 1) + 1
+            except Exception as e:
+                print(f"Failed to save document {doc.id} to storage: {e}")
             
     if body.is_trashed is not None:
         doc.is_trashed = body.is_trashed
