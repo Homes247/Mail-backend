@@ -305,7 +305,7 @@ export interface CellValidation {
                 <div class="mdi has-sub" [class.disabled]="hiddenSheetsList.length === 0">
                   Hidden Sheets <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
                   <div class="mdi-sub" *ngIf="hiddenSheetsList.length > 0">
-                    <div class="mdi" *ngFor="let hs of hiddenSheetsList" (click)="unhideSheetAndSwitch(hs.idx); closeMenus()">{{ hs.s.name }}</div>
+                    <div class="mdi" *ngFor="let hs of hiddenSheetsList; trackBy: trackByHiddenSheet" (click)="unhideSheetAndSwitch(hs.idx); closeMenus()">{{ hs.s.name }}</div>
                     <div class="mds"></div>
                     <div class="mdi" (click)="unhideAllSheets(); closeMenus()">Unhide All Sheets</div>
                   </div>
@@ -1899,8 +1899,8 @@ export interface CellValidation {
                   </ng-container>
                   <ng-template #plainInput>
                     <ng-container *ngIf="isCheckboxCell(r, c); else dateInput">
-                      <div class="cell-checkbox-container" style="display:flex; justify-content:center; align-items:center; width:100%; height:100%; cursor:pointer;" (click)="toggleCheckbox(r, c)">
-                         <span class="material-symbols-outlined" style="font-size:18px; color:#5f6368; pointer-events: none;">
+                      <div class="cell-checkbox-container" style="display:flex; justify-content:center; align-items:center; width:100%; height:100%;">
+                         <span class="material-symbols-outlined" style="font-size:18px; color:#5f6368; cursor:pointer;" (mousedown)="onCheckboxMouseDown($event, r, c)">
                             {{ cells[r][c] === 'TRUE' ? 'check_box' : 'check_box_outline_blank' }}
                          </span>
                       </div>
@@ -2084,7 +2084,7 @@ export interface CellValidation {
 
               <!-- Hidden Sheets -->
               <div *ngIf="hiddenSheetsList.length > 0" style="margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
-                <div class="sp-task-item" *ngFor="let hs of hiddenSheetsList" (click)="unhideSheetAndSwitch(hs.idx)" style="cursor: pointer; opacity: 0.6; padding: 8px 12px; border-radius: 6px;">
+                <div class="sp-task-item" *ngFor="let hs of hiddenSheetsList; trackBy: trackByHiddenSheet" (click)="unhideSheetAndSwitch(hs.idx)" style="cursor: pointer; opacity: 0.6; padding: 8px 12px; border-radius: 6px;">
                   <span class="material-symbols-outlined sp-check-icon" style="color: #5f6368;">visibility_off</span>
                   <span class="sp-task-text" style="margin-left: 12px; font-weight: 500;">{{ hs.s.name }} (Hidden)</span>
                 </div>
@@ -3315,7 +3315,7 @@ export interface CellValidation {
       </div>
 
       <!-- Sheet Context Menu -->
-      <div class="ctx-menu" *ngIf="activeSheetMenuIdx !== null" [style.left.px]="sheetMenuX" [style.bottom.px]="sheetMenuY + 10" (click)="$event.stopPropagation()">
+      <div class="ctx-menu" *ngIf="activeSheetMenuIdx !== null" [style.left.px]="sheetMenuX" [style.bottom.px]="sheetMenuY + 10" [style.overflow]="'visible'" (click)="$event.stopPropagation()">
         <div class="ctx-item" (click)="addSheet(); activeSheetMenuIdx=null"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">add_box</span> Insert</div>
         <div class="ctx-item" (click)="duplicateSheet(activeSheetMenuIdx); activeSheetMenuIdx=null"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_copy</span> Duplicate</div>
         <div class="ctx-item" (click)="deleteSheet(activeSheetMenuIdx); activeSheetMenuIdx=null" [class.disabled]="sheets.length <= 1" [class.danger]="sheets.length > 1"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">delete</span> Delete</div>
@@ -3323,18 +3323,25 @@ export interface CellValidation {
         <div class="ctx-sep"></div>
         <div class="ctx-item" (click)="copySheet(activeSheetMenuIdx); activeSheetMenuIdx=null"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">file_copy</span> Copy</div>
         <div class="ctx-item" [class.disabled]="!copiedSheetData" (click)="pasteSheet()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">content_paste</span> Paste</div>
-        <div class="ctx-item" style="position:relative;" (mouseenter)="activeSheetSubmenu='move'" (mouseleave)="activeSheetSubmenu=null">
-          <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">drive_file_move</span> Move <span class="mdi-arrow material-symbols-outlined" style="margin-left:auto;">chevron_right</span>
-          <div class="ctx-menu" *ngIf="activeSheetSubmenu==='move'" style="position:absolute; left:100%; bottom:0; margin-left:4px;">
-            <div class="ctx-item" [class.disabled]="activeSheetMenuIdx === 0" (click)="moveSheet(activeSheetMenuIdx, 'left')"><span class="material-symbols-outlined" style="font-size: 16px;">arrow_back</span> Move Left</div>
-            <div class="ctx-item" [class.disabled]="activeSheetMenuIdx === sheets.length - 1" (click)="moveSheet(activeSheetMenuIdx, 'right')"><span class="material-symbols-outlined" style="font-size: 16px;">arrow_forward</span> Move Right</div>
-          </div>
+        <div class="ctx-item" (click)="openMoveSheetModal(activeSheetMenuIdx); activeSheetMenuIdx=null">
+          <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">drive_file_move</span> Move
         </div>
         <div class="ctx-item" style="position:relative;" (mouseenter)="activeSheetSubmenu='color'" (mouseleave)="activeSheetSubmenu=null">
           <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">palette</span> Tab Color <span class="mdi-arrow material-symbols-outlined" style="margin-left:auto;">chevron_right</span>
-          <div class="ctx-menu" *ngIf="activeSheetSubmenu==='color'" style="position:absolute; left:100%; bottom:0; margin-left:4px; padding:8px; display:grid; grid-template-columns:repeat(5, 1fr); gap:4px; width:120px; z-index: 1000;">
-             <div class="cp-nocolor" style="grid-column:1/-1; padding:4px; text-align:center; font-size:11px; cursor:pointer;" (click)="setTabColor(activeSheetMenuIdx, ''); activeSheetMenuIdx=null">No Color</div>
-             <div *ngFor="let c of themeColorsGrid.slice(0, 15)" style="width:16px; height:16px; border-radius:50%; cursor:pointer; border:1px solid #cbd5e1;" [style.background]="c" (click)="setTabColor(activeSheetMenuIdx, c); activeSheetMenuIdx=null"></div>
+          <div style="position:absolute; left:calc(100% - 10px); top:-4px; padding-left:10px; z-index:1000;" *ngIf="activeSheetSubmenu==='color'">
+            <div class="ctx-menu" style="padding:12px; display:flex; flex-direction:column; gap:8px; width:220px; box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+               <div style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:inherit;" (click)="setTabColor(activeSheetMenuIdx, ''); closeMenus()">
+                  <span class="material-symbols-outlined" style="font-size:18px; color:#888;">block</span> No Fill
+               </div>
+               <div style="font-size:11px; font-weight:600; color:#5f6368; margin-top:4px;">Theme Colors</div>
+               <div style="display:grid; grid-template-columns:repeat(10, 1fr); gap:2px;">
+                  <div *ngFor="let c of themeColorsGrid" style="width:16px; height:16px; border-radius:2px; cursor:pointer; border:1px solid #cbd5e1;" [style.background]="c" (click)="setTabColor(activeSheetMenuIdx, c); closeMenus()"></div>
+               </div>
+               <div style="font-size:11px; font-weight:600; color:#5f6368; margin-top:4px;">Standard Colors</div>
+               <div style="display:grid; grid-template-columns:repeat(10, 1fr); gap:2px;">
+                  <div *ngFor="let c of standardColors" style="width:16px; height:16px; border-radius:2px; cursor:pointer; border:1px solid #cbd5e1;" [style.background]="c" (click)="setTabColor(activeSheetMenuIdx, c); closeMenus()"></div>
+               </div>
+            </div>
           </div>
         </div>
         <div class="ctx-item" (click)="toggleSheetGridlines(activeSheetMenuIdx); activeSheetMenuIdx=null">
@@ -3343,6 +3350,20 @@ export interface CellValidation {
         </div>
         <div class="ctx-item" (click)="hideSheet(activeSheetMenuIdx); activeSheetMenuIdx=null" [class.disabled]="getVisibleSheetCount() <= 1 && !sheets[activeSheetMenuIdx].hidden">
           <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">visibility_off</span> Hide
+        </div>
+        <div class="ctx-item" *ngIf="hiddenSheetsList.length > 0" style="position:relative;" (mouseenter)="activeSheetSubmenu='unhide'" (mouseleave)="activeSheetSubmenu=null">
+          <span class="ctx-icon material-symbols-outlined" style="font-size: 16px; color: #10b981;">visibility</span> <span style="color: #10b981;">Unhide</span> <span class="mdi-arrow material-symbols-outlined" style="margin-left:auto; color: #10b981;">chevron_right</span>
+          <div style="position:absolute; left:calc(100% - 10px); top:-4px; padding-left:10px; z-index:1000;" *ngIf="activeSheetSubmenu==='unhide'">
+            <div class="ctx-menu" style="min-width: 180px;">
+              <div class="ctx-item" *ngFor="let h of hiddenSheetsList; trackBy: trackByHiddenSheet" (click)="unhideSheetAndSwitch(h.idx); closeMenus()">
+                 {{ h.s.name }}
+              </div>
+              <div class="ctx-sep" *ngIf="hiddenSheetsList.length > 1"></div>
+              <div class="ctx-item" *ngIf="hiddenSheetsList.length > 1" (click)="unhideAllSheets(); closeMenus()">
+                 Unhide All Sheets
+              </div>
+            </div>
+          </div>
         </div>
         <div class="ctx-item" (click)="toggleLockSheet(activeSheetMenuIdx); activeSheetMenuIdx=null">
           <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">{{ sheets[activeSheetMenuIdx].locked ? 'lock_open' : 'lock' }}</span>
@@ -3547,6 +3568,31 @@ export interface CellValidation {
           </div>
           <div style="display: flex; justify-content: flex-end;">
             <button (click)="showMoreFormatsModal=false" style="padding: 6px 12px; border: 1px solid #ccc; background: #f8f9fa; color: #333; cursor: pointer; border-radius: 4px;">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay" *ngIf="moveSheetModalOpen" (click)="moveSheetModalOpen=false" style="z-index:10000;">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:360px;background:#fff;color:#333;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.15);padding:24px;border:1px solid #e2e8f0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3 style="margin:0;font-size:18px;font-weight:500;">Move</h3>
+            <button (click)="moveSheetModalOpen=false" style="background:none;border:none;cursor:pointer;color:#888;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+          <div style="margin-bottom:12px;font-size:14px;color:#555;">
+            Move "{{ moveSheetTargetIdx >= 0 && moveSheetTargetIdx < sheets.length ? sheets[moveSheetTargetIdx].name : '' }}"
+          </div>
+          <select [(ngModel)]="moveSheetDestination" style="width:100%;background:#f8fafc;color:#333;border:1px solid #cbd5e1;padding:8px;border-radius:4px;margin-bottom:24px;font-size:14px;outline:none;">
+            <option value="start">Move to the Start</option>
+            <option value="end">Move to the End</option>
+            <optgroup label="or After">
+              <ng-container *ngFor="let s of sheets; let i = index">
+                <option *ngIf="i !== moveSheetTargetIdx" [value]="i">{{ s.name }}</option>
+              </ng-container>
+            </optgroup>
+          </select>
+          <div style="display:flex;justify-content:flex-end;gap:12px;">
+            <button (click)="confirmMoveSheet()" style="background:#10b981;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">OK</button>
+            <button (click)="moveSheetModalOpen=false" style="background:#f1f5f9;color:#333;border:1px solid #cbd5e1;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Cancel</button>
           </div>
         </div>
       </div>
@@ -4422,6 +4468,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   trackByRow(index: number, r: number) { return r; }
   trackByCol(index: number, c: number) { return c; }
+  trackByHiddenSheet(index: number, item: any) { return item.idx; }
 
   activeWidget: string | null = null;
   toggleWidget(w: string) {
@@ -5177,6 +5224,29 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         this.selectCell(this.selectedRow, nc);
         return;
       }
+      if (e.key === ' ') {
+        let hasCheckbox = false;
+        let allTrue = true;
+        this.forEachSelectedCell((r, c) => {
+           if (this.isCheckboxCell(r, c)) {
+             hasCheckbox = true;
+             if (this.cells[r][c] !== 'TRUE') allTrue = false;
+           }
+        });
+        if (hasCheckbox) {
+          e.preventDefault();
+          this.pushHistory();
+          const newVal = allTrue ? 'FALSE' : 'TRUE';
+          this.forEachSelectedCell((r, c) => {
+             if (this.isCheckboxCell(r, c)) {
+               this.cells[r][c] = newVal;
+             }
+          });
+          this.onCellChange();
+          this.save();
+          return;
+        }
+      }
       if (e.key === 'Enter') {
         e.preventDefault();
         this.startEditing();
@@ -5194,6 +5264,32 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if ((e.ctrlKey || e.metaKey) && e.key === 'i') { e.preventDefault(); this.toggleFormat('italic'); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'u') { e.preventDefault(); this.toggleFormat('underline'); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'x') { e.preventDefault(); this.cutCell(); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+      if (!this.isEditingText(e as any) && !this.isEditingCell) {
+        e.preventDefault();
+        this.copyCell();
+      }
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === ';' || e.key === ':')) {
+      if (!this.isEditingText(e as any) && !this.isEditingCell) {
+        e.preventDefault();
+        this.pushHistory();
+        const now = new Date();
+        if (e.shiftKey) {
+          const h = String(now.getHours()).padStart(2, '0');
+          const min = String(now.getMinutes()).padStart(2, '0');
+          const s = String(now.getSeconds()).padStart(2, '0');
+          this.cells[this.selectedRow][this.selectedCol] = `${h}:${min}:${s}`;
+        } else {
+          const d = String(now.getDate()).padStart(2, '0');
+          const m = String(now.getMonth() + 1).padStart(2, '0');
+          const y = now.getFullYear();
+          this.cells[this.selectedRow][this.selectedCol] = `${d}/${m}/${y}`;
+        }
+        this.onCellChange();
+        this.save();
+      }
+    }
     if ((e.ctrlKey || e.metaKey) && e.key === 'd') { e.preventDefault(); this.fillDown(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'r') { e.preventDefault(); this.fillRight(); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'h' || e.key === 'f')) { e.preventDefault(); this.openFind(); }
@@ -5428,9 +5524,36 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     return /^(https?:\/\/[^\s]+)$/i.test(val.trim());
   }
 
-  toggleCheckbox(r: number, c: number) {
+  onCheckboxMouseDown(e: MouseEvent, r: number, c: number) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    let inSelection = false;
+    if (this.rangeStart && this.rangeEnd) {
+      const minR = Math.min(this.rangeStart.r, this.rangeEnd.r);
+      const maxR = Math.max(this.rangeStart.r, this.rangeEnd.r);
+      const minC = Math.min(this.rangeStart.c, this.rangeEnd.c);
+      const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
+      if (r >= minR && r <= maxR && c >= minC && c <= maxC) {
+        inSelection = true;
+      }
+    }
+
     this.pushHistory();
-    this.cells[r][c] = this.cells[r][c] === 'TRUE' ? 'FALSE' : 'TRUE';
+    const isChecking = this.cells[r][c] !== 'TRUE';
+    const newVal = isChecking ? 'TRUE' : 'FALSE';
+
+    if (inSelection) {
+      this.forEachSelectedCell((sr, sc) => {
+        if (this.isCheckboxCell(sr, sc)) {
+          this.cells[sr][sc] = newVal;
+        }
+      });
+    } else {
+      this.cells[r][c] = newVal;
+      this.selectCell(r, c);
+    }
+
     if (this.selectedRow === r && this.selectedCol === c) {
       this.formulaBarValue = this.cells[r][c];
     }
@@ -9234,13 +9357,17 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   unhideAllSheets() {
-    this.sheets.forEach(s => s.hidden = false);
-    this.save();
+    setTimeout(() => {
+      this.sheets.forEach(s => s.hidden = false);
+      this.save();
+    }, 0);
   }
 
   unhideSheetAndSwitch(idx: number) {
-    this.unhideSheet(idx);
-    this.switchSheet(idx);
+    setTimeout(() => {
+      this.unhideSheet(idx);
+      this.switchSheet(idx);
+    }, 0);
   }
 
   private saveCurrentSheet() {
@@ -10713,22 +10840,46 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.save();
   }
 
-  moveSheet(idx: number, dir: 'left' | 'right') {
-    if (idx === null || idx === undefined) return;
-    this.pushHistory();
-    if (dir === 'left' && idx > 0) {
-      const temp = this.sheets[idx - 1];
-      this.sheets[idx - 1] = this.sheets[idx];
-      this.sheets[idx] = temp;
-      this.switchSheet(idx - 1);
-    } else if (dir === 'right' && idx < this.sheets.length - 1) {
-      const temp = this.sheets[idx + 1];
-      this.sheets[idx + 1] = this.sheets[idx];
-      this.sheets[idx] = temp;
-      this.switchSheet(idx + 1);
+  moveSheetModalOpen = false;
+  moveSheetTargetIdx = -1;
+  moveSheetDestination: string | number = 'start';
+
+  openMoveSheetModal(idx: number) {
+    if (idx < 0 || idx >= this.sheets.length) return;
+    this.moveSheetTargetIdx = idx;
+    this.moveSheetDestination = 'start';
+    this.moveSheetModalOpen = true;
+  }
+
+  confirmMoveSheet() {
+    if (this.moveSheetTargetIdx < 0 || this.moveSheetTargetIdx >= this.sheets.length) {
+      this.moveSheetModalOpen = false;
+      return;
     }
-    this.activeSheetMenuIdx = null;
+    this.pushHistory();
+    const dest = this.moveSheetDestination;
+    const sheetToMove = this.sheets[this.moveSheetTargetIdx];
+    
+    this.sheets.splice(this.moveSheetTargetIdx, 1);
+    
+    let insertIdx = 0;
+    if (dest === 'start') {
+      insertIdx = 0;
+    } else if (dest === 'end') {
+      insertIdx = this.sheets.length;
+    } else {
+      const targetOriginalIdx = Number(dest);
+      if (targetOriginalIdx > this.moveSheetTargetIdx) {
+        insertIdx = targetOriginalIdx;
+      } else {
+        insertIdx = targetOriginalIdx + 1;
+      }
+    }
+    
+    this.sheets.splice(insertIdx, 0, sheetToMove);
+    this.switchSheet(insertIdx);
     this.save();
+    this.moveSheetModalOpen = false;
   }
 
   setTabColor(idx: number, color: string) {
