@@ -634,7 +634,7 @@ async def update_document(
         doc.title = body.title
     if body.content is not None:
         # SAFETY: Refuse to overwrite substantial existing content with empty data.
-        # This prevents the frontend race condition where empty cells are saved
+        # This prevents the frontend race condition where empty content is saved
         # before the real document data has finished loading from R2.
         skip_save = False
         if doc.doc_type == "sheet" and doc.file_size and doc.file_size > 500:
@@ -655,6 +655,19 @@ async def update_document(
                 if not has_cell_data:
                     skip_save = True
                     print(f"[SAVE GUARD] Blocked saving empty sheet content for doc {doc.id} (existing size: {doc.file_size} bytes)")
+            except Exception:
+                pass  # If we can't parse, allow the save
+
+        # SAFETY: For doc type, block overwriting real content with empty/trivial HTML.
+        # Threshold: existing file > 500 bytes, new html content is empty or just <br>/<div><br></div>.
+        if doc.doc_type == "doc" and doc.file_size and doc.file_size > 500:
+            try:
+                parsed_new = json.loads(body.content)
+                new_html = parsed_new.get("html", "")
+                stripped = new_html.strip().replace("<br>", "").replace("<div>", "").replace("</div>", "").strip()
+                if not stripped:
+                    skip_save = True
+                    print(f"[SAVE GUARD] Blocked saving blank doc content for doc {doc.id} (existing size: {doc.file_size} bytes)")
             except Exception:
                 pass  # If we can't parse, allow the save
 

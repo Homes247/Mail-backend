@@ -5433,39 +5433,48 @@ export class DocEditorComponent implements OnInit, OnDestroy {
             if (p.html) {
               console.log('[IMPORT] HTML found, length:', p.html.length);
               this.htmlContent = this.sanitizeImportedHtml(p.html);
+
+              // ── SAVE directly with the parsed content string (not from DOM) ──
+              // Saving from DOM (save()) is unreliable on live because the browser
+              // may not have rendered el.innerHTML yet when save() fires, causing
+              // blank content to overwrite the real import data in R2 storage.
+              this.title = doc.title;
+              this.isSaving = true;
+              this.api.saveDocument(doc.id, doc.title, JSON.stringify({ html: this.htmlContent })).subscribe({
+                next: () => {
+                  this.isSaving = false;
+                  this.lastSavedTime = new Date();
+                  console.log('[IMPORT] Content saved to R2 successfully.');
+                },
+                error: (err: any) => {
+                  this.isSaving = false;
+                  console.error('[IMPORT] Failed to save content to R2:', err);
+                }
+              });
+              this.api.sendUpdate(JSON.stringify({ html: this.htmlContent }), doc.title, true);
+
+              // ── Apply to DOM and paginate ──
               const el = document.querySelector('.page') as HTMLElement;
               if (el) {
                 el.innerHTML = this.htmlContent;
                 console.log('[IMPORT] DOM updated, innerHTML length:', el.innerHTML.length);
 
-                // Wait for all images to load before paginating so offsetHeight is correct
+                // Wait for images to load before paginating
                 const images = Array.from(el.querySelectorAll('img'));
                 let loadedCount = 0;
-
                 const checkFinished = () => {
-                   loadedCount++;
-                   if (loadedCount >= images.length) {
-                       setTimeout(() => {
-                           this.autoPaginate();
-                           this.save(true);
-                       }, 100);
-                   }
+                  loadedCount++;
+                  if (loadedCount >= images.length) {
+                    setTimeout(() => this.autoPaginate(), 150);
+                  }
                 };
-
                 if (images.length === 0) {
-                   setTimeout(() => {
-                       this.autoPaginate();
-                       this.save(true);
-                   }, 100);
+                  setTimeout(() => this.autoPaginate(), 150);
                 } else {
-                   images.forEach(img => {
-                       if (img.complete) {
-                           checkFinished();
-                       } else {
-                           img.onload = checkFinished;
-                           img.onerror = checkFinished;
-                       }
-                   });
+                  images.forEach(img => {
+                    if (img.complete) checkFinished();
+                    else { img.onload = checkFinished; img.onerror = checkFinished; }
+                  });
                 }
               }
             } else {
