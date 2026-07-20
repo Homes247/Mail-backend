@@ -5062,10 +5062,18 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     });
     this.docId = this.route.snapshot.paramMap.get('id') ?? '';
     this.api.getDocument(this.docId).subscribe((doc: any) => {
+      console.log("===== FRONTEND DEBUG LOG =====");
+      console.log("Doc ID:", this.docId);
+      console.log("Raw Content Length:", doc.content ? doc.content.length : 0);
       this.docDetails = doc;
       this.title = doc.title;
       try {
         let p = JSON.parse(doc.content || '{}');
+        console.log("Parsed JSON keys:", Object.keys(p));
+        if (p.cells && p.cells.length > 0) {
+           console.log("Sample cell (0,0):", p.cells[0][0]);
+           console.log("Sample cell D2 (1,3):", p.cells[1] ? p.cells[1][3] : "N/A");
+        }
         if (Array.isArray(p) && p.length > 0) p = p[0];
         if (p.cells) {
           for (let r = 0; r < this.ROWS; r++)
