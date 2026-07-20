@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpEventType } from '@angular/common/http';
 import { ChatWidgetComponent } from '../../components/chat-widget/chat-widget.component';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
@@ -354,6 +355,26 @@ import { filter, take } from 'rxjs/operators';
           </div>
         </div>
       </div>
+
+      <!-- Upload Progress Overlay (2026 Premium Style) -->
+      <div class="upload-overlay" *ngIf="isUploading">
+        <div class="upload-modal shadow-lg">
+           <div class="um-icon">
+              <span class="material-symbols-outlined" style="font-size:32px; color:#1a73e8;">cloud_upload</span>
+           </div>
+           <div class="um-title">Uploading Document...</div>
+           <div class="um-subtitle">Please wait while your file is securely uploaded and processed.</div>
+           
+           <div class="um-progress-container">
+              <div class="um-progress-bar" [style.width]="uploadProgress + '%'"></div>
+           </div>
+           
+           <div class="um-stats">
+              <div class="um-percent">{{ uploadProgress }}%</div>
+              <div class="um-time">{{ uploadTimeLeft }}</div>
+           </div>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
@@ -564,6 +585,23 @@ import { filter, take } from 'rxjs/operators';
     .btn-danger { background: #d32f2f; color: #fff; border: none; }
     .btn-danger:hover { background: #b71c1c; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
     @keyframes modalIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    
+    /* Upload Overlay (2026 Premium) */
+    .upload-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 9999; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.3s ease-out; }
+    .upload-modal { background: #fff; border-radius: 16px; padding: 40px; width: 420px; text-align: center; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 20px 40px rgba(0,0,0,0.1); animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+    .um-icon { width: 64px; height: 64px; border-radius: 50%; background: #e8f0fe; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; }
+    .um-title { font-size: 20px; font-weight: 600; color: #202124; margin-bottom: 8px; letter-spacing: -0.3px; }
+    .um-subtitle { font-size: 14px; color: #5f6368; line-height: 1.5; margin-bottom: 28px; padding: 0 20px; }
+    .um-progress-container { height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; margin-bottom: 16px; position: relative; }
+    .um-progress-bar { height: 100%; background: linear-gradient(90deg, #1a73e8, #4285f4); border-radius: 4px; transition: width 0.2s ease-out; position: relative; overflow: hidden; }
+    .um-progress-bar::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%); animation: shimmer 1.5s infinite; }
+    .um-stats { display: flex; justify-content: space-between; font-size: 13px; font-weight: 500; }
+    .um-percent { color: #1a73e8; font-weight: 600; font-size: 14px; }
+    .um-time { color: #5f6368; }
+    
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
   `]
 })
 export class DashboardComponent implements OnInit {
@@ -810,20 +848,45 @@ export class DashboardComponent implements OnInit {
     }
   }
 
+  isUploading = false;
+  uploadProgress = 0;
+  uploadTimeLeft = '';
+  private uploadStartTime = 0;
+
   onUpload(event: any) {
     const file = event.target.files[0];
     if (file) {
-      let type = 'doc';
-      if (file.name.endsWith('.xlsx') || file.name.endsWith('.csv')) type = 'sheet';
-      if (file.name.endsWith('.pptx')) type = 'slide';
-
-      this.showToast(`Uploading ${file.name}...`);
+      this.isUploading = true;
+      this.uploadProgress = 0;
+      this.uploadTimeLeft = 'Calculating...';
+      this.uploadStartTime = Date.now();
+      
       this.api.importFile(file).subscribe({
-        next: (doc: any) => {
-          this.showToast(`${file.name} uploaded successfully.`);
-          this.load();
+        next: (event: any) => {
+          if (event.type === HttpEventType.UploadProgress) {
+            if (event.total) {
+              this.uploadProgress = Math.round(100 * event.loaded / event.total);
+              const timeElapsed = Date.now() - this.uploadStartTime;
+              const uploadSpeed = event.loaded / (timeElapsed / 1000); // bytes per sec
+              const bytesLeft = event.total - event.loaded;
+              const secondsLeft = Math.round(bytesLeft / uploadSpeed);
+              
+              if (secondsLeft > 60) {
+                this.uploadTimeLeft = `~${Math.ceil(secondsLeft/60)} mins left`;
+              } else if (secondsLeft > 0) {
+                this.uploadTimeLeft = `${secondsLeft} secs left`;
+              } else {
+                this.uploadTimeLeft = 'Processing file...';
+              }
+            }
+          } else if (event.type === HttpEventType.Response) {
+            this.showToast(`${file.name} uploaded successfully.`);
+            this.load();
+            this.isUploading = false;
+          }
         },
         error: (err: any) => {
+          this.isUploading = false;
           this.showToast(`Error uploading ${file.name}.`);
           console.error('Import failed:', err);
         }

@@ -375,6 +375,15 @@ interface SlideData { id: string; title: string; pages: Record<string, Page>; pa
       </div>
 
       <app-chat-widget [activeWidget]="activeWidget" (close)="activeWidget=null"></app-chat-widget>
+      
+      <!-- Loading Data Overlay -->
+      <div class="loading-overlay" *ngIf="isLoadingDocument">
+        <div class="loading-modal shadow-lg">
+           <div class="lm-spinner"></div>
+           <div class="lm-title">Loading Presentation...</div>
+           <div class="lm-subtitle">Retrieving slides, shapes, and formatting. Please wait.</div>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
@@ -521,9 +530,21 @@ interface SlideData { id: string; title: string; pages: Record<string, Page>; pa
       .shell, .workspace, .canvas-area { display: block !important; height: auto !important; padding: 0 !important; background: transparent !important; overflow: visible !important; }
       .slide { box-shadow: none !important; margin: 0 auto 20px !important; page-break-after: always; border: 1px solid #ddd; }
     }
+    
+    /* Loading Overlay (2026 Premium) */
+    .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 99999; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.3s ease-out; }
+    .loading-modal { background: #fff; border-radius: 16px; padding: 40px; width: 420px; text-align: center; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 20px 40px rgba(0,0,0,0.1); animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+    .lm-spinner { width: 48px; height: 48px; border: 4px solid #e8f0fe; border-top-color: #1a73e8; border-radius: 50%; margin: 0 auto 24px auto; animation: spin 1s linear infinite; }
+    .lm-title { font-size: 20px; font-weight: 600; color: #202124; margin-bottom: 8px; letter-spacing: -0.3px; }
+    .lm-subtitle { font-size: 14px; color: #5f6368; line-height: 1.5; padding: 0 20px; }
+    
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
   `]
 })
 export class SlideEditorComponent implements OnInit, OnDestroy {
+  isLoadingDocument = true;
   goHome() {
     window.location.href = 'https://show.vsnaptechnology.com/';
   }
@@ -971,7 +992,7 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
     this.onChanged();
   }
 
-  ngOnInit() {
+    ngOnInit() {
     this.docId = this.route.snapshot.paramMap.get('id') ?? '';
     this.api.getDocument(this.docId).subscribe((doc: any) => {
       this.title = doc.title;
@@ -988,6 +1009,7 @@ export class SlideEditorComponent implements OnInit, OnDestroy {
         });
       }
       this.pushHistory();
+      this.isLoadingDocument = false;
     });
 
     this.syncSub = this.api.connectSync(this.docId).subscribe(msg => {

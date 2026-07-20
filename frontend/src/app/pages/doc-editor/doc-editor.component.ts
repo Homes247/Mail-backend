@@ -2062,14 +2062,44 @@ export class SafeHtmlPipe implements PipeTransform {
       </div>
 
       <app-chat-widget [activeWidget]="activeWidget" (close)="activeWidget=null"></app-chat-widget>
-
-
+      
+      <!-- Loading Data Overlay -->
+      <div class="loading-overlay" *ngIf="isLoadingDocument || isUploading">
+        <div class="loading-modal shadow-lg" *ngIf="isLoadingDocument">
+           <div class="lm-spinner"></div>
+           <div class="lm-title">Loading Document...</div>
+           <div class="lm-subtitle">Retrieving text, images, and formatting. Please wait.</div>
+        </div>
+        
+        <div class="upload-modal shadow-lg" *ngIf="isUploading">
+           <div class="um-icon">
+              <span class="material-symbols-outlined" style="font-size:32px; color:#1a73e8;">cloud_upload</span>
+           </div>
+           <div class="um-title">Importing Document...</div>
+           <div class="um-subtitle">Please wait while your file is securely uploaded and processed.</div>
+           
+           <div class="um-progress-container">
+              <div class="um-progress-bar" [style.width]="uploadProgress + '%'"></div>
+           </div>
+           
+           <div class="um-stats">
+              <div class="um-percent">{{ uploadProgress }}%</div>
+              <div class="um-time">{{ uploadTimeLeft }}</div>
+           </div>
+        </div>
+      </div>
   `,
   styleUrls: ['./doc-editor.component.css']
 })
 export class DocEditorComponent implements OnInit, OnDestroy {
   contextMenuX = 0;
   contextMenuY = 0;
+  
+  isLoadingDocument = true;
+  isUploading = false;
+  uploadProgress = 0;
+  uploadTimeLeft = '';
+  private uploadStartTime = 0;
   
   sanitizeImportedHtml(html: string): string {
     if (!html) return html;
@@ -3105,6 +3135,7 @@ export class DocEditorComponent implements OnInit, OnDestroy {
           }, 100);
         }
       } catch { }
+      this.isLoadingDocument = false;
     });
 
     this.syncSub = this.api.connectSync(this.docId).subscribe(msg => {

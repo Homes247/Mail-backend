@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, Chan
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { HttpEventType } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Subscription, Subject } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
@@ -904,23 +905,23 @@ export interface CellValidation {
                 </div>
                 <div style="width:1px; background:#5f6368;"></div>
                 <div style="display:flex; flex-direction:column; gap:8px;">
-                   <div style="position:relative;">
+                   <div style="position:relative; z-index:1001;">
                      <div class="bo-item" (click)="activeBorderSubmenu = activeBorderSubmenu === 'color' ? null : 'color'; $event.stopPropagation()" title="Border Color" [class.active-bo]="activeBorderSubmenu==='color'">
                          <div style="width:18px; height:18px; border:1px solid #5f6368;" [style.background]="currentBorderColor"></div>
                          <span class="material-symbols-outlined" style="font-size:14px; color:#a0aec0;">arrow_drop_down</span>
                      </div>
-                     <div class="clr-pop" *ngIf="activeBorderSubmenu==='color'" (click)="$event.stopPropagation()" style="position:absolute; top:100%; right:0; z-index:1000; margin-top:4px;">
+                     <div class="clr-pop" *ngIf="activeBorderSubmenu==='color'" (click)="$event.stopPropagation()" style="position:absolute; top:100%; left:0; right:auto; width:max-content; z-index:1000; margin-top:4px;">
                         <div class="cp-grid"><div *ngFor="let c of themeColorsTop" class="cp-sw" [style.background]="c" (click)="currentBorderColor=c; activeBorderSubmenu=null"></div></div>
                         <div class="cp-grid"><div *ngFor="let c of themeColorsGrid" class="cp-sw" [style.background]="c" (click)="currentBorderColor=c; activeBorderSubmenu=null"></div></div>
                         <div class="cp-grid"><div *ngFor="let c of standardColors" class="cp-sw" [style.background]="c" (click)="currentBorderColor=c; activeBorderSubmenu=null"></div></div>
                      </div>
                    </div>
-                   <div style="position:relative;">
+                   <div style="position:relative; z-index:1000;">
                      <div class="bo-item" (click)="activeBorderSubmenu = activeBorderSubmenu === 'style' ? null : 'style'; $event.stopPropagation()" title="Border Style" [class.active-bo]="activeBorderSubmenu==='style'">
                          <div style="width:18px; height:0;" [ngStyle]="getBorderStyleCss(currentBorderStyle, currentBorderWidth)"></div>
                          <span class="material-symbols-outlined" style="font-size:14px; color:#a0aec0;">arrow_drop_down</span>
                      </div>
-                     <div class="mdd" *ngIf="activeBorderSubmenu==='style'" (click)="$event.stopPropagation()" style="position:absolute; top:100%; right:0; z-index:1000; margin-top:4px; width:120px;">
+                     <div class="mdd" *ngIf="activeBorderSubmenu==='style'" (click)="$event.stopPropagation()" style="position:absolute; top:100%; left:0; right:auto; z-index:1000; margin-top:4px; width:120px;">
                         <div class="mdi" (click)="currentBorderStyle='solid'; currentBorderWidth='1px'; activeBorderSubmenu=null"><div style="width:100%; border-top:1px solid currentColor;"></div></div>
                         <div class="mdi" (click)="currentBorderStyle='solid'; currentBorderWidth='2px'; activeBorderSubmenu=null"><div style="width:100%; border-top:2px solid currentColor;"></div></div>
                         <div class="mdi" (click)="currentBorderStyle='solid'; currentBorderWidth='3px'; activeBorderSubmenu=null"><div style="width:100%; border-top:3px solid currentColor;"></div></div>
@@ -1882,8 +1883,8 @@ export interface CellValidation {
                      (dblclick)="$event.stopPropagation()"
                      (mousedown)="$event.stopPropagation()"></textarea>
                                   <ng-container *ngIf="isImageCell(r, c); else textCell">
-                    <img [src]="cells[r][c]" style="max-width:100%;max-height:80px;object-fit:contain;display:inline-block;cursor:zoom-in;" 
-(click)="selectCell(r,c); previewImageUrl = cells[r][c]">
+                    <img [src]="getImageSrc(cells[r][c])" style="max-width:100%;max-height:80px;object-fit:contain;display:inline-block;cursor:zoom-in;" 
+(click)="selectCell(r,c); previewImageUrl = getImageSrc(cells[r][c])">
                   </ng-container>
                 <ng-template #textCell>
                   <ng-container *ngIf="isSparklineCell(r, c); else dropdownCell">
@@ -3671,6 +3672,33 @@ export interface CellValidation {
       </div>
 
       <app-chat-widget [activeWidget]="activeWidget" (close)="activeWidget=null"></app-chat-widget>
+      <app-chat-widget [activeWidget]="activeWidget" (close)="activeWidget=null"></app-chat-widget>
+      
+      <!-- Loading Data Overlay -->
+      <div class="loading-overlay" *ngIf="isLoadingDocument || isUploading">
+        <div class="loading-modal shadow-lg" *ngIf="isLoadingDocument">
+           <div class="lm-spinner"></div>
+           <div class="lm-title">Loading Spreadsheet...</div>
+           <div class="lm-subtitle">Retrieving cells, formulas, and formatting. Please wait.</div>
+        </div>
+        
+        <div class="upload-modal shadow-lg" *ngIf="isUploading">
+           <div class="um-icon">
+              <span class="material-symbols-outlined" style="font-size:32px; color:#1a73e8;">cloud_upload</span>
+           </div>
+           <div class="um-title">Importing Spreadsheet...</div>
+           <div class="um-subtitle">Please wait while your file is securely uploaded and processed.</div>
+           
+           <div class="um-progress-container">
+              <div class="um-progress-bar" [style.width]="uploadProgress + '%'"></div>
+           </div>
+           
+           <div class="um-stats">
+              <div class="um-percent">{{ uploadProgress }}%</div>
+              <div class="um-time">{{ uploadTimeLeft }}</div>
+           </div>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
@@ -4317,6 +4345,26 @@ export interface CellValidation {
     .theme-dark .footer-btn { color:#f3f4f6; }
     .theme-dark .footer-btn:hover { background:rgba(255,255,255,0.1); color:#fff; }
     .theme-dark .footer-container { background: #1e1e1e; border-top: 1px solid #333; }
+    /* Loading & Upload Overlay (2026 Premium) */
+    .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 99999; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.3s ease-out; }
+    .loading-modal, .upload-modal { background: #fff; border-radius: 16px; padding: 40px; width: 420px; text-align: center; border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 20px 40px rgba(0,0,0,0.1); animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+    .lm-spinner { width: 48px; height: 48px; border: 4px solid #e8f0fe; border-top-color: #1a73e8; border-radius: 50%; margin: 0 auto 24px auto; animation: spin 1s linear infinite; }
+    .lm-title, .um-title { font-size: 20px; font-weight: 600; color: #202124; margin-bottom: 8px; letter-spacing: -0.3px; }
+    .lm-subtitle, .um-subtitle { font-size: 14px; color: #5f6368; line-height: 1.5; padding: 0 20px; }
+    
+    .um-icon { width: 64px; height: 64px; border-radius: 50%; background: #e8f0fe; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; }
+    .um-subtitle { margin-bottom: 28px; }
+    .um-progress-container { height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; margin-bottom: 16px; position: relative; }
+    .um-progress-bar { height: 100%; background: linear-gradient(90deg, #10b981, #059669); border-radius: 4px; transition: width 0.2s ease-out; position: relative; overflow: hidden; }
+    .um-progress-bar::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%); animation: shimmer 1.5s infinite; }
+    .um-stats { display: flex; justify-content: space-between; font-size: 13px; font-weight: 500; }
+    .um-percent { color: #10b981; font-weight: 600; font-size: 14px; }
+    .um-time { color: #5f6368; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
   `]
 })
 export class SheetEditorComponent implements OnInit, OnDestroy {
@@ -4901,6 +4949,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   findMatchCase = false;
   findMatchEntireCell = false;
   findIncludeFormulas = false;
+  showShareModal = false;
   findDirection: 'up' | 'down' = 'down';
   findSearchIn = 'sheet';
   findMatches: { r: number, c: number, sIdx: number }[] = [];
@@ -4908,6 +4957,12 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   // Go To
   gotoQuery = '';
+  
+  isLoadingDocument = true;
+  isUploading = false;
+  uploadProgress = 0;
+  uploadTimeLeft = '';
+  private uploadStartTime = 0;
 
   themeColorsTop = [
     '#000000', '#434343', '#666666', '#999999', '#cccccc', '#efefef', '#f3f3f3', '#ffffff', '#ff0000', '#00ff00'
@@ -5069,6 +5124,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         if (p.tasks) this.tasks = p.tasks;
       } catch (err) { console.error('[SheetEditor] Error parsing document content:', err); }
       this.dataLoaded = true;
+      this.isLoadingDocument = false;
       // Re-apply filter after load if it was active, to ensure hidden rows are computed
       if (this.filterActive && this.advFilterSavedState.size > 0) {
         this.recalculateAllFilters();
@@ -6680,7 +6736,21 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   isImageCell(r: number, c: number): boolean {
-    return typeof this.cells[r]?.[c] === 'string' && this.cells[r][c].startsWith('data:image');
+    const val = this.cells[r]?.[c];
+    if (typeof val !== 'string') return false;
+    if (val.startsWith('data:image')) return true;
+    if (val.toUpperCase().startsWith('=IMAGE(')) return true;
+    return false;
+  }
+
+  getImageSrc(val: string): string {
+    if (!val || typeof val !== 'string') return '';
+    if (val.startsWith('data:image')) return val;
+    if (val.toUpperCase().startsWith('=IMAGE(')) {
+       const match = val.match(/=IMAGE\(\s*["'](.*?)["']/i);
+       if (match) return match[1];
+    }
+    return val;
   }
 
   triggerImageInsert(type: string = 'cell') {
@@ -10800,19 +10870,42 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       this.activeModal = null;
     } else if (this.activeModal === 'import') {
       if (this.selectedImportFile) {
-        this.showToast(`Importing ${this.selectedImportFile.name}...`);
+        this.isUploading = true;
+        this.uploadProgress = 0;
+        this.uploadTimeLeft = 'Calculating...';
+        this.uploadStartTime = Date.now();
+
         this.api.importFile(this.selectedImportFile, this.docId).subscribe({
-          next: (doc: any) => {
-            const fileName = this.selectedImportFile!.name;
-            this.selectedImportFile = null;
-            this.activeModal = null;
-            try {
-              let p = JSON.parse(doc.content || '{}');
-              if (Array.isArray(p) && p.length > 0) p = p[0];
-              if (p._importedSheets && p._importedSheets.length > 0) {
-                // Multi-sheet import — expand sparse cells to 2D arrays
-                this.sheets = p._importedSheets.map((sheet: any) => {
-                  let cells2d: string[][];
+          next: (event: any) => {
+            if (event.type === HttpEventType.UploadProgress) {
+              if (event.total) {
+                this.uploadProgress = Math.round(100 * event.loaded / event.total);
+                const timeElapsed = Date.now() - this.uploadStartTime;
+                const uploadSpeed = event.loaded / (timeElapsed / 1000); // bytes per sec
+                const bytesLeft = event.total - event.loaded;
+                const secondsLeft = Math.round(bytesLeft / uploadSpeed);
+                
+                if (secondsLeft > 60) {
+                  this.uploadTimeLeft = `~${Math.ceil(secondsLeft/60)} mins left`;
+                } else if (secondsLeft > 0) {
+                  this.uploadTimeLeft = `${secondsLeft} secs left`;
+                } else {
+                  this.uploadTimeLeft = 'Processing file...';
+                }
+              }
+            } else if (event.type === HttpEventType.Response) {
+              const doc = event.body;
+              this.isUploading = false;
+              const fileName = this.selectedImportFile!.name;
+              this.selectedImportFile = null;
+              this.activeModal = null;
+              try {
+                let p = JSON.parse(doc.content || '{}');
+                if (Array.isArray(p) && p.length > 0) p = p[0];
+                if (p._importedSheets && p._importedSheets.length > 0) {
+                  // Multi-sheet import — expand sparse cells to 2D arrays
+                  this.sheets = p._importedSheets.map((sheet: any) => {
+                    let cells2d: string[][];
                   if (Array.isArray(sheet.cells)) {
                     cells2d = Array.from({ length: Math.max(this.ROWS, sheet.cells.length) }, (_: any, r: number) =>
                       Array.from({ length: Math.max(this.COLS, sheet.cells[r]?.length ?? 0) }, (_2: any, c: number) =>
@@ -10857,6 +10950,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
             } catch {
               window.location.reload();
             }
+            } // Close else if (event.type === HttpEventType.Response)
           },
           error: () => this.showToast('Failed to import file.')
         });

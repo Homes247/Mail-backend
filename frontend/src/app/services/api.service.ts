@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { Observable, Subject } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
@@ -38,7 +38,10 @@ export class ApiService implements OnDestroy {
     if (replaceDocId) {
       formData.append('replace_doc_id', replaceDocId);
     }
-    return this.http.post(`${this.base}/documents/import`, formData);
+    return this.http.post(`${this.base}/documents/import`, formData, {
+      reportProgress: true,
+      observe: 'events'
+    });
   }
 
   listDocuments(): Observable<any[]> {

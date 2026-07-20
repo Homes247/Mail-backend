@@ -153,6 +153,126 @@ def resolve_validation_options(formula, wb, ws):
             pass
     return []
 
+def repair_zoho_rich_values(content_bytes: bytes) -> bytes:
+    import zipfile
+    import xml.etree.ElementTree as ET
+    import os
+    import tempfile
+    import shutil
+    import openpyxl
+    from openpyxl.drawing.image import Image as OpenpyxlImage
+    
+    NS = {
+        'main': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+        'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+        'xlrd': 'http://schemas.microsoft.com/office/spreadsheetml/2017/richdata',
+        'xldr': 'http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2',
+        'xlrr': 'http://schemas.microsoft.com/office/spreadsheetml/2022/richvaluerel'
+    }
+    
+    temp_dir = tempfile.mkdtemp()
+    input_path = os.path.join(temp_dir, "input.xlsx")
+    output_path = os.path.join(temp_dir, "output.xlsx")
+    
+    try:
+        with open(input_path, 'wb') as f:
+            f.write(content_bytes)
+            
+        with zipfile.ZipFile(input_path, 'r') as z:
+            namelist = z.namelist()
+            sheet_targets = {}
+            if 'xl/_rels/workbook.xml.rels' in namelist:
+                root = ET.fromstring(z.read('xl/_rels/workbook.xml.rels'))
+                for rel in root.findall('.//r:Relationship', namespaces={'r': 'http://schemas.openxmlformats.org/package/2006/relationships'}):
+                    sheet_targets[rel.attrib['Id']] = 'xl/' + rel.attrib['Target']
+            sheet_info = {}
+            if 'xl/workbook.xml' in namelist:
+                root = ET.fromstring(z.read('xl/workbook.xml'))
+                for sheet in root.findall('.//main:sheet', namespaces=NS):
+                    sheet_info[sheet.attrib['name']] = sheet_targets.get(sheet.attrib['{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id'])
+            rc_list = []
+            future_metadata_bk = []
+            if 'xl/metadata.xml' in namelist:
+                root = ET.fromstring(z.read('xl/metadata.xml'))
+                value_meta = root.find('.//main:valueMetadata', namespaces=NS)
+                if value_meta is not None:
+                    for bk in value_meta.findall('.//main:bk', namespaces=NS):
+                        for rc in bk.findall('.//main:rc', namespaces=NS):
+                            rc_list.append(int(rc.attrib['v']))
+                future_meta = root.find('.//main:futureMetadata', namespaces=NS)
+                if future_meta is not None:
+                    for bk in future_meta.findall('.//main:bk', namespaces=NS):
+                        future_metadata_bk.append(bk)
+            rv_list = []
+            if 'xl/richData/rdrichvalue.xml' in namelist:
+                root = ET.fromstring(z.read('xl/richData/rdrichvalue.xml'))
+                for rv in root.findall('.//xlrd:rv', namespaces=NS):
+                    v_tags = rv.findall('.//xlrd:v', namespaces=NS)
+                    rv_list.append(int(v_tags[0].text) if v_tags else None)
+            rel_list = []
+            if 'xl/richData/richValueRel.xml' in namelist:
+                root = ET.fromstring(z.read('xl/richData/richValueRel.xml'))
+                for rel in root.findall('.//xlrr:rel', namespaces=NS):
+                    rel_list.append(rel.attrib['{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id'])
+            rv_targets = {}
+            if 'xl/richData/_rels/richValueRel.xml.rels' in namelist:
+                root = ET.fromstring(z.read('xl/richData/_rels/richValueRel.xml.rels'))
+                for rel in root.findall('.//r:Relationship', namespaces={'r': 'http://schemas.openxmlformats.org/package/2006/relationships'}):
+                    rv_targets[rel.attrib['Id']] = rel.attrib['Target']
+            images_to_insert = []
+            for sheet_name, target in sheet_info.items():
+                if target not in namelist: continue
+                root = ET.fromstring(z.read(target))
+                for c in root.findall('.//main:c', namespaces=NS):
+                    if 'vm' in c.attrib:
+                        vm_idx = int(c.attrib['vm']) - 1
+                        if vm_idx < len(rc_list):
+                            v_idx = rc_list[vm_idx]
+                            if v_idx < len(future_metadata_bk):
+                                rvb = None
+                                for elem in bk.iter():
+                                    if elem.tag.endswith('}rvb'):
+                                        rvb = elem
+                                        break
+                                if rvb is not None:
+                                    rv_idx = int(rvb.attrib.get('i', 0))
+                                    if rv_idx < len(rv_list):
+                                        local_img_id = rv_list[rv_idx]
+                                        if local_img_id is not None and local_img_id < len(rel_list):
+                                            r_id = rel_list[local_img_id]
+                                            img_target = rv_targets.get(r_id)
+                                            if img_target:
+                                                img_path = img_target.replace('../', 'xl/')
+                                                if img_path in namelist:
+                                                    images_to_insert.append((sheet_name, c.attrib['r'], img_path))
+        if not images_to_insert:
+            return content_bytes
+        wb = openpyxl.load_workbook(input_path)
+        with zipfile.ZipFile(input_path, 'r') as z:
+            for sheet_name, cell_ref, img_path in images_to_insert:
+                ws = wb[sheet_name]
+                ws[cell_ref].value = None
+                img_temp_path = os.path.join(temp_dir, os.path.basename(img_path) + str(hash(cell_ref)) + ".png")
+                with open(img_temp_path, 'wb') as f:
+                    f.write(z.read(img_path))
+                img = OpenpyxlImage(img_temp_path)
+                img.width = 90
+                img.height = 90
+                ws.add_image(img, cell_ref)
+                col_letter = ''.join([char for char in cell_ref if char.isalpha()])
+                row_number = ''.join([char for char in cell_ref if char.isdigit()])
+                ws.column_dimensions[col_letter].width = 12
+                ws.row_dimensions[int(row_number)].height = 70
+        wb.save(output_path)
+        with open(output_path, 'rb') as f:
+            return f.read()
+    except Exception as e:
+        print(f"Error repairing zoho sheet: {e}")
+        return content_bytes
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 @router.post("/import")
 async def import_document(
     file: UploadFile = File(...),
@@ -175,12 +295,17 @@ async def import_document(
     
     if doc_type == "sheet" and (filename_lower.endswith(".xlsx") or filename_lower.endswith(".xls")):
         try:
+            if filename_lower.endswith(".xlsx"):
+                content_bytes = repair_zoho_rich_values(content_bytes)
+                
             from openpyxl import load_workbook
             from openpyxl.utils import column_index_from_string
             wb = load_workbook(io.BytesIO(content_bytes), data_only=True)
+            wb_formula = load_workbook(io.BytesIO(content_bytes), data_only=False)
             sheets = []
             
-            for ws in wb.worksheets:
+            for ws_idx, ws in enumerate(wb.worksheets):
+                ws_f = wb_formula.worksheets[ws_idx]
                 ROWS = max(1000, ws.max_row + 5)
                 COLS = max(26, ws.max_column + 5)
                 
@@ -192,11 +317,16 @@ async def import_document(
                 
                 for row in ws.iter_rows():
                     for cell in row:
-                        if cell.value is not None:
+                        val = cell.value
+                        if val is None or (isinstance(val, str) and val.startswith('#')):
+                            f_cell = ws_f.cell(row=cell.row, column=cell.column)
+                            if isinstance(f_cell.value, str) and f_cell.value.upper().startswith('=IMAGE('):
+                                val = f_cell.value
+
+                        if val is not None:
                             r = cell.row - 1
                             c = cell.column - 1
                             if r < ROWS and c < COLS:
-                                val = cell.value
                                 if isinstance(val, (_dt.datetime, _dt.date)):
                                     cells[r][c] = val.strftime("%d/%m/%Y")
                                 else:
