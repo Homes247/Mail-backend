@@ -5122,7 +5122,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         if (p.calendarNotes) this.calendarNotes = p.calendarNotes;
         if (p.globalNotes) this.globalNotes = p.globalNotes;
         if (p.tasks) this.tasks = p.tasks;
-      } catch (err) { console.error('[SheetEditor] Error parsing document content:', err); }
+      } catch (err) {
+        console.error('[SheetEditor] Error parsing document content:', err);
+        (this as any).initError = true;
+      }
       this.dataLoaded = true;
       this.isLoadingDocument = false;
       // Re-apply filter after load if it was active, to ensure hidden rows are computed
@@ -10084,6 +10087,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   // The actual HTTP call to the backend
   private executeSave() {
+    if ((this as any).initError) {
+      console.warn('[SheetEditor] Skipping save — document failed to initialize correctly.');
+      return;
+    }
     // Prevent saving empty data before initial load completes
     if (!this.dataLoaded) {
       console.warn('[SheetEditor] Skipping save — data not yet loaded.');
