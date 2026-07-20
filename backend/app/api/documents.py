@@ -389,58 +389,100 @@ async def import_document(
             content_json = _default_content(doc_type, title)
     elif doc_type == "doc":
         parsed = False
+        parse_error = None
         try:
             import docx
             import base64
             doc_file = docx.Document(io.BytesIO(content_bytes))
             html = ""
-            for p in doc_file.paragraphs:
-                p_html = ""
-                for run in p.runs:
-                    # check for images
-                    drawing_elements = run._element.xpath('.//w:drawing')
-                    for drawing in drawing_elements:
-                        blips = drawing.xpath('.//a:blip')
-                        for blip in blips:
-                            embed_id = blip.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
-                            if embed_id and embed_id in doc_file.part.related_parts:
-                                part = doc_file.part.related_parts[embed_id]
-                                image_bytes = part.blob
-                                b64 = base64.b64encode(image_bytes).decode('utf-8')
-                                mime = part.content_type
-                                if p_html.strip():
-                                    style_str = ""
-                                    if p.alignment == 1: style_str = ' style="text-align: center;"'
-                                    elif p.alignment == 2: style_str = ' style="text-align: right;"'
-                                    elif p.alignment == 3: style_str = ' style="text-align: justify;"'
-                                    html += f"<p{style_str}>{p_html}</p>"
-                                    p_html = ""
-                                html += f'<img src="data:{mime};base64,{b64}" style="max-width: 100%; height: auto; display: block; margin: 12px auto;" />'
-                    
-                    text = run.text.replace('<', '&lt;').replace('>', '&gt;')
-                    if text:
-                        if run.bold: text = f"<b>{text}</b>"
-                        if run.italic: text = f"<i>{text}</i>"
-                        if run.underline: text = f"<u>{text}</u>"
-                        p_html += text
-                        
-                if p_html.strip():
-                    style_str = ""
-                    if p.alignment == 1:
-                        style_str = ' style="text-align: center;"'
-                    elif p.alignment == 2:
-                        style_str = ' style="text-align: right;"'
-                    elif p.alignment == 3:
-                        style_str = ' style="text-align: justify;"'
-                        
-                    html += f"<p{style_str}>{p_html}</p>"
+
+            def _run_to_html(run):
+                """Convert a single docx run to HTML, handling bold/italic/underline."""
+                text = run.text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                if not text:
+                    return ""
+                if run.bold:      text = f"<b>{text}</b>"
+                if run.italic:    text = f"<i>{text}</i>"
+                if run.underline: text = f"<u>{text}</u>"
+                if run.font.strike: text = f"<s>{text}</s>"
+                return text
+
+            def _alignment_style(p):
+                try:
+                    if p.alignment == 1: return ' style="text-align:center;"'
+                    if p.alignment == 2: return ' style="text-align:right;"'
+                    if p.alignment == 3: return ' style="text-align:justify;"'
+                except:
+                    pass
+                return ""
+
+            def _para_tag(p):
+                """Return the appropriate HTML tag for a paragraph's style."""
+                try:
+                    style = (p.style.name or "").lower()
+                    if "heading 1" in style: return "h1"
+                    if "heading 2" in style: return "h2"
+                    if "heading 3" in style: return "h3"
+                    if "heading 4" in style: return "h4"
+                except:
+                    pass
+                return "p"
+
+            # Process body elements (paragraphs + tables) in order
+            from docx.oxml.ns import qn
+            for element in doc_file.element.body:
+                tag = element.tag.split("}")[-1]  # strip namespace
+
+                if tag == "p":
+                    # Wrap as a paragraph object
+                    from docx.text.paragraph import Paragraph
+                    p = Paragraph(element, doc_file)
+                    p_html = ""
+
+                    # Images
+                    for run in p.runs:
+                        drawings = run._element.xpath('.//w:drawing')
+                        for drawing in drawings:
+                            for blip in drawing.xpath('.//a:blip'):
+                                embed_id = blip.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed")
+                                if embed_id and embed_id in doc_file.part.related_parts:
+                                    part = doc_file.part.related_parts[embed_id]
+                                    b64 = base64.b64encode(part.blob).decode("utf-8")
+                                    if p_html.strip():
+                                        html += f"<{_para_tag(p)}{_alignment_style(p)}>{p_html}</{_para_tag(p)}>"
+                                        p_html = ""
+                                    html += f'<img src="data:{part.content_type};base64,{b64}" style="max-width:100%;height:auto;display:block;margin:12px auto;"/>'
+                        p_html += _run_to_html(run)
+
+                    if p_html.strip():
+                        tag_name = _para_tag(p)
+                        html += f"<{tag_name}{_alignment_style(p)}>{p_html}</{tag_name}>"
+                    elif not p_html:
+                        html += "<br>"
+
+                elif tag == "tbl":
+                    from docx.table import Table
+                    tbl = Table(element, doc_file)
+                    html += '<table border="1" style="border-collapse:collapse;width:100%;margin:8px 0;"><tbody>'
+                    for row in tbl.rows:
+                        html += "<tr>"
+                        for cell in row.cells:
+                            cell_text = cell.text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                            html += f'<td style="padding:4px;">{cell_text}</td>'
+                        html += "</tr>"
+                    html += "</tbody></table>"
+
             if not html:
                 html = "<br>"
             content_json = json.dumps({"html": html})
             parsed = True
+            print(f"[IMPORT] docx parsed OK: {len(html)} chars of HTML for doc '{title}'")
         except Exception as e:
-            pass
-            
+            import traceback
+            parse_error = traceback.format_exc()
+            print(f"[IMPORT] docx parse FAILED for '{title}': {e}")
+            print(parse_error)
+
         if not parsed:
             if filename_lower.endswith(".html"):
                 try:
@@ -449,7 +491,8 @@ async def import_document(
                     parsed = True
                 except:
                     pass
-            elif filename_lower.endswith(".txt") or not parsed:
+            elif filename_lower.endswith(".txt"):
+                # Only decode as text if the file is actually a text file
                 try:
                     text = content_bytes.decode('utf-8', errors='replace')
                     html_content = "".join([f"<p>{line}</p>" for line in text.splitlines()])
@@ -457,8 +500,17 @@ async def import_document(
                     parsed = True
                 except:
                     pass
+            # NOTE: do NOT fall back to decoding .docx/.pdf binary bytes as UTF-8 text
+            # that produces garbage. Just return a friendly error message.
+            if not parsed:
+                error_msg = f"Could not parse {filename}."
+                if parse_error:
+                    # Include first line of error for debug visibility in editor
+                    first_line = parse_error.strip().splitlines()[-1]
+                    error_msg += f" Server error: {first_line}"
+                content_json = json.dumps({"html": f"<p style='color:red;'>{error_msg} Please try a .txt or .html file.</p>"})
+                parsed = True
 
-                    
         if not parsed:
             content_json = _default_content(doc_type, title)
             
