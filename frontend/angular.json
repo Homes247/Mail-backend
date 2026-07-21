@@ -32,7 +32,8 @@
               "html2canvas",
               "canvg",
               "raf",
-              "rgbcolor"
+              "rgbcolor",
+              "tesseract.js"
             ]
           },
           "configurations": {

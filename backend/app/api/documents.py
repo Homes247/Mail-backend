@@ -16,6 +16,8 @@ from app.database import get_db
 from app.models.document import Document
 from app.models.document_share import DocumentShare
 from app.models.user import User
+from app.models.audit_event import AuditEvent
+from app.models.sheet_version import SheetVersion
 from app.api.auth import get_current_user, get_optional_current_user
 from app.lib.document_storage import DocumentStorage
 from fastapi import UploadFile, File, Form
@@ -37,7 +39,19 @@ class DocumentUpdate(BaseModel):
 
 class DocumentShareCreate(BaseModel):
     email: str
-    permission: str = "view"
+    permission: str
+
+
+class VersionResponse(BaseModel):
+    id: str
+    version_name: Optional[str] = None
+    created_at: _dt.datetime
+    created_by_user_id: int
+    is_named: bool
+    contributors: list
+
+class VersionCreateRequest(BaseModel):
+    version_name: str
 
 
 def _default_content(doc_type: str, title: str) -> str:
@@ -268,10 +282,142 @@ def repair_zoho_rich_values(content_bytes: bytes) -> bytes:
             return f.read()
     except Exception as e:
         print(f"Error repairing zoho sheet: {e}")
-        return content_bytes
+        return None
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
+# ---------------------------------------------------------
+# VERSION HISTORY ENDPOINTS
+# ---------------------------------------------------------
+
+@router.get("/{doc_id}/versions", response_model=list[VersionResponse])
+async def get_sheet_versions(doc_id: str, limit: int = 50, offset: int = 0, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(SheetVersion)
+        .where(SheetVersion.document_id == doc_id)
+        .order_by(SheetVersion.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return result.scalars().all()
+
+@router.get("/{doc_id}/versions/{version_id}")
+async def get_sheet_version_snapshot(doc_id: str, version_id: str, db: AsyncSession = Depends(get_db)):
+    version = await db.get(SheetVersion, version_id)
+    if not version or version.document_id != doc_id:
+        raise HTTPException(404, "Version not found")
+        
+    from app.lib.document_storage import _s3_client, R2_BUCKET_NAME
+    import gzip
+    try:
+        response = _s3_client.get_object(Bucket=R2_BUCKET_NAME, Key=version.sheet_snapshot_url)
+        body_bytes = response["Body"].read()
+        content = gzip.decompress(body_bytes).decode("utf-8")
+        return {"content": json.loads(content)}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to fetch snapshot: {str(e)}")
+
+@router.post("/{doc_id}/versions")
+async def create_named_version(
+    doc_id: str, 
+    body: VersionCreateRequest, 
+    db: AsyncSession = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    doc = await db.get(Document, doc_id)
+    if not doc: raise HTTPException(404, "Not found")
+    
+    import main
+    state = main.manager.doc_states.get(doc_id)
+    if not state or not state.get("data"):
+        raise HTTPException(400, "Document state is empty or not in memory")
+        
+    content_str = json.dumps(state["data"][0]) if isinstance(state["data"], list) and state["data"] else json.dumps(state["data"])
+    
+    import gzip
+    from app.lib.document_storage import _s3_client, R2_BUCKET_NAME
+    version_id = str(uuid.uuid4())
+    sheet_snapshot_url = f"Drive/Sheet/{doc.owner_id}/versions/{doc_id}_{version_id}.json"
+    body_bytes = gzip.compress(content_str.encode("utf-8"), compresslevel=1)
+    
+    import asyncio
+    def upload_to_r2():
+        _s3_client.put_object(
+            Bucket=R2_BUCKET_NAME, Key=sheet_snapshot_url, Body=body_bytes, ContentType="application/json",
+        )
+    await asyncio.to_thread(upload_to_r2)
+    
+    IST_OFFSET = _dt.timezone(_dt.timedelta(hours=5, minutes=30))
+    now = _dt.datetime.now(IST_OFFSET).replace(tzinfo=None)
+    
+    new_version = SheetVersion(
+        id=version_id,
+        document_id=doc_id,
+        version_name=body.version_name,
+        created_by_user_id=current_user.id,
+        contributors=[current_user.id],
+        is_named=True,
+        sheet_snapshot_url=sheet_snapshot_url,
+        created_at=now
+    )
+    db.add(new_version)
+    await db.commit()
+    return {"status": "success", "id": version_id}
+
+@router.post("/{doc_id}/versions/{version_id}/restore")
+async def restore_sheet_version(
+    doc_id: str, 
+    version_id: str, 
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    version = await db.get(SheetVersion, version_id)
+    if not version or version.document_id != doc_id:
+        raise HTTPException(404, "Version not found")
+        
+    doc = await db.get(Document, doc_id)
+    from app.lib.document_storage import DocumentStorage, _s3_client, R2_BUCKET_NAME
+    import gzip
+    
+    response = _s3_client.get_object(Bucket=R2_BUCKET_NAME, Key=version.sheet_snapshot_url)
+    snapshot_bytes = response["Body"].read()
+    snapshot_content = gzip.decompress(snapshot_bytes).decode("utf-8")
+    
+    new_version_id = str(uuid.uuid4())
+    new_sheet_snapshot_url = f"Drive/Sheet/{doc.owner_id}/versions/{doc_id}_{new_version_id}.json"
+    
+    _s3_client.put_object(
+        Bucket=R2_BUCKET_NAME, Key=new_sheet_snapshot_url, Body=snapshot_bytes, ContentType="application/json",
+    )
+    
+    IST_OFFSET = _dt.timezone(_dt.timedelta(hours=5, minutes=30))
+    now = _dt.datetime.now(IST_OFFSET).replace(tzinfo=None)
+    
+    new_version = SheetVersion(
+        id=new_version_id,
+        document_id=doc_id,
+        version_name=f"Restored from {version.created_at.strftime('%b %d, %H:%M')}",
+        created_by_user_id=current_user.id,
+        contributors=[current_user.id],
+        is_named=True,
+        sheet_snapshot_url=new_sheet_snapshot_url,
+        base_version_id=version.id,
+        created_at=now
+    )
+    db.add(new_version)
+    
+    storage_res = DocumentStorage.save(doc.owner_id, doc.id, snapshot_content, doc_type=doc.doc_type)
+    doc.file_path = storage_res["relative_path"]
+    doc.file_size = storage_res["size"]
+    doc.content_version = (doc.content_version or 1) + 1
+    
+    await db.commit()
+    
+    import main
+    if doc_id in main.manager.doc_states:
+        main.manager.doc_states.pop(doc_id, None)
+        
+    return {"status": "success", "id": new_version_id}
 
 @router.post("/import")
 async def import_document(
@@ -789,6 +935,106 @@ async def get_document(
     return {"id": doc.id, "title": doc.title, "doc_type": doc.doc_type, "content": content}
 
 
+@router.get("/{doc_id}/audit-events")
+async def get_audit_events(
+    doc_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(404, "Not found")
+
+    result = await db.execute(
+        select(AuditEvent)
+        .where(AuditEvent.document_id == doc_id)
+        .order_by(AuditEvent.created_at.desc())
+        .limit(1000)
+    )
+    events = result.scalars().all()
+    return events
+
+
+@router.post("/{doc_id}/audit-events")
+async def save_audit_events(
+    doc_id: str,
+    events: list[dict],
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(404, "Not found")
+
+    for ev in events:
+        ae = AuditEvent(
+            document_id=doc_id,
+            user_name=current_user.name or 'unknown',
+            sheet_id=ev.get("sheet_id", ""),
+            sheet_name=ev.get("sheet_name", ""),
+            action_type=ev.get("action_type", ""),
+            target_range=ev.get("target_range", ""),
+            metadata_json=ev.get("metadata"),
+        )
+        db.add(ae)
+        
+    # VERSION HISTORY AUTO-CHECKPOINT LOGIC
+    IST_OFFSET = _dt.timezone(_dt.timedelta(hours=5, minutes=30))
+    now = _dt.datetime.now(IST_OFFSET).replace(tzinfo=None)
+    
+    last_version_result = await db.execute(
+        select(SheetVersion)
+        .where(SheetVersion.document_id == doc_id, SheetVersion.is_named == False)
+        .order_by(SheetVersion.created_at.desc())
+        .limit(1)
+    )
+    last_version = last_version_result.scalar_one_or_none()
+    
+    needs_checkpoint = False
+    if not last_version:
+        needs_checkpoint = True
+    elif (now - last_version.created_at).total_seconds() > 600:
+        needs_checkpoint = True
+        
+    if needs_checkpoint:
+        import main
+        state = main.manager.doc_states.get(doc_id)
+        if state and state.get("data"):
+            content_str = json.dumps(state["data"][0]) if isinstance(state["data"], list) and state["data"] else json.dumps(state["data"])
+            
+            import gzip
+            from app.lib.document_storage import _s3_client, R2_BUCKET_NAME
+            version_id = str(uuid.uuid4())
+            sheet_snapshot_url = f"Drive/Sheet/{doc.owner_id}/versions/{doc_id}_{version_id}.json"
+            body_bytes = gzip.compress(content_str.encode("utf-8"), compresslevel=1)
+            
+            import asyncio
+            def upload_to_r2():
+                _s3_client.put_object(
+                    Bucket=R2_BUCKET_NAME,
+                    Key=sheet_snapshot_url,
+                    Body=body_bytes,
+                    ContentType="application/json",
+                )
+            await asyncio.to_thread(upload_to_r2)
+            
+            contributors = [current_user.id]
+            
+            new_version = SheetVersion(
+                id=version_id,
+                document_id=doc_id,
+                created_by_user_id=current_user.id,
+                contributors=contributors,
+                is_named=False,
+                sheet_snapshot_url=sheet_snapshot_url,
+                created_at=now
+            )
+            db.add(new_version)
+
+    await db.commit()
+    return {"status": "success"}
+
+
 @router.put("/{doc_id}")
 async def update_document(
     doc_id: str,
@@ -861,6 +1107,48 @@ async def update_document(
                 doc.file_path = storage_res["relative_path"]
                 doc.file_size = storage_res["size"]
                 doc.content_version = (doc.content_version or 1) + 1
+                
+                # Checkpoint logic for manual/explicit saves (debounce 30 seconds)
+                if doc.doc_type == "sheet":
+                    IST_OFFSET = _dt.timezone(_dt.timedelta(hours=5, minutes=30))
+                    now = _dt.datetime.now(IST_OFFSET).replace(tzinfo=None)
+                    
+                    last_version_result = await db.execute(
+                        select(SheetVersion)
+                        .where(SheetVersion.document_id == doc_id, SheetVersion.is_named == False)
+                        .order_by(SheetVersion.created_at.desc())
+                        .limit(1)
+                    )
+                    last_version = last_version_result.scalar_one_or_none()
+                    
+                    if not last_version or (now - last_version.created_at).total_seconds() > 30:
+                        version_id = str(uuid.uuid4())
+                        sheet_snapshot_url = f"Drive/Sheet/{doc.owner_id}/versions/{doc_id}_{version_id}.json"
+                        
+                        import gzip
+                        from app.lib.document_storage import _s3_client, R2_BUCKET_NAME
+                        body_bytes = gzip.compress(body.content.encode("utf-8"), compresslevel=1)
+                        
+                        def upload_to_r2():
+                            _s3_client.put_object(
+                                Bucket=R2_BUCKET_NAME,
+                                Key=sheet_snapshot_url,
+                                Body=body_bytes,
+                                ContentType="application/json",
+                            )
+                        await asyncio.to_thread(upload_to_r2)
+                        
+                        new_version = SheetVersion(
+                            id=version_id,
+                            document_id=doc_id,
+                            created_by_user_id=current_user.id,
+                            contributors=[current_user.id],
+                            is_named=False,
+                            sheet_snapshot_url=sheet_snapshot_url,
+                            created_at=now
+                        )
+                        db.add(new_version)
+                        
             except Exception as e:
                 print(f"Failed to save document {doc.id} to storage: {e}")
             

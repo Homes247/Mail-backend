@@ -350,10 +350,17 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: str):
                 
                 state = manager.doc_states.get(doc_id)
                 if state:
-                    sheets = state["data"]
-                    while len(sheets) <= sheet_idx:
-                        sheets.append({})
-                    sheet = sheets[sheet_idx]
+                    # Root doc is state["data"][0] if it's a list
+                    root_doc = state["data"][0] if isinstance(state["data"], list) and state["data"] else state.get("data", {})
+                    
+                    if "_importedSheets" not in root_doc:
+                        root_doc["_importedSheets"] = []
+                    
+                    sheets_arr = root_doc["_importedSheets"]
+                    while len(sheets_arr) <= sheet_idx:
+                        sheets_arr.append({})
+                        
+                    sheet = sheets_arr[sheet_idx]
                     
                     if "cells" not in sheet:
                         sheet["cells"] = {}

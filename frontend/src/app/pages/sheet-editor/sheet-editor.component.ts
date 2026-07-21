@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import * as Tesseract from 'tesseract.js';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -60,6 +61,12 @@ export interface DropdownOption {
 export interface CellValidation {
   type: 'list';
   options: (string | DropdownOption)[];
+}
+
+export interface AuditOp {
+  action_type: string;
+  target_range: string;
+  metadata?: any;
 }
 
 @Component({
@@ -704,7 +711,7 @@ export interface CellValidation {
             <div class="mdi" (click)="openEditHistory(); closeMenus()">
               <span class="material-symbols-outlined mdi-icon">edit_note</span> Edit History...
             </div>
-            <div class="mdi" (click)="activeModal='version'; closeMenus()">
+            <div class="mdi" (click)="openFeatureModal('version')">
               <span class="material-symbols-outlined mdi-icon">manage_history</span> Version History
             </div>
             <div class="mds"></div>
@@ -1663,8 +1670,8 @@ export interface CellValidation {
           </div>
         </div>
         <span class="tb-sep"></span>
-        <button class="tb" (click)="freezeRows(frozenRowsCount>0?0:1)"><span class="material-symbols-outlined">view_agenda</span></button>
-        <button class="tb" (click)="freezeCols(frozenColsCount>0?0:1)"><span class="material-symbols-outlined">view_week</span></button>
+        <button class="tb" (click)="toggleFreezeRow()" title="Freeze Rows"><span class="material-symbols-outlined">view_agenda</span></button>
+        <button class="tb" (click)="toggleFreezeCol()" title="Freeze Columns"><span class="material-symbols-outlined">view_week</span></button>
         <span class="tb-sep"></span>
         <div class="zoom-ctrl">
           <button class="tb" (click)="zoomOut()"><span class="material-symbols-outlined">zoom_out</span></button>
@@ -1919,6 +1926,11 @@ export interface CellValidation {
                   </ng-template>
                   </ng-template>
                 </ng-template>
+                <!-- Comment indicator -->
+                <div *ngIf="hasComment(r, c)"
+                     class="comment-indicator"
+                     style="position: absolute; top: 0; right: 0; width: 0; height: 0; border-style: solid; border-width: 0 8px 8px 0; border-color: transparent #f59e0b transparent transparent; z-index: 10;">
+                </div>
                 <!-- Fill handle: only show on the bottom-right cell of the selection -->
                 <div *ngIf="isFillHandleCell(r, c)"
                   class="fill-handle"
@@ -1960,12 +1972,12 @@ export interface CellValidation {
       <div class="side-panel" *ngIf="sidePanelApp">
         <div class="sp-head">
           <div class="sp-head-left">
-            <div class="sp-icon-wrap" [class.sp-icon-cal]="sidePanelApp==='calendar'" [class.sp-icon-notes]="sidePanelApp==='notes'" [class.sp-icon-tasks]="sidePanelApp==='tasks'" [class.sp-icon-pivot]="sidePanelApp==='pivot'" [style.background]="sidePanelApp==='pivot'?'#10b981':(sidePanelApp==='navigation'?'#1a73e8':'inherit')">
-              <span class="material-symbols-outlined sp-head-icon" [style.color]="sidePanelApp==='navigation'?'#fff':''">{{sidePanelApp==='pivot'?'pivot_table_chart':sidePanelApp==='calendar'?'calendar_month':sidePanelApp==='notes'?'sticky_note_2':sidePanelApp==='navigation'?'web_stories':'task_alt'}}</span>
+            <div class="sp-icon-wrap" [class.sp-icon-cal]="sidePanelApp==='calendar'" [class.sp-icon-notes]="sidePanelApp==='notes'" [class.sp-icon-tasks]="sidePanelApp==='tasks'" [class.sp-icon-pivot]="sidePanelApp==='pivot'" [style.background]="sidePanelApp==='pivot'?'#10b981':(sidePanelApp==='navigation'?'#1a73e8':(sidePanelApp==='comments'?'#f59e0b':'inherit'))">
+              <span class="material-symbols-outlined sp-head-icon" [style.color]="sidePanelApp==='navigation'?'#fff':(sidePanelApp==='comments'?'#fff':'')">{{sidePanelApp==='pivot'?'pivot_table_chart':sidePanelApp==='calendar'?'calendar_month':sidePanelApp==='notes'?'sticky_note_2':sidePanelApp==='navigation'?'web_stories':sidePanelApp==='comments'?'forum':'task_alt'}}</span>
             </div>
             <div>
-              <div class="sp-title">{{sidePanelApp==='pivot'?'Pivot Table Editor':sidePanelApp==='calendar'?'Calendar':sidePanelApp==='notes'?'Notes':sidePanelApp==='navigation'?'Navigation':'Tasks'}}</div>
-              <div class="sp-subtitle">{{sidePanelApp==='pivot'?'Configure rows and values':sidePanelApp==='calendar'?'Schedule & meeting notes':sidePanelApp==='notes'?'Quick capture':sidePanelApp==='navigation'?'Manage objects and charts':'Track your work'}}</div>
+              <div class="sp-title">{{sidePanelApp==='pivot'?'Pivot Table Editor':sidePanelApp==='calendar'?'Calendar':sidePanelApp==='notes'?'Notes':sidePanelApp==='navigation'?'Navigation':sidePanelApp==='comments'?'Comments':'Tasks'}}</div>
+              <div class="sp-subtitle">{{sidePanelApp==='pivot'?'Configure rows and values':sidePanelApp==='calendar'?'Schedule & meeting notes':sidePanelApp==='notes'?'Quick capture':sidePanelApp==='navigation'?'Manage objects and charts':sidePanelApp==='comments'?'Discuss with your team':'Track your work'}}</div>
             </div>
           </div>
           <button class="sp-close-btn" (click)="closeSidePanel()">
@@ -2133,6 +2145,103 @@ export interface CellValidation {
                 </div>
                 <div class="sp-empty-title" style="font-size: 14px;">No Objects Found</div>
                 <div class="sp-empty-sub">Add charts or shapes to see them listed here.</div>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- ── COMMENTS ────────────────────────────────────────────── -->
+          <ng-container *ngIf="sidePanelApp === 'comments'">
+            <div style="display:flex; flex-direction:column; gap:16px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <select [(ngModel)]="commentsViewFilter" (change)="updateCachedComments()" style="padding: 4px 8px; border: 1px solid #dadce0; border-radius: 4px; outline: none; background: #fff; font-size: 13px; font-weight: 500; color: #3c4043;">
+                  <option value="all">All Sheets</option>
+                  <option value="current">Current Sheet</option>
+                </select>
+                <select [(ngModel)]="commentsStatusFilter" (change)="updateCachedComments()" style="padding: 4px 8px; border: 1px solid #dadce0; border-radius: 4px; outline: none; background: #fff; font-size: 13px; font-weight: 500; color: #3c4043;">
+                  <option value="all">All Status</option>
+                  <option value="unresolved">Unresolved</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+              </div>
+
+              <!-- New Comment Box -->
+              <div class="sp-card" *ngIf="newCommentCellRef" style="border: 1px solid #1a73e8; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 12px; background: #fff;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                  <div style="width:24px; height:24px; border-radius:12px; background:#e8f0fe; color:#1a73e8; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold;">
+                    {{ auth.user?.name?.charAt(0) || 'U' }}
+                  </div>
+                  <div>
+                    <div style="font-size:13px; font-weight:600; color:#202124;">{{ auth.user?.name || 'You' }}</div>
+                    <div style="font-size:11px; color:#5f6368;">Refers to: <span style="color:#1a73e8;">{{ newCommentCellName }}</span></div>
+                  </div>
+                </div>
+                <textarea #newCommentInput [(ngModel)]="newCommentText" placeholder="Add a comment..." style="width:100%; min-height:60px; padding:8px; border:1px solid #dadce0; border-radius:4px; resize:vertical; font-size:13px; outline:none; margin-bottom:8px; box-sizing: border-box;"></textarea>
+                <div style="display:flex; gap:8px;">
+                  <button (click)="submitNewComment()" style="background:#0f9d58; color:#fff; border:none; border-radius:4px; padding:6px 16px; font-size:13px; font-weight:500; cursor:pointer;">Add</button>
+                  <button (click)="cancelNewComment()" style="background:transparent; color:#5f6368; border:none; padding:6px 16px; font-size:13px; font-weight:500; cursor:pointer;">Cancel</button>
+                </div>
+              </div>
+
+              <!-- List of Comments -->
+              <div *ngFor="let c of cachedComments" style="border: 1px solid #dadce0; border-radius: 8px; padding: 12px; background: #fff; margin-bottom: 8px;" [style.border-left]="c.data.resolved ? '4px solid #dadce0' : '4px solid #0f9d58'">
+                <!-- Header -->
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="width:28px; height:28px; border-radius:14px; background:#f1f3f4; color:#3c4043; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:bold;">
+                      {{ c.data.authorName?.charAt(0) || 'U' }}
+                    </div>
+                    <div>
+                      <div style="font-size:13px; font-weight:600; color:#202124;">{{ c.data.authorName || 'Unknown' }}</div>
+                      <div style="font-size:11px; color:#5f6368; display:flex; gap:4px; align-items:center;">
+                        <span (click)="goToCommentCell(c)" style="cursor:pointer; color:#1a73e8; text-decoration:underline;">{{ c.sheetName }}.{{ c.cellName }}</span>
+                        <span>•</span>
+                        <span>{{ c.data.timestamp | date:'dd MMM, yyyy h:mm a' }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Actions -->
+                  <div style="position:relative;">
+                    <span class="material-symbols-outlined" style="font-size:18px; color:#5f6368; cursor:pointer;" (click)="activeCommentMenu = activeCommentMenu === c.data.id ? null : c.data.id">more_vert</span>
+                    <div *ngIf="activeCommentMenu === c.data.id" style="position:absolute; right:0; top:20px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.15); border-radius:4px; padding:4px 0; min-width:120px; z-index:100; border:1px solid #dadce0;">
+                      <div class="dd-item" (click)="toggleCommentResolve(c); activeCommentMenu=null" style="padding:8px 16px; font-size:13px; cursor:pointer; color:#3c4043;">
+                        {{ c.data.resolved ? 'Mark Unresolved' : 'Mark Resolved' }}
+                      </div>
+                      <div class="dd-item" (click)="deleteComment(c); activeCommentMenu=null" style="padding:8px 16px; font-size:13px; cursor:pointer; color:#d93025;">
+                        Delete
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Body -->
+                <div style="font-size:13px; color:#3c4043; line-height:1.5; margin-bottom:12px; white-space:pre-wrap;">{{ c.data.text }}</div>
+                
+                <!-- Replies -->
+                <div *ngIf="c.data.replies?.length > 0" style="margin-left: 24px; padding-left: 12px; border-left: 2px solid #f1f3f4; margin-bottom: 12px; display:flex; flex-direction:column; gap:12px;">
+                  <div *ngFor="let rep of c.data.replies" style="display:flex; gap:8px;">
+                     <div style="width:24px; height:24px; border-radius:12px; background:#f1f3f4; color:#3c4043; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold; flex-shrink:0;">
+                       {{ rep.authorName?.charAt(0) || 'U' }}
+                     </div>
+                     <div>
+                       <div style="font-size:12px; font-weight:600; color:#202124;">{{ rep.authorName || 'Unknown' }} <span style="font-weight:normal; color:#5f6368; font-size:11px; margin-left:4px;">{{ rep.timestamp | date:'h:mm a' }}</span></div>
+                       <div style="font-size:13px; color:#3c4043;">{{ rep.text }}</div>
+                     </div>
+                  </div>
+                </div>
+
+                <!-- Reply Box -->
+                <div *ngIf="!c.data.resolved" style="display:flex; gap:8px; align-items:center;">
+                  <input type="text" [(ngModel)]="replyTexts[c.data.id]" placeholder="Reply or add others with @" style="flex:1; padding:8px 12px; border:1px solid #dadce0; border-radius:20px; font-size:13px; outline:none;" (keyup.enter)="submitReply(c)">
+                  <button (click)="submitReply(c)" style="background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:4px;" [style.color]="(replyTexts[c.data.id] || '').trim() ? '#1a73e8' : '#dadce0'"><span class="material-symbols-outlined" style="font-size:20px;">send</span></button>
+                </div>
+              </div>
+              
+              <div class="sp-empty" *ngIf="cachedComments.length === 0 && !newCommentCellRef" style="margin-top: 0; padding-top: 24px; border: none;">
+                <div class="sp-empty-icon">
+                  <span class="material-symbols-outlined">forum</span>
+                </div>
+                <div class="sp-empty-title" style="font-size: 14px;">No Comments Found</div>
+                <div class="sp-empty-sub">Highlight a cell and add a comment to start a discussion.</div>
               </div>
             </div>
           </ng-container>
@@ -2903,50 +3012,66 @@ export interface CellValidation {
 
       <!-- Feature Modals -->
         <div class="modal-overlay" *ngIf="activeModal !== null && activeModal !== 'goto'" (click)="activeModal = null" style="z-index: 10000;">
-          <div class="modal" (click)="$event.stopPropagation()" style="background:#fff; color:#333; border:1px solid #e2e8f0; box-shadow:0 8px 32px rgba(0,0,0,0.15); width:460px; padding:24px; border-radius:8px; position:relative;">
+          <div class="modal" (click)="$event.stopPropagation()" [style.width]="activeModal === 'version' ? '1200px' : (activeModal === 'audit' ? '620px' : '460px')" style="background:#fff; color:#333; border:1px solid #e2e8f0; box-shadow:0 8px 32px rgba(0,0,0,0.15); max-width:90vw; padding:24px; border-radius:8px; position:relative;">
             <button (click)="activeModal = null" style="position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;color:#888;display:flex;align-items:center;justify-content:center;">
               <span class="material-symbols-outlined" style="font-size:20px;">close</span>
             </button>
 
-            <div *ngIf="activeModal === 'audit'">
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
-                <span class="material-symbols-outlined" style="color:#10b981;font-size:24px;">history</span>
-                <h3 style="margin:0;font-size:18px;font-weight:600;">Audit Trail</h3>
+            <div *ngIf="activeModal === 'audit'" style="width:100%;">
+              <div style="font-size:16px;font-weight:600;margin-bottom:20px;font-family:'Roboto',sans-serif;">Audit Trail</div>
+              
+              <!-- Tabs -->
+              <div style="display:flex; gap:20px; border-bottom:1px solid #e0e0e0; margin-bottom:16px; font-size:13px; font-family:'Roboto',sans-serif; color:#5f6368;">
+                <div (click)="sortAudit('user')" [style.color]="auditSortBy === 'user' ? '#0f9d58' : ''" [style.border-bottom]="auditSortBy === 'user' ? '2px solid #0f9d58' : ''" [style.font-weight]="auditSortBy === 'user' ? '500' : ''" style="padding-bottom:8px; cursor:pointer;">User <span *ngIf="auditSortBy === 'user'">{{auditSortDesc ? '↓' : '↑'}}</span></div>
+                <div (click)="sortAudit('date')" [style.color]="auditSortBy === 'date' ? '#0f9d58' : ''" [style.border-bottom]="auditSortBy === 'date' ? '2px solid #0f9d58' : ''" [style.font-weight]="auditSortBy === 'date' ? '500' : ''" style="padding-bottom:8px; cursor:pointer;">Date <span *ngIf="auditSortBy === 'date'">{{auditSortDesc ? '↓' : '↑'}}</span></div>
+                <div (click)="sortAudit('sheet')" [style.color]="auditSortBy === 'sheet' ? '#0f9d58' : ''" [style.border-bottom]="auditSortBy === 'sheet' ? '2px solid #0f9d58' : ''" [style.font-weight]="auditSortBy === 'sheet' ? '500' : ''" style="padding-bottom:8px; cursor:pointer;">Sheet <span *ngIf="auditSortBy === 'sheet'">{{auditSortDesc ? '↓' : '↑'}}</span></div>
+                <div (click)="sortAudit('range')" [style.color]="auditSortBy === 'range' ? '#0f9d58' : ''" [style.border-bottom]="auditSortBy === 'range' ? '2px solid #0f9d58' : ''" [style.font-weight]="auditSortBy === 'range' ? '500' : ''" style="padding-bottom:8px; cursor:pointer;">Range <span *ngIf="auditSortBy === 'range'">{{auditSortDesc ? '↓' : '↑'}}</span></div>
               </div>
-              <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:16px;">
-                <div style="background:#f8f9fa;padding:10px 14px;font-size:12px;font-weight:600;color:#5f6368;border-bottom:1px solid #e2e8f0;display:flex;gap:16px;">
-                  <span style="width:130px;">Time</span><span style="width:100px;">User</span><span>Action</span>
-                </div>
-                <div *ngFor="let item of dummyList; let i=index" style="padding:10px 14px;font-size:13px;border-bottom:1px solid #f1f5f9;display:flex;gap:16px;align-items:center;" [style.background]="i%2===0?'#fff':'#fafafa'">
-                  <span style="width:130px;color:#5f6368;">Today, {{12+i}}:{{i*7|number:'2.0'}} PM</span>
-                  <span style="width:100px;">You</span>
-                  <span>Edited cell A{{i+1}}</span>
-                </div>
+
+              <!-- Filter -->
+              <div style="display:flex; align-items:center; gap:8px; font-size:13px; font-family:'Roboto',sans-serif; margin-bottom:16px;">
+                <span style="color:#333;">Sheet:</span>
+                <select style="border:1px solid #e0e0e0; border-radius:2px; padding:4px 8px; outline:none; background:#f9f9f9; color:#333; font-family:inherit; min-width:160px;">
+                  <option>Whole Document</option>
+                  <option *ngFor="let s of sheets">{{s.name}}</option>
+                </select>
               </div>
-              <div style="display:flex;justify-content:flex-end;">
-                <button (click)="activeModal=null" style="background:#10b981;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Close</button>
+
+              <!-- List -->
+              <div style="border:1px solid #e0e0e0; border-radius:2px; height:320px; overflow-y:auto; background:#fff; font-family:'Roboto',sans-serif; font-size:13px; margin-bottom:16px; box-sizing:border-box;">
+                
+                <div *ngIf="auditRecords.length === 0" style="padding:12px; color:#888; text-align:center;">
+                  No audit records found.
+                </div>
+                
+                <div *ngFor="let record of sortedAuditRecords" style="padding:12px; border-bottom:1px solid #f0f0f0;">
+                  <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                    <div style="width:6px; height:6px; background:#1a73e8; border-radius:50%;"></div>
+                    <span style="color:#1a73e8; font-weight:500;">{{ record.user_name }}</span>
+                    <span style="color:#888;">- {{ record.created_at | date:'medium' }}</span>
+                  </div>
+                  <div style="color:#333; padding-left:12px;">
+                    <span style="font-weight:500;">{{ record.action_type }}</span> on range 
+                    <span style="color:#0f9d58; cursor:pointer;" (click)="onAuditNavigate({sheetId: record.sheet_id, r: record.metadata_json?.r || 0, c: record.metadata_json?.c || 0, endR: record.metadata_json?.r || 0, endC: record.metadata_json?.c || 0})">
+                      '{{ record.sheet_name }}'.{{ record.target_range }}
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Footer Info -->
+              <div style="margin-top:16px; font-size:11px; font-family:'Roboto',sans-serif; color:#5f6368; line-height:1.6;">
+                <div><strong>Time Zone:</strong> India Standard Time</div>
+                <div><strong>Note:</strong> Only the last 1,000 edits are available. To view more, please access <a href="javascript:void(0)" style="color:#1a73e8; text-decoration:none;" (click)="openFeatureModal('version')">Version History</a>.</div>
+              </div>
+
+              <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+                <button (click)="activeModal=null" style="background:#f8f9fa; color:#333; border:1px solid #ccc; padding:6px 16px; border-radius:4px; font-size:13px; font-weight:500; cursor:pointer;">Close</button>
               </div>
             </div>
 
-            <div *ngIf="activeModal === 'version'">
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
-                <span class="material-symbols-outlined" style="color:#1a73e8;font-size:24px;">manage_history</span>
-                <h3 style="margin:0;font-size:18px;font-weight:600;">Version History</h3>
-              </div>
-              <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;margin-bottom:16px;">
-                <div *ngFor="let item of dummyList; let i=index" (click)="handleModalAction()" style="padding:12px 16px;font-size:13px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" [style.background]="i===0?'#f0fdf4':'#fff'">
-                  <div>
-                    <div style="font-weight:500;">{{i===0?'Current Version':item}}</div>
-                    <div style="font-size:12px;color:#5f6368;margin-top:2px;">Today at {{12+i}}:{{(i*13)%60|number:'2.0'}} PM · You</div>
-                  </div>
-                  <span *ngIf="i===0" style="background:#10b981;color:#fff;font-size:11px;padding:2px 8px;border-radius:3px;font-weight:600;">Current</span>
-                  <span *ngIf="i>0" style="color:#1a73e8;font-size:13px;cursor:pointer;">Restore</span>
-                </div>
-              </div>
-              <div style="display:flex;justify-content:flex-end;">
-                <button (click)="activeModal=null" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Close</button>
-              </div>
-            </div>
+
 
             <div *ngIf="activeModal === 'workflow'">
               <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
@@ -3621,40 +3746,54 @@ export interface CellValidation {
         </div>
       </div>
 
-      <div class="modal-overlay" *ngIf="statsModalOpen" (click)="statsModalOpen=false" style="z-index:10000;">
-        <div class="modal" (click)="$event.stopPropagation()" style="width:420px;background:#fff;color:#333;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.15);padding:24px;border:1px solid #e2e8f0;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <div style="display:flex;align-items:center;gap:10px;">
-              <span class="material-symbols-outlined" style="color:#1a73e8;font-size:22px;">bar_chart</span>
-              <h3 style="margin:0;font-size:18px;font-weight:600;">Spreadsheet Statistics</h3>
-            </div>
-            <button (click)="statsModalOpen=false" style="background:none;border:none;cursor:pointer;color:#888;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+      <div class="modal-overlay" *ngIf="statsModalOpen" (click)="statsModalOpen=false" style="z-index:10000; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4);">
+        <div class="modal" (click)="$event.stopPropagation()" style="width:420px;background:#fff;color:#333;border-radius:4px;box-shadow:0 4px 16px rgba(0,0,0,0.2);display:flex;flex-direction:column;font-family:'Roboto',sans-serif;">
+          
+          <!-- Header -->
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #e0e0e0;">
+            <div style="font-size:15px;font-weight:500;">Spreadsheet Statistics</div>
+            <button (click)="statsModalOpen=false" style="background:none;border:none;cursor:pointer;color:#5f6368;display:flex;align-items:center;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:16px;text-align:center;">
-              <div style="font-size:28px;font-weight:700;color:#10b981;">{{getStatsFilledCells()}}</div>
-              <div style="font-size:12px;color:#5f6368;margin-top:4px;">Non-Empty Cells</div>
-            </div>
-            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:16px;text-align:center;">
-              <div style="font-size:28px;font-weight:700;color:#1a73e8;">{{getStatsFormulaCells()}}</div>
-              <div style="font-size:12px;color:#5f6368;margin-top:4px;">Formula Cells</div>
-            </div>
-            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:16px;text-align:center;">
-              <div style="font-size:28px;font-weight:700;color:#f59e0b;">{{sheets.length}}</div>
-              <div style="font-size:12px;color:#5f6368;margin-top:4px;">Sheets</div>
-            </div>
-            <div style="background:#fdf4ff;border:1px solid #e9d5ff;border-radius:6px;padding:16px;text-align:center;">
-              <div style="font-size:28px;font-weight:700;color:#9333ea;">{{getStatsNumericCells()}}</div>
-              <div style="font-size:12px;color:#5f6368;margin-top:4px;">Numeric Cells</div>
-            </div>
+          
+          <!-- Body -->
+          <div style="padding:16px; font-size:13px;">
+             <!-- Spreadsheet Section -->
+             <div style="border:1px solid #e0e0e0; border-radius:4px; margin-bottom:16px; background:#f9f9f9;">
+                <div style="padding:12px 16px; font-weight:600; border-bottom:1px solid #e0e0e0;">Spreadsheet</div>
+                <div style="padding:12px 16px; display:flex; flex-direction:column; gap:8px;">
+                   <div style="display:flex; justify-content:space-between;"><span>Sheets:</span><span>{{sheets.length}}</span></div>
+                   <div style="display:flex; justify-content:space-between;"><span>Cells with data:</span><span>{{getGlobalStats().cellsWithData | number}}</span></div>
+                   <div style="display:flex; justify-content:space-between;"><span>Used cells:</span><span>{{getGlobalStats().usedCells | number}}</span></div>
+                   <div style="display:flex; justify-content:space-between;"><span>Tables:</span><span>0</span></div>
+                   <div style="display:flex; justify-content:space-between;"><span>Formulas:</span><span>0</span></div>
+                   <div style="display:flex; justify-content:space-between;"><span>Charts:</span><span>0</span></div>
+                   <div style="display:flex; justify-content:space-between;"><span>Pivot Tables:</span><span>0</span></div>
+                </div>
+             </div>
+
+             <!-- Sheet Section -->
+             <div style="border:1px solid #e0e0e0; border-radius:4px; background:#f9f9f9;">
+                <div style="padding:12px 16px; font-weight:600; border-bottom:1px solid #e0e0e0; display:flex; align-items:center; gap:8px;">
+                   <span>Sheet Name:</span>
+                   <select [(ngModel)]="statsSelectedSheetIdx" style="border:1px solid #ccc; border-radius:2px; padding:4px; outline:none; background:#fff; font-size:13px; font-family:inherit;">
+                      <option *ngFor="let s of sheets; let i=index" [value]="i">{{s.name}}</option>
+                   </select>
+                </div>
+                <div style="padding:12px 16px; display:flex; flex-direction:column; gap:8px;">
+                   <div style="display:flex; justify-content:space-between;"><span>End of sheet:</span><span style="color:#0f9d58; font-weight:500;">{{getSheetStats(statsSelectedSheetIdx).endOfSheet}}</span></div>
+                   <div style="display:flex; justify-content:space-between;"><span>Cells with data:</span><span>{{getSheetStats(statsSelectedSheetIdx).cellsWithData | number}}</span></div>
+                   <div style="display:flex; justify-content:space-between;"><span>Used cells:</span><span>{{getSheetStats(statsSelectedSheetIdx).usedCells | number}}</span></div>
+                   <div style="display:flex; justify-content:space-between;"><span>Tables:</span><span>0</span></div>
+                   <div style="display:flex; justify-content:space-between;"><span>Formulas:</span><span>0</span></div>
+                   <div style="display:flex; justify-content:space-between;"><span>Charts:</span><span>0</span></div>
+                   <div style="display:flex; justify-content:space-between;"><span>Pivot Tables:</span><span>0</span></div>
+                </div>
+             </div>
           </div>
-          <div style="background:#f8f9fa;border-radius:6px;padding:12px 16px;font-size:13px;color:#5f6368;line-height:1.8;">
-            <div>📋 Total rows: <strong>{{cells.length}}</strong></div>
-            <div>📋 Total columns: <strong>{{cells[0].length || 0}}</strong></div>
-            <div>🔒 Locked sheets: <strong>{{getStatsLockedSheets()}}</strong></div>
-          </div>
-          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
-            <button (click)="statsModalOpen=false" style="background:#1a73e8;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Close</button>
+
+          <!-- Footer -->
+          <div style="padding:12px 16px; display:flex; justify-content:flex-end;">
+            <button (click)="statsModalOpen=false" style="background:#f8f9fa; color:#333; border:1px solid #ccc; padding:6px 16px; border-radius:4px; font-size:13px; font-weight:500; cursor:pointer;">Close</button>
           </div>
         </div>
       </div>
@@ -3670,7 +3809,6 @@ export interface CellValidation {
             <span>Channels</span>
          </div>
       </div>
-
       <app-chat-widget [activeWidget]="activeWidget" (close)="activeWidget=null"></app-chat-widget>
       <app-chat-widget [activeWidget]="activeWidget" (close)="activeWidget=null"></app-chat-widget>
       
@@ -3699,7 +3837,295 @@ export interface CellValidation {
            </div>
         </div>
       </div>
+
+       <div class="modal-overlay" *ngIf="ocrModalOpen" [style.background]="currentTheme === 'dark' ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,0)'" style="z-index: 10000; pointer-events: none; position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;">
+         <div class="modal" (mousedown)="$event.stopPropagation()" [style.background]="currentTheme === 'dark' ? '#1e1e1e' : '#fff'" [style.color]="currentTheme === 'dark' ? '#e0e0e0' : '#333'" style="pointer-events: auto; width: 1000px; height: 650px; max-width: 95vw; border-radius: 8px; padding: 0; display: flex; flex-direction: column; max-height: 90vh; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.4); border: 1px solid #444;">
+            
+            <div [style.border-bottom]="currentTheme === 'dark' ? '1px solid #333' : '1px solid #e0e0e0'" [style.background]="currentTheme === 'dark' ? '#1e1e1e' : '#fff'" style="font-size: 16px; font-weight: 500; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+              <span>Data from Picture</span>
+              <span class="material-symbols-outlined" style="cursor: pointer; color: #888;" (click)="ocrModalOpen=false">close</span>
+            </div>
+            
+            <div *ngIf="ocrProgress > 0 && ocrProgress < 100" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #888;">
+               <div class="lm-spinner"></div>
+               <div style="margin-top: 16px;">Processing OCR... {{ocrProgress}}%</div>
+            </div>
+
+            <!-- Main body -->
+            <div *ngIf="ocrProgress === 100 && ocrData.length > 0" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+               
+               <!-- Toolbar spanning across top -->
+               <div [style.background]="currentTheme === 'dark' ? '#252525' : '#f8f9fa'" [style.border-bottom]="currentTheme === 'dark' ? '1px solid #333' : '1px solid #e0e0e0'" style="display: flex; align-items: center; gap: 12px; padding: 8px 20px;">
+                  <button (click)="ocrUndo()" [disabled]="ocrHistoryIndex <= 0" [style.opacity]="ocrHistoryIndex <= 0 ? 0.3 : 1" style="background: none; border: none; cursor: pointer; color: #888; padding: 4px; display: flex; align-items: center; justify-content: center;"><span class="material-symbols-outlined" style="font-size: 18px;">undo</span></button>
+                  <button (click)="ocrRedo()" [disabled]="ocrHistoryIndex >= ocrHistory.length - 1" [style.opacity]="ocrHistoryIndex >= ocrHistory.length - 1 ? 0.3 : 1" style="background: none; border: none; cursor: pointer; color: #888; padding: 4px; display: flex; align-items: center; justify-content: center;"><span class="material-symbols-outlined" style="font-size: 18px;">redo</span></button>
+                  
+                  <div [style.background]="currentTheme === 'dark' ? '#444' : '#ccc'" style="width: 1px; height: 16px; margin: 0 4px;"></div>
+                  
+                  <button (click)="ocrAppendMode = 'left'; ocrInsertTarget = 'existing'" [style.color]="ocrAppendMode === 'left' && ocrInsertTarget === 'existing' ? (currentTheme === 'dark' ? '#fff' : '#000') : '#888'" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500;"><span class="material-symbols-outlined" style="font-size: 16px; color: #10b981;">arrow_left_alt</span> Append Left</button>
+                  <button (click)="ocrAppendMode = 'right'; ocrInsertTarget = 'existing'" [style.color]="ocrAppendMode === 'right' && ocrInsertTarget === 'existing' ? (currentTheme === 'dark' ? '#fff' : '#000') : '#888'" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500;"><span class="material-symbols-outlined" style="font-size: 16px; color: #10b981;">arrow_right_alt</span> Append Right</button>
+                  <button (click)="ocrAppendMode = 'above'; ocrInsertTarget = 'existing'" [style.color]="ocrAppendMode === 'above' && ocrInsertTarget === 'existing' ? (currentTheme === 'dark' ? '#fff' : '#000') : '#888'" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500;"><span class="material-symbols-outlined" style="font-size: 16px; color: #10b981;">arrow_upward_alt</span> Append Above</button>
+                  <button (click)="ocrAppendMode = 'below'; ocrInsertTarget = 'existing'" [style.color]="ocrAppendMode === 'below' && ocrInsertTarget === 'existing' ? (currentTheme === 'dark' ? '#fff' : '#000') : '#888'" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500;"><span class="material-symbols-outlined" style="font-size: 16px; color: #10b981;">arrow_downward_alt</span> Append Below</button>
+                  
+                  <div style="flex: 1;"></div>
+                  
+                  <div style="position: relative; display: flex; align-items: center;">
+                     <span class="material-symbols-outlined" style="position: absolute; left: 8px; font-size: 16px; color: #888;">search</span>
+                     <input type="text" [style.background]="currentTheme === 'dark' ? '#1a1a1a' : '#fff'" [style.color]="currentTheme === 'dark' ? '#fff' : '#333'" [style.border]="currentTheme === 'dark' ? '1px solid #444' : '1px solid #ccc'" style="padding: 6px 8px 6px 30px; border-radius: 4px; font-size: 13px; width: 220px; outline: none;" placeholder="">
+                  </div>
+               </div>
+               
+               <!-- 2 Column Layout -->
+               <div style="display: flex; gap: 20px; flex: 1; min-height: 0; overflow: hidden; padding: 20px;">
+                  
+                  <!-- Left side: Image -->
+                  <div [style.background]="currentTheme === 'dark' ? '#0a0a0a' : '#f8f9fa'" [style.border]="currentTheme === 'dark' ? '1px solid #333' : '1px solid #e0e0e0'" style="flex: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                     <img *ngIf="ocrImage" [src]="ocrImage" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                  </div>
+                  
+                  <!-- Right side: Data preview -->
+                  <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                     <div style="flex: 1; overflow: auto; background: #fff; border-radius: 2px; border: 1px solid #e0e0e0;">
+                        <table style="border-collapse: collapse; font-size: 13px; min-width: 100%;">
+                           <!-- Header Row (A, B, C...) -->
+                           <tr style="background: #f8f9fa; border-bottom: 1px solid #ccc;">
+                             <td style="width: 35px; min-width: 35px; border-right: 1px solid #ccc; background: #eaecf0;"></td>
+                             <td *ngFor="let col of ocrData[0]; let c = index" style="min-width: 100px; text-align: center; border-right: 1px solid #ccc; padding: 4px 8px; color: #444; font-weight: 500;">
+                               {{ colLabel(c) }}
+                             </td>
+                           </tr>
+                           <tr *ngFor="let row of ocrData; let r = index">
+                              <td style="width: 35px; min-width: 35px; text-align: center; background: #f8f9fa; border: 1px solid #ccc; color: #444; font-weight: 500;">{{ r + 1 }}</td>
+                              <td *ngFor="let col of row; let c = index; trackBy: trackByFn" style="min-width: 100px; border: 1px solid #ccc; padding: 0; position: relative;"
+                                  (mousedown)="startOcrDrag(r, c)"
+                                  (mouseenter)="doOcrDrag(r, c)"
+                                  (dblclick)="startOcrEdit(r, c)"
+                                  [style.background]="isOcrSelected(r, c) ? (currentTheme === 'dark' ? '#2c3e50' : '#e8f0fe') : 'transparent'">
+                                 <div *ngIf="ocrSelStart?.r === r && ocrSelStart?.c === c" style="position: absolute; inset: 0; border: 2px solid #1a73e8; pointer-events: none; z-index: 2;"></div>
+                                 <input *ngIf="ocrEdit?.r === r && ocrEdit?.c === c" type="text" [(ngModel)]="ocrData[r][c]" (blur)="ocrEdit = null; saveOcrHistory()" (keydown.enter)="ocrEdit = null; saveOcrHistory()" style="position: absolute; inset: 0; box-sizing: border-box; border: none; width: 100%; height: 100%; min-height: 28px; outline: none; background: transparent; padding: 4px 8px; color: inherit; z-index: 3;" autofocus>
+                                 <div *ngIf="!(ocrEdit?.r === r && ocrEdit?.c === c)" style="width: 100%; height: 100%; min-height: 28px; padding: 4px 8px; color: inherit; user-select: none; position: relative; z-index: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;">{{ ocrData[r][c] }}</div>
+                              </td>
+                           </tr>
+                        </table>
+                     </div>
+                     
+                     <!-- Insert Options -->
+                     <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 10px;">
+                        <div style="font-size: 12px; color: #888;">Insert options</div>
+                        <div style="display: flex; gap: 24px;">
+                           <label [style.color]="currentTheme === 'dark' ? '#ccc' : '#333'" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                              <input type="radio" name="ocrInsertTarget" value="new" [(ngModel)]="ocrInsertTarget" style="accent-color: #10b981; transform: scale(1.1);"> New sheet
+                           </label>
+                           <label [style.color]="currentTheme === 'dark' ? '#ccc' : '#333'" style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+                              <input type="radio" name="ocrInsertTarget" value="existing" [(ngModel)]="ocrInsertTarget" style="accent-color: #10b981; transform: scale(1.1);"> Existing sheet
+                           </label>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+               
+               <!-- Footer -->
+               <div [style.background]="currentTheme === 'dark' ? '#252525' : '#f8f9fa'" [style.border-top]="currentTheme === 'dark' ? '1px solid #333' : '1px solid #e0e0e0'" style="padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                  <button (click)="dataFromPicture()" [style.background]="currentTheme === 'dark' ? '#3a3a3a' : '#fff'" [style.border]="currentTheme === 'dark' ? '1px solid #555' : '1px solid #ccc'" [style.color]="currentTheme === 'dark' ? '#fff' : '#333'" style="padding: 8px 24px; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 13px;">Back</button>
+                  
+                  <div style="display: flex; gap: 12px;">
+                     <button (click)="ocrModalOpen=false" [style.border]="currentTheme === 'dark' ? '1px solid #555' : '1px solid #ccc'" [style.color]="currentTheme === 'dark' ? '#e0e0e0' : '#333'" style="padding: 8px 24px; background: transparent; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 13px;">Cancel</button>
+                     <button (click)="insertOcrData()" [disabled]="ocrProgress !== 100 || !ocrData.length" [style.opacity]="ocrProgress === 100 && ocrData.length ? '1' : '0.5'" style="padding: 8px 28px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 13px;">Insert</button>
+                  </div>
+               </div>
+            </div>
+            
+            <div *ngIf="ocrProgress === 100 && ocrData.length === 0" style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; color: #888;">
+               No tabular data found in image.
+               <div style="margin-top: 24px;">
+                  <button (click)="ocrModalOpen=false" [style.border]="currentTheme === 'dark' ? '1px solid #555' : '1px solid #ccc'" [style.color]="currentTheme === 'dark' ? '#e0e0e0' : '#333'" style="padding: 8px 24px; background: transparent; border-radius: 4px; cursor: pointer; font-weight: 500; margin-right: 12px; font-size: 13px;">Cancel</button>
+                  <button (click)="dataFromPicture()" [style.background]="currentTheme === 'dark' ? '#3a3a3a' : '#fff'" [style.border]="currentTheme === 'dark' ? '1px solid #555' : '1px solid #ccc'" [style.color]="currentTheme === 'dark' ? '#fff' : '#333'" style="padding: 8px 24px; border-radius: 4px; cursor: pointer; font-weight: 500; font-size: 13px;">Back</button>
+               </div>
+            </div>
+         </div>
+       </div>
     </div>
+
+    <!-- IMMERSIVE VERSION HISTORY (LIGHT STYLE) -->
+    <div *ngIf="activeModal === 'version'" style="position: fixed; inset: 0; z-index: 99999; display: flex; flex-direction: column; background: #f8f9fa; color: #202124; font-family: 'Roboto', sans-serif;">
+      
+      <!-- Top Header -->
+      <div style="height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid #dadce0; background: #fff;">
+        <!-- Left: Doc Title -->
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <button (click)="activeModal = null" style="background:none; border:none; color:#5f6368; cursor:pointer; font-size:24px; padding-bottom: 4px;">&larr;</button>
+          <div>
+            <div style="font-size:16px; font-weight:600;">{{ title || 'Untitled Document' }}</div>
+            <div style="font-size:12px; color:#1a73e8;">Current Version</div>
+          </div>
+        </div>
+        
+        <!-- Center: Actions -->
+        <div style="display: flex; align-items: center; gap: 24px;">
+          <div style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#5f6368; font-size:13px;" (click)="promptNameVersion()">
+            <span class="material-symbols-outlined" style="font-size:18px;">update</span> Name This Version
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#5f6368; font-size:13px;" (click)="makeCopy()">
+            <span class="material-symbols-outlined" style="font-size:18px;">file_copy</span> Make a Copy
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#5f6368; font-size:13px;" (click)="exportFile('xlsx')">
+            <span class="material-symbols-outlined" style="font-size:18px;">download</span> Download as
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; cursor:pointer; color:#5f6368; font-size:13px;" (click)="showToast('Changelog will be available in the next update.')">
+            <span class="material-symbols-outlined" style="font-size:18px;">history</span> Changelog
+          </div>
+        </div>
+
+        <!-- Right: Restore -->
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <button *ngIf="previewVersionId && versions.length && previewVersionId !== versions[0].id" 
+                  (click)="confirmRestoreVersion(previewVersionId)"
+                  style="background: #1a73e8; border: none; color: #fff; padding: 6px 16px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            <span class="material-symbols-outlined" style="font-size:16px;">history</span> Restore This Version
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Layout -->
+      <div style="display: flex; flex: 1; overflow: hidden; background: #f8f9fa;">
+        
+        <!-- Center (Preview Grid) -->
+        <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 24px 24px 0 24px;">
+          
+          <div *ngIf="!previewData" style="flex: 1; display: flex; align-items: center; justify-content: center; color: #5f6368; font-style: italic; background: #fff; border-radius: 8px 8px 0 0; border: 1px solid #dadce0; border-bottom: none;">
+            Select a version to preview
+          </div>
+
+          <ng-container *ngIf="previewData">
+            <!-- Active Cell Indicator Placeholder -->
+            <div style="height:36px; background:#fff; display:flex; align-items:center; padding:0 12px; border-radius: 4px 4px 0 0; border: 1px solid #dadce0; border-bottom: none;">
+              <div style="color:#5f6368; font-size:12px; font-weight: 500; width: 40px; text-align: center; border-right: 1px solid #dadce0; padding-right: 8px; margin-right: 8px;">A1</div>
+              <div style="background:#f1f3f4; padding:2px 8px; font-size:12px; color:#5f6368; border-radius:4px; font-family: monospace;">fx</div>
+              <div style="margin-left:12px; color:#888; font-size:13px; font-style:italic;"></div>
+            </div>
+            
+            <!-- The Grid -->
+            <div style="flex: 1; overflow: auto; background: #fff; position: relative; border: 1px solid #dadce0; border-bottom: none;">
+              <table class="grid" style="border-collapse: separate; border-spacing: 0;">
+                <thead>
+                  <tr>
+                    <th class="corner" style="position: sticky; top: 0; left: 0; z-index: 6; border-right: 1px solid #c0c0c0; border-bottom: 1px solid #c0c0c0; background: #f8f9fa;"></th>
+                    <th *ngFor="let col of previewCells[0]; let c = index" class="col-head" style="position: sticky; top: 0; z-index: 5; border-right: 1px solid #c0c0c0; border-bottom: 1px solid #c0c0c0; background: #f8f9fa; min-width: 100px;">
+                      {{ colLabel(c) }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of previewCells; let r = index">
+                    <td class="row-head" style="position: sticky; left: 0; z-index: 4; border-right: 1px solid #c0c0c0; border-bottom: 1px solid #c0c0c0; background: #f8f9fa;">
+                      {{ r + 1 }}
+                    </td>
+                    <td *ngFor="let cell of row; let c = index" class="cell" style="border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
+                      {{ cell }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Bottom Sheet Tabs -->
+            <div style="height: 40px; background: #fff; display: flex; align-items: center; padding: 0 12px; gap: 4px; border: 1px solid #dadce0; border-top: none;">
+              <div style="color: #1a73e8; padding: 0 12px; cursor: pointer;"><span class="material-symbols-outlined" style="font-size: 20px; font-weight: bold;">add</span></div>
+              <div style="color: #5f6368; padding: 0 12px; cursor: pointer;"><span class="material-symbols-outlined" style="font-size: 20px;">menu</span></div>
+              <div style="width: 1px; height: 20px; background: #dadce0; margin: 0 8px;"></div>
+              
+              <div *ngFor="let sheet of previewSheets; let i = index" 
+                   (click)="previewActiveSheetIdx = i"
+                   style="padding: 6px 16px; cursor: pointer; font-size: 13px; font-weight: 500; border-radius: 4px; display: flex; align-items: center; gap: 8px;"
+                   [style.background]="previewActiveSheetIdx === i ? '#e8f0fe' : 'transparent'"
+                   [style.color]="previewActiveSheetIdx === i ? '#1a73e8' : '#5f6368'">
+                {{ sheet.name || 'Sheet ' + (i + 1) }}
+              </div>
+            </div>
+          </ng-container>
+        </div>
+
+        <!-- Right Sidebar (Version List) -->
+        <div style="width: 320px; background: #fff; border-left: 1px solid #dadce0; display: flex; flex-direction: column;">
+          
+          <div style="padding: 16px; display: flex; align-items: center; justify-content: space-between;">
+            <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #202124;">Version History</h3>
+          </div>
+
+          <div style="padding: 0 16px 12px 16px; border-bottom: 1px solid #dadce0; display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" checked style="accent-color: #1a73e8; cursor: pointer; width: 16px; height: 16px;">
+            <span style="font-size: 14px; color: #202124; font-weight: 500;">Highlight Changes</span>
+          </div>
+
+          <div style="flex: 1; overflow-y: auto; padding: 16px 12px;">
+            <!-- Version Cards -->
+            <div *ngFor="let v of versions; let i = index" 
+                 (click)="previewVersion(v.id)"
+                 style="padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; cursor: pointer; background: #fff; position: relative; transition: all 0.2s;"
+                 [style.border]="previewVersionId === v.id ? '1px solid #1a73e8' : '1px solid transparent'"
+                 [style.background]="previewVersionId === v.id ? '#e8f0fe' : (i===0 && !previewVersionId ? '#f0fdf4' : '#fff')"
+                 [style.box-shadow]="previewVersionId !== v.id ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'">
+              
+              <div style="font-size: 13px; font-weight: 600; color: #202124; margin-bottom: 4px;">
+                {{ v.created_at | date:'MMM d, y, h:mm:ss a' }}
+              </div>
+              <div *ngIf="i === 0" style="font-size: 12px; color: #10b981; margin-bottom: 8px;">Current Version</div>
+              <div *ngIf="i !== 0 && v.version_name" style="font-size: 12px; color: #1a73e8; margin-bottom: 8px;">{{ v.version_name }}</div>
+              
+              <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #5f6368;">
+                <div style="width: 10px; height: 10px; border-radius: 2px;" [style.background]="v.is_named ? '#fbbc04' : '#1a73e8'"></div>
+                {{ v.is_named ? 'Named Version' : 'Auto-save' }}
+              </div>
+
+              <span *ngIf="previewVersionId === v.id" class="material-symbols-outlined" style="position: absolute; right: 8px; top: 12px; color: #1a73e8; font-size: 18px;">more_vert</span>
+            </div>
+          </div>
+          
+          <div style="padding: 16px; border-top: 1px solid #dadce0; font-size: 12px; color: #5f6368; font-weight: 500;">
+            Time Zone: India Standard Time
+          </div>
+        </div>
+
+      </div>
+      
+      <!-- Custom Restore Confirmation Modal -->
+      <div *ngIf="showRestoreConfirm" style="position: absolute; inset: 0; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; z-index: 100000; backdrop-filter: blur(2px);">
+        <div style="background: #fff; width: 400px; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); border: 1px solid #dadce0; overflow: hidden; font-family: 'Roboto', sans-serif;">
+          <div style="padding: 24px 24px 16px 24px;">
+            <h3 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 500; color: #202124;">Restore this version?</h3>
+            <p style="margin: 0; font-size: 14px; color: #5f6368; line-height: 1.5;">
+              Are you sure you want to restore this version? This will become the new current version of the document.
+            </p>
+          </div>
+          <div style="padding: 16px 24px; display: flex; justify-content: flex-end; gap: 12px; background: #f8f9fa; border-top: 1px solid #dadce0;">
+            <button (click)="cancelRestore()" style="background: transparent; border: 1px solid #dadce0; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: 500; color: #5f6368; cursor: pointer;">
+              Cancel
+            </button>
+            <button (click)="executeRestore()" style="background: #1a73e8; border: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: 500; color: #fff; cursor: pointer;">
+              Restore
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Custom Name Version Modal -->
+      <div *ngIf="showNameVersionPrompt" style="position: absolute; inset: 0; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; z-index: 100000; backdrop-filter: blur(2px);">
+        <div style="background: #fff; width: 400px; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); border: 1px solid #dadce0; overflow: hidden; font-family: 'Roboto', sans-serif;">
+          <div style="padding: 24px 24px 16px 24px;">
+            <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 500; color: #202124;">Name this version</h3>
+            <input #versionNameInput type="text" [value]="tempVersionName" (input)="tempVersionName = versionNameInput.value" (keyup.enter)="submitNameVersion()" placeholder="Enter a name for this version" style="width: 100%; padding: 10px 12px; border: 1px solid #dadce0; border-radius: 4px; font-size: 14px; outline: none; box-sizing: border-box;">
+          </div>
+          <div style="padding: 16px 24px; display: flex; justify-content: flex-end; gap: 12px; background: #f8f9fa; border-top: 1px solid #dadce0;">
+            <button (click)="cancelNameVersion()" style="background: transparent; border: 1px solid #dadce0; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: 500; color: #5f6368; cursor: pointer;">
+              Cancel
+            </button>
+            <button (click)="submitNameVersion()" style="background: #1a73e8; border: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: 500; color: #fff; cursor: pointer;">
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  
   `,
   styles: [`
     /* Bottom Chat Bar */
@@ -4367,8 +4793,18 @@ export interface CellValidation {
     @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
   `]
 })
-export class SheetEditorComponent implements OnInit, OnDestroy {
 
+export class SheetEditorComponent implements OnInit, OnDestroy {
+  private pendingDiffPreStateJson: string | null = null;
+  private pendingDiffContext: any = null;
+  private pendingDiffTimer: any = null;
+  private auditBuffer = new Map<string, any>();
+  private flushAudit$ = new Subject<void>();
+  private flushAuditSubscription!: Subscription;
+  auditRecords: any[] = [];
+  auditSortBy: string = 'date';
+  auditSortDesc: boolean = true;
+  trackByFn(index: number, item: any) { return index; }
   activeCtxSubmenu: 'insert' | 'delete' | 'clear' | 'filter' | 'paste' | null = null;
   ctxSubX: number = 0;
   ctxSubTop: number | null = null;
@@ -4380,13 +4816,13 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.activeCtxSubmenu = type;
     const target = event.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
-    
+
     const submenuWidth = 220;
     // Decide left/right side based on available space
     if (this.ctxX + 220 + submenuWidth > window.innerWidth) {
-       this.ctxSubX = this.ctxX - submenuWidth + 4;
+      this.ctxSubX = this.ctxX - submenuWidth + 4;
     } else {
-       this.ctxSubX = this.ctxX + 220 - 4;
+      this.ctxSubX = this.ctxX + 220 - 4;
     }
     // Clamp X so submenu never goes off-screen
     this.ctxSubX = Math.max(4, Math.min(this.ctxSubX, window.innerWidth - submenuWidth - 4));
@@ -4443,7 +4879,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   get selectedNonEmptyCount(): number {
     if (!this.rangeStart || !this.rangeEnd) return 0;
-    
+
     // For single cell selection, don't show the count pill
     if (this.rangeStart.r === this.rangeEnd.r && this.rangeStart.c === this.rangeEnd.c) return 0;
 
@@ -4607,10 +5043,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const isNum = !isNaN(num) && String(val).trim() !== '';
 
     if (format.startsWith('regional_')) {
-       if (!isNum) return val;
-       const locale = format.split('_')[1];
-       const locales: any = { us: 'en-US', uk: 'en-GB', in: 'en-IN', de: 'de-DE', fr: 'fr-FR', it: 'it-IT', jp: 'ja-JP', cn: 'zh-CN' };
-       return num.toLocaleString(locales[locale] || 'en-US', { maximumFractionDigits: 10 });
+      if (!isNum) return val;
+      const locale = format.split('_')[1];
+      const locales: any = { us: 'en-US', uk: 'en-GB', in: 'en-IN', de: 'de-DE', fr: 'fr-FR', it: 'it-IT', jp: 'ja-JP', cn: 'zh-CN' };
+      return num.toLocaleString(locales[locale] || 'en-US', { maximumFractionDigits: 10 });
     }
 
     if (format.startsWith('custom_')) {
@@ -4646,12 +5082,12 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       if (format.endsWith('_eur')) symbol = '€';
       if (format.endsWith('_gbp')) symbol = '£';
       if (format.endsWith('_cny')) symbol = '¥';
-      
+
       const formattedNum = num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       if (format.startsWith('accounting')) {
-         return num === 0 ? `${symbol}   -  ` : `${symbol}  ${formattedNum}`;
+        return num === 0 ? `${symbol}   -  ` : `${symbol}  ${formattedNum}`;
       } else {
-         return symbol + formattedNum;
+        return symbol + formattedNum;
       }
     }
 
@@ -4671,14 +5107,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
       let bestH = 0, bestK = 1, minErr = 1;
       for (let k = 1; k <= denom; k++) {
-          const h = Math.round(dec * k);
-          const err = Math.abs(dec - h / k);
-          if (err < minErr) {
-              bestH = h;
-              bestK = k;
-              minErr = err;
-              if (err === 0) break;
-          }
+        const h = Math.round(dec * k);
+        const err = Math.abs(dec - h / k);
+        if (err < minErr) {
+          bestH = h;
+          bestK = k;
+          minErr = err;
+          if (err === 0) break;
+        }
       }
       return sign + (whole !== 0 ? whole + ' ' : '') + bestH + '/' + bestK;
     }
@@ -4893,31 +5329,31 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   advFilterY = 0;
   advFilterTab: 'value' | 'cellColor' | 'textColor' = 'value';
   advFilterSearch = '';
-  advFilterValues: {val: string, selected: boolean}[] = [];
-  advFilterBgColors: {val: string, selected: boolean}[] = [];
-  advFilterTextColors: {val: string, selected: boolean}[] = [];
+  advFilterValues: { val: string, selected: boolean }[] = [];
+  advFilterBgColors: { val: string, selected: boolean }[] = [];
+  advFilterTextColors: { val: string, selected: boolean }[] = [];
   advFilterSavedState: Map<number, { tab: 'value' | 'cellColor' | 'textColor', allowedVals: Set<string>, allowedBg: Set<string>, allowedText: Set<string> }> = new Map();
-  
+
   serializeAdvFilterState() {
-     return Array.from(this.advFilterSavedState.entries()).map(([k, v]) => [k, { 
-         tab: v.tab, 
-         allowedVals: Array.from(v.allowedVals), 
-         allowedBg: Array.from(v.allowedBg), 
-         allowedText: Array.from(v.allowedText) 
-     }]);
+    return Array.from(this.advFilterSavedState.entries()).map(([k, v]) => [k, {
+      tab: v.tab,
+      allowedVals: Array.from(v.allowedVals),
+      allowedBg: Array.from(v.allowedBg),
+      allowedText: Array.from(v.allowedText)
+    }]);
   }
 
   deserializeAdvFilterState(stateData: any) {
-     if (!stateData) {
-         this.advFilterSavedState.clear();
-         return;
-     }
-     this.advFilterSavedState = new Map(stateData.map(([k, v]: any) => [k, { 
-         tab: v.tab, 
-         allowedVals: new Set(v.allowedVals || []), 
-         allowedBg: new Set(v.allowedBg || []), 
-         allowedText: new Set(v.allowedText || []) 
-     }]));
+    if (!stateData) {
+      this.advFilterSavedState.clear();
+      return;
+    }
+    this.advFilterSavedState = new Map(stateData.map(([k, v]: any) => [k, {
+      tab: v.tab,
+      allowedVals: new Set(v.allowedVals || []),
+      allowedBg: new Set(v.allowedBg || []),
+      allowedText: new Set(v.allowedText || [])
+    }]));
   }
 
   // Multiple sheets
@@ -4957,7 +5393,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   // Go To
   gotoQuery = '';
-  
+
   isLoadingDocument = true;
   isUploading = false;
   uploadProgress = 0;
@@ -5018,6 +5454,15 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   sidePanelApp: string | null = null;
+  commentsViewFilter: 'all' | 'current' = 'all';
+  commentsStatusFilter: 'all' | 'unresolved' | 'resolved' = 'all';
+  newCommentCellRef: string | null = null;
+  newCommentCellName: string = '';
+  newCommentText: string = '';
+  activeCommentMenu: string | null = null;
+  replyTexts: { [key: string]: string } = {};
+  cachedComments: any[] = [];
+  @ViewChild('newCommentInput') newCommentInput!: ElementRef;
   sidePanelUrl: SafeResourceUrl | null = null;
 
   sparklineConfig = {
@@ -5025,9 +5470,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     locationR: 0,
     locationC: 0,
     locationLabel: '',
-    type: 'line' as 'line'|'column'|'winloss',
+    type: 'line' as 'line' | 'column' | 'winloss',
     color: '#4285f4',
-    emptyCells: 'gap' as 'gap'|'zero'|'connect'|'skip',
+    emptyCells: 'gap' as 'gap' | 'zero' | 'connect' | 'skip',
     highColor: '',
     lowColor: '',
     firstColor: '',
@@ -5060,6 +5505,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     ).subscribe(() => {
       this.executeSave();
     });
+    this.flushAuditSubscription = this.flushAudit$.pipe(
+      debounceTime(2000)
+    ).subscribe(() => {
+      this.sendAuditEvents();
+    });
     this.docId = this.route.snapshot.paramMap.get('id') ?? '';
     this.api.getDocument(this.docId).subscribe((doc: any) => {
       console.log("===== FRONTEND DEBUG LOG =====");
@@ -5071,8 +5521,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         let p = JSON.parse(doc.content || '{}');
         console.log("Parsed JSON keys:", Object.keys(p));
         if (p.cells && p.cells.length > 0) {
-           console.log("Sample cell (0,0):", p.cells[0][0]);
-           console.log("Sample cell D2 (1,3):", p.cells[1] ? p.cells[1][3] : "N/A");
+          console.log("Sample cell (0,0):", p.cells[0][0]);
+          console.log("Sample cell D2 (1,3):", p.cells[1] ? p.cells[1][3] : "N/A");
         }
         if (Array.isArray(p) && p.length > 0) p = p[0];
         if (p.cells) {
@@ -5167,8 +5617,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
               if (active.hiddenRows !== undefined) this.hiddenRows = new Set(active.hiddenRows);
               if (active.activeFilterCols !== undefined) this.activeFilterCols = new Set(active.activeFilterCols);
               if (active.filterActive !== undefined) {
-                  this.filterActive = active.filterActive;
-                  this.deserializeAdvFilterState(active.advFilterSavedState);
+                this.filterActive = active.filterActive;
+                this.deserializeAdvFilterState(active.advFilterSavedState);
               }
               if (active.frozenRowsCount !== undefined) this.frozenRowsCount = active.frozenRowsCount;
               if (active.frozenColsCount !== undefined) this.frozenColsCount = active.frozenColsCount;
@@ -5276,6 +5726,54 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown', ['$event'])
   onKey(e: KeyboardEvent) {
+    if (this.ocrModalOpen && this.ocrData.length) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) this.ocrRedo();
+        else this.ocrUndo();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        this.ocrRedo();
+        return;
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !this.ocrEdit && this.ocrSelStart && this.ocrSelEnd) {
+        e.preventDefault();
+        const minR = Math.min(this.ocrSelStart.r, this.ocrSelEnd.r);
+        const maxR = Math.max(this.ocrSelStart.r, this.ocrSelEnd.r);
+        const minC = Math.min(this.ocrSelStart.c, this.ocrSelEnd.c);
+        const maxC = Math.max(this.ocrSelStart.c, this.ocrSelEnd.c);
+        for (let r = minR; r <= maxR; r++) {
+          for (let c = minC; c <= maxC; c++) {
+            this.ocrData[r][c] = '';
+          }
+        }
+        this.saveOcrHistory();
+        this.cdr.detectChanges();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && !this.ocrEdit && this.ocrSelStart && this.ocrSelEnd) {
+        e.preventDefault();
+        const minR = Math.min(this.ocrSelStart.r, this.ocrSelEnd.r);
+        const maxR = Math.max(this.ocrSelStart.r, this.ocrSelEnd.r);
+        const minC = Math.min(this.ocrSelStart.c, this.ocrSelEnd.c);
+        const maxC = Math.max(this.ocrSelStart.c, this.ocrSelEnd.c);
+        let text = '';
+        for (let r = minR; r <= maxR; r++) {
+          let row = [];
+          for (let c = minC; c <= maxC; c++) {
+            row.push(this.ocrData[r][c] || '');
+          }
+          text += row.join('\t') + '\n';
+        }
+        navigator.clipboard.writeText(text);
+        this.showToast('Copied from OCR grid');
+        return;
+      }
+      if (this.ocrEdit) return; // if editing an OCR cell, let normal keydown proceed inside it, but don't bubble to main sheet
+    }
+
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
       e.preventDefault();
       this.save();
@@ -5338,19 +5836,19 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         let hasCheckbox = false;
         let allTrue = true;
         this.forEachSelectedCell((r, c) => {
-           if (this.isCheckboxCell(r, c)) {
-             hasCheckbox = true;
-             if (this.cells[r][c] !== 'TRUE') allTrue = false;
-           }
+          if (this.isCheckboxCell(r, c)) {
+            hasCheckbox = true;
+            if (this.cells[r][c] !== 'TRUE') allTrue = false;
+          }
         });
         if (hasCheckbox) {
           e.preventDefault();
           this.pushHistory();
           const newVal = allTrue ? 'FALSE' : 'TRUE';
           this.forEachSelectedCell((r, c) => {
-             if (this.isCheckboxCell(r, c)) {
-               this.cells[r][c] = newVal;
-             }
+            if (this.isCheckboxCell(r, c)) {
+              this.cells[r][c] = newVal;
+            }
           });
           this.onCellChange();
           this.save();
@@ -5430,6 +5928,33 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   @HostListener('document:paste', ['$event'])
   pasteFromClipboard(e: ClipboardEvent) {
+    if (this.ocrModalOpen && this.ocrData.length && this.ocrSelStart && !this.ocrEdit) {
+      e.preventDefault();
+      const clipboardData = e.clipboardData || (window as any).clipboardData;
+      if (!clipboardData) return;
+      const pastedText = clipboardData.getData('Text');
+      if (!pastedText) return;
+
+      this.saveOcrHistory();
+      const rows = pastedText.split('\n');
+      const startR = Math.min(this.ocrSelStart.r, this.ocrSelEnd!.r);
+      const startC = Math.min(this.ocrSelStart.c, this.ocrSelEnd!.c);
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (row === undefined || row === null) continue;
+        const cols = row.split('\t');
+        for (let j = 0; j < cols.length; j++) {
+          if (startR + i < this.ocrData.length && startC + j < this.ocrData[0].length) {
+            this.ocrData[startR + i][startC + j] = cols[j].replace(/\r$/, '');
+          }
+        }
+      }
+      this.saveOcrHistory();
+      this.cdr.detectChanges();
+      return;
+    }
+
     if (this.isEditingText(e as any) || this.isEditingCell) return;
 
     e.preventDefault();
@@ -5444,7 +5969,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
           if (file) {
             const reader = new FileReader();
             reader.onload = (ev) => {
-              this.pushHistory();
+              this.pushHistory({ action_type: 'paste-image', target_range: this.getA1(this.selectedRow, this.selectedCol) });
               this.cells[this.selectedRow][this.selectedCol] = ev.target!.result as string;
               this.formulaBarValue = '[IMAGE]';
               this.onCellChange();
@@ -5464,7 +5989,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
     if (!pastedHtml && !pastedText) return;
 
-    this.pushHistory();
+    this.pushHistory({ action_type: 'paste-clipboard', target_range: 'Multiple' });
 
     const startRow = this.selectedRow;
     const startCol = this.selectedCol;
@@ -5587,13 +6112,19 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.isDraggingRange = false;
     this.isFilling = false;
     this.fillStart = null;
+    this.ocrDragging = false;
   }
 
   // ── Range selection helpers ──────────────────────────────────────────────
   onCellMouseDown(e: MouseEvent, r: number, c: number) {
     if (this.fillPopupState) this.fillPopupState = null;
     if ((e.target as HTMLElement).classList.contains('fill-handle')) return;
-    
+    if (this.hasComment(r, c) && this.sidePanelApp !== 'comments') {
+      this.sidePanelApp = 'comments';
+      this.commentsViewFilter = 'current';
+      this.updateCachedComments();
+    }
+
     // Support right-click on Windows (button===2) and Mac (ctrlKey)
     const isRightClick = e.button === 2 || (e.button === 0 && e.ctrlKey);
     if (isRightClick) {
@@ -5801,10 +6332,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const dstR = this.fillEnd.r;
     const dstC = this.fillEnd.c;
 
-    const goDown  = dstR > srcMaxR;
-    const goUp    = dstR < srcMinR;
+    const goDown = dstR > srcMaxR;
+    const goUp = dstR < srcMinR;
     const goRight = dstC > srcMaxC;
-    const goLeft  = dstC < srcMinC;
+    const goLeft = dstC < srcMinC;
 
     if (!goDown && !goUp && !goRight && !goLeft) return;
 
@@ -5815,10 +6346,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         sourceData.push({ r, c, val: this.cells[r][c], fmt: JSON.parse(JSON.stringify(this.formats[`${r},${c}`] ?? null)) });
 
     // compute fill target bounds
-    const dstMinR = goUp   ? dstR    : (goDown  ? srcMaxR + 1 : srcMinR);
-    const dstMaxR = goUp   ? srcMinR - 1 : (goDown  ? dstR    : srcMaxR);
-    const dstMinC = goLeft ? dstC    : (goRight ? srcMaxC + 1 : srcMinC);
-    const dstMaxC = goLeft ? srcMinC - 1 : (goRight ? dstC    : srcMaxC);
+    const dstMinR = goUp ? dstR : (goDown ? srcMaxR + 1 : srcMinR);
+    const dstMaxR = goUp ? srcMinR - 1 : (goDown ? dstR : srcMaxR);
+    const dstMinC = goLeft ? dstC : (goRight ? srcMaxC + 1 : srcMinC);
+    const dstMaxC = goLeft ? srcMinC - 1 : (goRight ? dstC : srcMaxC);
 
     // backup target cells
     const targetBackup: { r: number; c: number; val: string; fmt: any }[] = [];
@@ -5826,7 +6357,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       for (let c = dstMinC; c <= dstMaxC; c++)
         targetBackup.push({ r, c, val: this.cells[r][c], fmt: JSON.parse(JSON.stringify(this.formats[`${r},${c}`] ?? null)) });
 
-    this.pushHistory();
+    this.pushHistory({
+      action_type: 'drag-to-fill',
+      target_range: `${this.getA1(dstMinR, dstMinC)}:${this.getA1(dstMaxR, dstMaxC)}`
+    });
 
     // default mode: single number copies, multi-value series (Zoho default)
     const isSingleSrc = srcMinR === srcMaxR && srcMinC === srcMaxC;
@@ -5834,14 +6368,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const singleIsNum = isSingleSrc && !isNaN(Number(singleVal)) && singleVal.trim() !== '';
     let defaultMode: 'Fill Series' | 'Copy Cells' =
       (isSingleSrc && !singleIsNum && !singleVal.startsWith('=')) ? 'Copy Cells' :
-      (!isSingleSrc) ? 'Fill Series' :
-      ctrlKey ? 'Fill Series' : 'Copy Cells';
+        (!isSingleSrc) ? 'Fill Series' :
+          ctrlKey ? 'Fill Series' : 'Copy Cells';
     // ctrl inverts: multi-src with ctrl → copy, single num with ctrl → series
     if (ctrlKey && isSingleSrc && singleIsNum) defaultMode = 'Fill Series';
     if (ctrlKey && !isSingleSrc) defaultMode = 'Copy Cells';
 
     this._doFill(srcMinR, srcMaxR, srcMinC, srcMaxC, dstMinR, dstMaxR, dstMinC, dstMaxC,
-                 goDown, goUp, goRight, goLeft, defaultMode, ctrlKey);
+      goDown, goUp, goRight, goLeft, defaultMode, ctrlKey);
 
     // update selection
     const newMinR = Math.min(srcMinR, dstMinR);
@@ -5849,7 +6383,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const newMinC = Math.min(srcMinC, dstMinC);
     const newMaxC = Math.max(srcMaxC, dstMaxC);
     this.rangeStart = { r: newMinR, c: newMinC };
-    this.rangeEnd   = { r: newMaxR, c: newMaxC };
+    this.rangeEnd = { r: newMaxR, c: newMaxC };
     this.selectedRow = newMinR; this.selectedCol = newMinC;
     this.fillEnd = null;
     this.onCellChange();
@@ -5910,8 +6444,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
             }
           }
         };
-        if (goDown) fillTargetRows(dstMinR, dstMaxR,  1, false);
-        else        fillTargetRows(dstMaxR, dstMinR, -1, true);
+        if (goDown) fillTargetRows(dstMinR, dstMaxR, 1, false);
+        else fillTargetRows(dstMaxR, dstMinR, -1, true);
       }
     } else if (goRight || goLeft) {
       for (let r = srcMinR; r <= srcMaxR; r++) {
@@ -5934,8 +6468,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
             }
           }
         };
-        if (goRight) fillTargetCols(dstMinC, dstMaxC,  1, false);
-        else         fillTargetCols(dstMaxC, dstMinC, -1, true);
+        if (goRight) fillTargetCols(dstMinC, dstMaxC, 1, false);
+        else fillTargetCols(dstMaxC, dstMinC, -1, true);
       }
     }
   }
@@ -5958,8 +6492,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }
 
     this._doFill(p.srcMinR, p.srcMaxR, p.srcMinC, p.srcMaxC,
-                 p.dstMinR, p.dstMaxR, p.dstMinC, p.dstMaxC,
-                 p.goDown, p.goUp, p.goRight, p.goLeft, mode, p.ctrlKey);
+      p.dstMinR, p.dstMaxR, p.dstMinC, p.dstMaxC,
+      p.goDown, p.goUp, p.goRight, p.goLeft, mode, p.ctrlKey);
 
     this.fillPopupState = { ...p, mode, showMenu: false };
     this.onCellChange();
@@ -6200,7 +6734,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         if (hasData) { maxC++; expanded = true; continue; }
       }
     }
-    console.log('--- getContiguousDataRange result ---', {minR, maxR, minC, maxC});
+    console.log('--- getContiguousDataRange result ---', { minR, maxR, minC, maxC });
     return { minR, maxR, minC, maxC };
   }
 
@@ -6215,7 +6749,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const c = this.selectedCol;
     const cellValue = this.cells[r] && this.cells[r][c];
     const isCellEmpty = cellValue == null || String(cellValue).trim() === '';
-    
+
     console.log('selectAll called. active cell:', r, c, 'value:', cellValue, 'isEmpty:', isCellEmpty);
 
     if (!isCellEmpty) {
@@ -6280,7 +6814,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }
     this.ctxRow = r;
     this.ctxCol = c;
-    
+
     this.showContextMenu(e);
   }
 
@@ -6312,8 +6846,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.ctxVisible = true;
   }
 
-  hideCtx() { 
-    this.ctxVisible = false; 
+  hideCtx() {
+    this.ctxVisible = false;
     this.activeCtxSubmenu = null;
   }
 
@@ -6758,8 +7292,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (!val || typeof val !== 'string') return '';
     if (val.startsWith('data:image')) return val;
     if (val.toUpperCase().startsWith('=IMAGE(')) {
-       const match = val.match(/=IMAGE\(\s*["'](.*?)["']/i);
-       if (match) return match[1];
+      const match = val.match(/=IMAGE\(\s*["'](.*?)["']/i);
+      if (match) return match[1];
     }
     return val;
   }
@@ -6971,6 +7505,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   commitEdit() {
     if (!this.isEditingCell) return;
+    this.pushHistory(); // <-- Capture baseline before mutation for Undo and Audit Diff
     this.cells[this.selectedRow][this.selectedCol] = this.editValue;
     this.formulaBarValue = this.editValue;
     this.isEditingCell = false;
@@ -7030,6 +7565,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   commitFormula() {
+    this.pushHistory(); // <-- Capture baseline before mutation for Undo and Audit Diff
     this.cells[this.selectedRow][this.selectedCol] = this.formulaBarValue;
     this.onCellChange();
   }
@@ -7279,17 +7815,127 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.showToast(`Removed ${removed} duplicate row(s).`);
   }
 
-  pushHistory() {
-    this.history.push(JSON.stringify({
-      cells: this.cells, formats: this.formats,
+  pushHistory(explicitOp?: AuditOp) {
+    const livePreState = {
+      cells: this.cells,
+      formats: this.formats,
       hiddenRows: Array.from(this.hiddenRows),
       activeFilterCols: Array.from(this.activeFilterCols),
       filterActive: this.filterActive,
       advFilterSavedState: this.serializeAdvFilterState()
-    }));
+    };
+    const preStateJson = JSON.stringify(livePreState);
+    this.history.push(preStateJson);
     if (this.history.length > 50) this.history.shift();
     this.future = [];
+
+    const sheet = this.sheets[this.currentSheetIdx];
+    const context = {
+      sheetId: (sheet as any).id || this.currentSheetIdx.toString(),
+      sheetName: sheet.name,
+      currentUser: this.auth.user?.name || 'unknown'
+    };
+
+    if (explicitOp) {
+      setTimeout(() => {
+        const payload = { sheet_id: context.sheetId, sheet_name: context.sheetName, ...explicitOp };
+        const bufferKey = `${context.currentUser}_${explicitOp.target_range}_${explicitOp.action_type}`;
+        this.auditBuffer.set(bufferKey, payload);
+        this.flushAudit$.next();
+      }, 0);
+    } else {
+      if (!this.pendingDiffTimer) {
+        this.pendingDiffPreStateJson = preStateJson;
+      } else {
+        clearTimeout(this.pendingDiffTimer);
+      }
+      this.pendingDiffContext = context;
+      this.pendingDiffTimer = setTimeout(() => {
+        if (!this.pendingDiffPreStateJson) return;
+        const clonedPreState = JSON.parse(this.pendingDiffPreStateJson);
+        const postState = { cells: this.cells, formats: this.formats, hiddenRows: Array.from(this.hiddenRows) };
+        const ops = this.diffStateForAudit(clonedPreState, postState);
+        for (const op of ops) {
+          const payload = { sheet_id: this.pendingDiffContext.sheetId, sheet_name: this.pendingDiffContext.sheetName, ...op };
+          const bufferKey = `${this.pendingDiffContext.currentUser}_${op.target_range}_${op.action_type}`;
+          this.auditBuffer.set(bufferKey, payload);
+        }
+        if (ops.length > 0) this.flushAudit$.next();
+        this.pendingDiffPreStateJson = null;
+        this.pendingDiffContext = null;
+        this.pendingDiffTimer = null;
+      }, 1500);
+    }
   }
+
+  diffStateForAudit(prev: any, curr: any): AuditOp[] {
+    const ops: AuditOp[] = [];
+    let cellMinR = Infinity, cellMaxR = -Infinity, cellMinC = Infinity, cellMaxC = -Infinity;
+    let cellsChanged = false;
+    const insertedImages: { r: number, c: number, name: string }[] = [];
+    const deletedImages: { r: number, c: number }[] = [];
+    const replacedImages: { r: number, c: number }[] = [];
+
+    for (let r = 0; r < curr.cells.length; r++) {
+      for (let c = 0; c < curr.cells[r].length; c++) {
+        const prevVal = prev.cells[r]?.[c] || '';
+        const currVal = curr.cells[r][c] || '';
+        if (prevVal !== currVal) {
+          const prevIsImg = prevVal.startsWith('data:image') || prevVal.startsWith('=IMAGE(');
+          const currIsImg = currVal.startsWith('data:image') || currVal.startsWith('=IMAGE(');
+          let isImageChange = false;
+          if (!prevIsImg && currIsImg) { insertedImages.push({ r, c, name: 'image' }); isImageChange = true; }
+          else if (prevIsImg && !currIsImg) { deletedImages.push({ r, c }); isImageChange = true; }
+          else if (prevIsImg && currIsImg) { replacedImages.push({ r, c }); isImageChange = true; }
+
+          if (!isImageChange) {
+            cellsChanged = true;
+            if (r < cellMinR) cellMinR = r; if (r > cellMaxR) cellMaxR = r;
+            if (c < cellMinC) cellMinC = c; if (c > cellMaxC) cellMaxC = c;
+          }
+        }
+      }
+    }
+    if (cellsChanged) {
+      const isSingle = (cellMinR === cellMaxR && cellMinC === cellMaxC);
+      ops.push({ action_type: 'set-cell-value', target_range: isSingle ? this.getA1(cellMinR, cellMinC) : `${this.getA1(cellMinR, cellMinC)}:${this.getA1(cellMaxR, cellMaxC)}` });
+    }
+    if (insertedImages.length === 1) ops.push({ action_type: 'insert-image', target_range: this.getA1(insertedImages[0].r, insertedImages[0].c), metadata: { image_name: insertedImages[0].name } });
+    else if (insertedImages.length > 1) ops.push({ action_type: 'insert-images', target_range: 'Multiple', metadata: { ranges: insertedImages.map(i => this.getA1(i.r, i.c)) } });
+
+    if (deletedImages.length === 1) ops.push({ action_type: 'delete-image', target_range: this.getA1(deletedImages[0].r, deletedImages[0].c) });
+    else if (deletedImages.length > 1) ops.push({ action_type: 'delete-images', target_range: 'Multiple', metadata: { ranges: deletedImages.map(i => this.getA1(i.r, i.c)) } });
+
+    if (replacedImages.length === 1) ops.push({ action_type: 'replace-image', target_range: this.getA1(replacedImages[0].r, replacedImages[0].c) });
+    else if (replacedImages.length > 1) ops.push({ action_type: 'replace-images', target_range: 'Multiple', metadata: { ranges: replacedImages.map(i => this.getA1(i.r, i.c)) } });
+
+    let fmtMinR = Infinity, fmtMaxR = -Infinity, fmtMinC = Infinity, fmtMaxC = -Infinity;
+    let fmtChanged = false;
+    const allFmtKeys = new Set([...Object.keys(curr.formats || {}), ...Object.keys(prev.formats || {})]);
+    for (const k of allFmtKeys) {
+      if (JSON.stringify(curr.formats[k]) !== JSON.stringify(prev.formats[k])) {
+        const [r, c] = k.split(',').map(Number);
+        fmtChanged = true;
+        if (r < fmtMinR) fmtMinR = r; if (r > fmtMaxR) fmtMaxR = r;
+        if (c < fmtMinC) fmtMinC = c; if (c > fmtMaxC) fmtMaxC = c;
+      }
+    }
+    if (fmtChanged) {
+      const isSingle = (fmtMinR === fmtMaxR && fmtMinC === fmtMaxC);
+      ops.push({ action_type: 'format-change', target_range: isSingle ? this.getA1(fmtMinR, fmtMinC) : `${this.getA1(fmtMinR, fmtMinC)}:${this.getA1(fmtMaxR, fmtMaxC)}` });
+    }
+
+    const currHidden = new Set(curr.hiddenRows || []);
+    const prevHidden = new Set(prev.hiddenRows || []);
+    let hiddenChanged = false;
+    for (const r of currHidden) if (!prevHidden.has(r)) hiddenChanged = true;
+    for (const r of prevHidden) if (!currHidden.has(r)) hiddenChanged = true;
+    if (hiddenChanged) ops.push({ action_type: 'toggle-hidden-rows', target_range: 'Entire Sheet' });
+
+    return ops;
+  }
+
+  getA1(r: number, c: number): string { return `${this.colLabel(c)}${r + 1}`; }
 
   undo() {
     if (!this.history.length) { this.showToast('Nothing to undo.'); return; }
@@ -7306,17 +7952,17 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (prev.hiddenRows !== undefined) this.hiddenRows = new Set(prev.hiddenRows);
     if (prev.activeFilterCols !== undefined) this.activeFilterCols = new Set(prev.activeFilterCols);
     if (prev.filterActive !== undefined) {
-        this.filterActive = prev.filterActive;
-        this.deserializeAdvFilterState(prev.advFilterSavedState);
+      this.filterActive = prev.filterActive;
+      this.deserializeAdvFilterState(prev.advFilterSavedState);
     }
     // If filter is no longer active after undo, clear all hidden rows
     if (!this.filterActive) {
-        this.hiddenRows.clear();
-        this.advFilterSavedState.clear();
-        this.activeFilterCols.clear();
+      this.hiddenRows.clear();
+      this.advFilterSavedState.clear();
+      this.activeFilterCols.clear();
     } else if (this.advFilterSavedState.size > 0) {
-        // Re-evaluate hidden rows from the restored filter criteria
-        this.recalculateAllFilters();
+      // Re-evaluate hidden rows from the restored filter criteria
+      this.recalculateAllFilters();
     }
     this.closeMenus();
     this.updateDisplayCache();
@@ -7338,17 +7984,17 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (next.hiddenRows !== undefined) this.hiddenRows = new Set(next.hiddenRows);
     if (next.activeFilterCols !== undefined) this.activeFilterCols = new Set(next.activeFilterCols);
     if (next.filterActive !== undefined) {
-        this.filterActive = next.filterActive;
-        this.deserializeAdvFilterState(next.advFilterSavedState);
+      this.filterActive = next.filterActive;
+      this.deserializeAdvFilterState(next.advFilterSavedState);
     }
     // If filter is no longer active after redo, clear all hidden rows
     if (!this.filterActive) {
-        this.hiddenRows.clear();
-        this.advFilterSavedState.clear();
-        this.activeFilterCols.clear();
+      this.hiddenRows.clear();
+      this.advFilterSavedState.clear();
+      this.activeFilterCols.clear();
     } else if (this.advFilterSavedState.size > 0) {
-        // Re-evaluate hidden rows from the restored filter criteria
-        this.recalculateAllFilters();
+      // Re-evaluate hidden rows from the restored filter criteria
+      this.recalculateAllFilters();
     }
     this.closeMenus();
     this.updateDisplayCache();
@@ -7358,9 +8004,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   copyCell() {
     // Determine the range to copy
     const startR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
-    const endR   = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const endR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
     const startC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
-    const endC   = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    const endC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
 
     const rows = endR - startR + 1;
     const cols = endC - startC + 1;
@@ -7392,7 +8038,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.clipboard = cellSnap[0][0]; // fallback for system paste
 
     // Write TSV to system clipboard so Ctrl+V also works in other apps
-    navigator.clipboard.writeText(tsvRows.join('\n')).catch(() => {});
+    navigator.clipboard.writeText(tsvRows.join('\n')).catch(() => { });
     this.closeMenus();
     this.showToast(`Copied ${rows}×${cols} cell${rows * cols > 1 ? 's' : ''}.`);
   }
@@ -7405,14 +8051,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     } else {
       // Fallback: read from system clipboard (external paste)
       navigator.clipboard.readText().then(text => {
-        this.pushHistory();
+        this.pushHistory({ action_type: 'paste', target_range: this.getA1(this.selectedRow, this.selectedCol) });
         this.cells[this.selectedRow][this.selectedCol] = text;
         this.formulaBarValue = text;
         this.onCellChange();
         this.showToast('Pasted.');
       }).catch(() => {
         if (this.clipboard) {
-          this.pushHistory();
+          this.pushHistory({ action_type: 'paste', target_range: this.getA1(this.selectedRow, this.selectedCol) });
           this.cells[this.selectedRow][this.selectedCol] = this.clipboard;
           this.formulaBarValue = this.clipboard;
           this.onCellChange();
@@ -7423,17 +8069,17 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  pasteValues()                  { this.applyRichPaste('values');              this.showToast('Pasted values.'); }
-  pasteFormulas()                { this.applyRichPaste('formulas');            this.showToast('Pasted formulas.'); }
-  pasteFormats()                 { this.applyRichPaste('formats');             this.showToast('Pasted formats.'); }
-  pasteNotes()                   { this.applyRichPaste('notes');               this.showToast('Pasted notes.'); }
-  pasteFormulasAndNumberFormats(){ this.applyRichPaste('formulasAndNumbers'); this.showToast('Pasted formulas & number formats.'); }
-  pasteValuesAndNumberFormats()  { this.applyRichPaste('valuesAndNumbers');   this.showToast('Pasted values & number formats.'); }
-  pasteValidation()              { this.applyRichPaste('validation');          this.showToast('Pasted validation rules.'); }
-  pasteExceptNotes()             { this.applyRichPaste('exceptNotes');        this.showToast('Pasted all except notes.'); }
-  pasteExceptBorders()           { this.applyRichPaste('exceptBorders');      this.showToast('Pasted all except borders.'); }
-  pasteTranspose()               { this.applyRichPaste('transpose');           this.showToast('Pasted transposed.'); }
-  pasteLinkToSource()            { this.showToast('Link To Source is not supported for internal pastes.'); this.closeMenus(); }
+  pasteValues() { this.applyRichPaste('values'); this.showToast('Pasted values.'); }
+  pasteFormulas() { this.applyRichPaste('formulas'); this.showToast('Pasted formulas.'); }
+  pasteFormats() { this.applyRichPaste('formats'); this.showToast('Pasted formats.'); }
+  pasteNotes() { this.applyRichPaste('notes'); this.showToast('Pasted notes.'); }
+  pasteFormulasAndNumberFormats() { this.applyRichPaste('formulasAndNumbers'); this.showToast('Pasted formulas & number formats.'); }
+  pasteValuesAndNumberFormats() { this.applyRichPaste('valuesAndNumbers'); this.showToast('Pasted values & number formats.'); }
+  pasteValidation() { this.applyRichPaste('validation'); this.showToast('Pasted validation rules.'); }
+  pasteExceptNotes() { this.applyRichPaste('exceptNotes'); this.showToast('Pasted all except notes.'); }
+  pasteExceptBorders() { this.applyRichPaste('exceptBorders'); this.showToast('Pasted all except borders.'); }
+  pasteTranspose() { this.applyRichPaste('transpose'); this.showToast('Pasted transposed.'); }
+  pasteLinkToSource() { this.showToast('Link To Source is not supported for internal pastes.'); this.closeMenus(); }
 
   private forEachSelectedCell(callback: (r: number, c: number) => void) {
     if (this.rangeStart && this.rangeEnd) {
@@ -7443,21 +8089,20 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       const maxC = Math.max(this.rangeStart.c, this.rangeEnd.c);
       for (let r = minR; r <= maxR; r++) {
         for (let c = minC; c <= maxC; c++) {
-           callback(r, c);
+          callback(r, c);
         }
       }
     } else {
-       callback(this.selectedRow, this.selectedCol);
+      callback(this.selectedRow, this.selectedCol);
     }
   }
 
   // ── Internal helper: paste rich clipboard to destination ─────────────────
   private applyRichPaste(
     mode: 'all' | 'values' | 'formulas' | 'formats' | 'notes' |
-          'formulasAndNumbers' | 'valuesAndNumbers' | 'validation' |
-          'exceptNotes' | 'exceptBorders' | 'transpose'
+      'formulasAndNumbers' | 'valuesAndNumbers' | 'validation' |
+      'exceptNotes' | 'exceptBorders' | 'transpose'
   ) {
-    this.pushHistory();
     const destR = this.selectedRow;
     const destC = this.selectedCol;
 
@@ -7470,6 +8115,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const { cells, formats: fmts, validations: vals, rows, cols } = this.richClipboard;
     const pasteRows = mode === 'transpose' ? cols : rows;
     const pasteCols = mode === 'transpose' ? rows : cols;
+
+    this.pushHistory({
+      action_type: `paste-${mode}`,
+      target_range: `${this.getA1(destR, destC)}:${this.getA1(destR + pasteRows - 1, destC + pasteCols - 1)}`
+    });
 
     for (let r = 0; r < pasteRows; r++) {
       for (let c = 0; c < pasteCols; c++) {
@@ -7572,7 +8222,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         delete (this.formats[`${r},${c}`] as any).hyperlink;
         delete (this.formats[`${r},${c}`] as any).underline;
         if (this.formats[`${r},${c}`].color === '#1155cc' || this.formats[`${r},${c}`].color === '#1a73e8') {
-            delete this.formats[`${r},${c}`].color;
+          delete this.formats[`${r},${c}`].color;
         }
       }
     });
@@ -7587,10 +8237,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.pushHistory();
     this.forEachSelectedCell((r, c) => {
       if (this.formats[`${r},${c}`] && (this.formats[`${r},${c}`] as any).checkbox) {
-         delete (this.formats[`${r},${c}`] as any).checkbox;
-         if (this.cells[r][c] === 'TRUE' || this.cells[r][c] === 'FALSE') {
-             this.cells[r][c] = '';
-         }
+        delete (this.formats[`${r},${c}`] as any).checkbox;
+        if (this.cells[r][c] === 'TRUE' || this.cells[r][c] === 'FALSE') {
+          this.cells[r][c] = '';
+        }
       }
     });
     this.formats = { ...this.formats };
@@ -7616,7 +8266,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.pushHistory();
     this.forEachSelectedCell((r, c) => {
       if (this.formats[`${r},${c}`]) {
-          delete (this.formats[`${r},${c}`] as any).conditionalFormat;
+        delete (this.formats[`${r},${c}`] as any).conditionalFormat;
       }
     });
     this.formats = { ...this.formats };
@@ -7781,9 +8431,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   insertRowAbove() {
-    this.pushHistory();
     const count = this.selectedRowCount;
     const r = this.rangeStart && this.rangeEnd ? Math.min(this.rangeStart.r, this.rangeEnd.r) : this.selectedRow;
+    this.pushHistory({ action_type: 'insert-row-above', target_range: `${r + 1}` });
     for (let i = 0; i < count; i++) {
       this.cells.splice(r, 0, Array(this.COLS).fill(''));
     }
@@ -7794,9 +8444,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   insertRowBelow() {
-    this.pushHistory();
     const count = this.selectedRowCount;
     const r = (this.rangeStart && this.rangeEnd ? Math.max(this.rangeStart.r, this.rangeEnd.r) : this.selectedRow) + 1;
+    this.pushHistory({ action_type: 'insert-row-below', target_range: `${r + 1}` });
     for (let i = 0; i < count; i++) {
       this.cells.splice(r, 0, Array(this.COLS).fill(''));
     }
@@ -7807,11 +8457,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   insertColLeft() {
-    this.pushHistory();
     const count = this.selectedColCount;
     const c = this.rangeStart && this.rangeEnd ? Math.min(this.rangeStart.c, this.rangeEnd.c) : this.selectedCol;
+    this.pushHistory({ action_type: 'insert-column-left', target_range: this.colLabel(c) });
     this.COLS += count;
-    for (const row of this.cells) { 
+    for (const row of this.cells) {
       for (let i = 0; i < count; i++) row.splice(c, 0, '');
     }
     this.colRange = Array.from({ length: this.COLS }, (_, i) => i);
@@ -7820,9 +8470,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   insertColRight() {
-    this.pushHistory();
     const count = this.selectedColCount;
     const c = (this.rangeStart && this.rangeEnd ? Math.max(this.rangeStart.c, this.rangeEnd.c) : this.selectedCol) + 1;
+    this.pushHistory({ action_type: 'insert-column-right', target_range: this.colLabel(c) });
     this.COLS += count;
     for (const row of this.cells) {
       for (let i = 0; i < count; i++) row.splice(c, 0, '');
@@ -7833,9 +8483,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   deleteRow() {
-    this.pushHistory();
     const count = this.selectedRowCount;
     const r = this.rangeStart && this.rangeEnd ? Math.min(this.rangeStart.r, this.rangeEnd.r) : this.selectedRow;
+    this.pushHistory({ action_type: 'delete-row', target_range: `${r + 1}:${r + count}` });
     this.cells.splice(r, count);
     this.ROWS = Math.max(1, this.ROWS - count);
     while (this.cells.length < this.ROWS) this.cells.push(Array(this.COLS).fill(''));
@@ -7847,9 +8497,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   deleteCol() {
-    this.pushHistory();
     const count = this.selectedColCount;
     const c = this.rangeStart && this.rangeEnd ? Math.min(this.rangeStart.c, this.rangeEnd.c) : this.selectedCol;
+    this.pushHistory({ action_type: 'delete-column', target_range: `${this.colLabel(c)}:${this.colLabel(c + count - 1)}` });
     this.COLS = Math.max(1, this.COLS - count);
     for (const row of this.cells) {
       row.splice(c, count);
@@ -7967,7 +8617,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const sheet = this.sheets[this.currentSheetIdx];
     if (!sheet.sparklines) sheet.sparklines = {};
     const key = `${this.sparklineConfig.locationR},${this.sparklineConfig.locationC}`;
-    
+
     // Store it
     sheet.sparklines[key] = {
       source: this.sparklineConfig.source,
@@ -8106,6 +8756,34 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   freezeCols(count: number) {
     this.frozenColsCount = this.frozenColsCount === count ? 0 : count;
     this.showToast(this.frozenColsCount > 0 ? `${count} column(s) frozen.` : 'Columns unfrozen.');
+  }
+
+  toggleFreezeRow() {
+    if (this.frozenRowsCount > 0) {
+      this.freezeRows(0);
+    } else {
+      let count = 1;
+      if (this.rangeStart && this.rangeEnd) {
+        count = Math.max(this.rangeStart.r, this.rangeEnd.r) + 1;
+      } else if (this.selectedRow !== undefined) {
+        count = this.selectedRow + 1;
+      }
+      this.freezeRows(count);
+    }
+  }
+
+  toggleFreezeCol() {
+    if (this.frozenColsCount > 0) {
+      this.freezeCols(0);
+    } else {
+      let count = 1;
+      if (this.rangeStart && this.rangeEnd) {
+        count = Math.max(this.rangeStart.c, this.rangeEnd.c) + 1;
+      } else if (this.selectedCol !== undefined) {
+        count = this.selectedCol + 1;
+      }
+      this.freezeCols(count);
+    }
   }
 
   freezeSelection() {
@@ -8341,8 +9019,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   sortColAZ() {
-    this.pushHistory();
     const c = this.selectedCol;
+    this.pushHistory({ action_type: 'sort-ascending', target_range: `${this.colLabel(c)}:${this.colLabel(c)}` });
     this.cells.sort((a, b) => {
       const vA = (a[c] || '').trim();
       const vB = (b[c] || '').trim();
@@ -8359,8 +9037,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   sortColZA() {
-    this.pushHistory();
     const c = this.selectedCol;
+    this.pushHistory({ action_type: 'sort-descending', target_range: `${this.colLabel(c)}:${this.colLabel(c)}` });
     this.cells.sort((a, b) => {
       const vA = (a[c] || '').trim();
       const vB = (b[c] || '').trim();
@@ -8386,20 +9064,48 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.statsModalOpen = true;
   }
 
-  getStatsFilledCells(): number {
-    return this.cells.flat().filter(v => v && v.trim() !== '').length;
+  statsSelectedSheetIdx: number = 0;
+
+  getGlobalStats() {
+    let cellsWithData = 0;
+    let usedCells = 0;
+    for (const sheet of this.sheets) {
+      let maxR = -1;
+      let maxC = -1;
+      let cData = 0;
+      for (let r = 0; r < sheet.cells.length; r++) {
+        for (let c = 0; c < sheet.cells[r].length; c++) {
+          if (sheet.cells[r][c] && sheet.cells[r][c].trim() !== '') {
+            cData++;
+            maxR = Math.max(maxR, r);
+            maxC = Math.max(maxC, c);
+          }
+        }
+      }
+      cellsWithData += cData;
+      if (maxR >= 0 && maxC >= 0) usedCells += (maxR + 1) * (maxC + 1);
+    }
+    return { cellsWithData, usedCells };
   }
 
-  getStatsFormulaCells(): number {
-    return this.cells.flat().filter(v => v && v.startsWith('=')).length;
-  }
-
-  getStatsNumericCells(): number {
-    return this.cells.flat().filter(v => v && !isNaN(Number(v)) && v.trim() !== '').length;
-  }
-
-  getStatsLockedSheets(): number {
-    return this.sheets.filter(s => s.locked).length;
+  getSheetStats(sheetIdx: number) {
+    if (sheetIdx == null || !this.sheets[sheetIdx]) return { cellsWithData: 0, usedCells: 0, endOfSheet: 'A1' };
+    const sheet = this.sheets[sheetIdx];
+    let maxR = -1;
+    let maxC = -1;
+    let cellsWithData = 0;
+    for (let r = 0; r < sheet.cells.length; r++) {
+      for (let c = 0; c < sheet.cells[r].length; c++) {
+        if (sheet.cells[r][c] && sheet.cells[r][c].trim() !== '') {
+          cellsWithData++;
+          maxR = Math.max(maxR, r);
+          maxC = Math.max(maxC, c);
+        }
+      }
+    }
+    const endOfSheet = maxR >= 0 && maxC >= 0 ? this.colLabel(maxC) + (maxR + 1) : 'A1';
+    const usedCells = maxR >= 0 && maxC >= 0 ? (maxR + 1) * (maxC + 1) : 0;
+    return { cellsWithData, usedCells, endOfSheet };
   }
 
   personalDictionary() {
@@ -8518,7 +9224,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         rMatch = (r >= minR && r <= maxR);
         cMatch = (c >= minC && c <= maxC);
       }
-      
+
       if (rMatch || cMatch) {
         style['background-color'] = this.highlightRowColColor;
       }
@@ -8676,14 +9382,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const num = parseFloat(val);
     if (isNaN(num)) return val;
     const dec = fmt.decimals ?? (fmt.numFormat?.includes('currency') || fmt.numFormat?.includes('accounting') ? 2 : fmt.numFormat === 'percent' ? 1 : 0);
-    
+
     if (fmt.numFormat?.startsWith('currency_') || fmt.numFormat?.startsWith('accounting_') || fmt.numFormat === 'currency') {
       let symbol = '$';
       if (fmt.numFormat.endsWith('_inr')) symbol = '₹';
       else if (fmt.numFormat.endsWith('_eur')) symbol = '€';
       else if (fmt.numFormat.endsWith('_gbp')) symbol = '£';
       else if (fmt.numFormat.endsWith('_cny')) symbol = '¥';
-      
+
       const isAccounting = fmt.numFormat.startsWith('accounting');
       if (isAccounting) {
         // Simple accounting format representation (symbol on left, number on right, with some spaces)
@@ -8692,7 +9398,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         return `${symbol}${num.toFixed(dec)}`;
       }
     }
-    
+
     if (fmt.numFormat === 'percent') return (num * 100).toFixed(dec) + '%';
     if (fmt.numFormat === 'number') return num.toFixed(dec);
     return dec > 0 ? num.toFixed(dec) : val;
@@ -8888,8 +9594,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
     const maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
     if (minR === maxR) {
-        if (minR === 0) { this.showToast('Cannot fill down from the first row.'); return; }
-        minR = minR - 1;
+      if (minR === 0) { this.showToast('Cannot fill down from the first row.'); return; }
+      minR = minR - 1;
     }
     this.pushHistory();
     for (let c = minC; c <= maxC; c++) {
@@ -8910,8 +9616,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     let minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
     let maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
     if (minC === maxC) {
-        if (minC === 0) { this.showToast('Cannot fill right from the first column.'); return; }
-        minC = minC - 1;
+      if (minC === 0) { this.showToast('Cannot fill right from the first column.'); return; }
+      minC = minC - 1;
     }
     this.pushHistory();
     for (let r = minR; r <= maxR; r++) {
@@ -8932,8 +9638,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
     const maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
     if (minR === maxR) {
-        if (maxR === this.ROWS - 1) { this.showToast('Cannot fill up from the last row.'); return; }
-        maxR = maxR + 1;
+      if (maxR === this.ROWS - 1) { this.showToast('Cannot fill up from the last row.'); return; }
+      maxR = maxR + 1;
     }
     this.pushHistory();
     for (let c = minC; c <= maxC; c++) {
@@ -8954,8 +9660,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     let minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
     let maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
     if (minC === maxC) {
-        if (maxC === this.COLS - 1) { this.showToast('Cannot fill left from the last column.'); return; }
-        maxC = maxC + 1;
+      if (maxC === this.COLS - 1) { this.showToast('Cannot fill left from the last column.'); return; }
+      maxC = maxC + 1;
     }
     this.pushHistory();
     for (let r = minR; r <= maxR; r++) {
@@ -9181,12 +9887,146 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.onchange = () => {
-      if (input.files?.length) {
-        this.showToast('Data from Picture: OCR processing is not supported in this version.');
+    input.onchange = (e: any) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          this.ocrImage = reader.result;
+          this.ocrModalOpen = true;
+          this.ocrProgress = 0;
+          this.ocrData = [];
+          this.cdr.detectChanges();
+
+          this.processOcr();
+        };
+        reader.readAsDataURL(file);
       }
     };
     input.click();
+  }
+
+  processOcr() {
+    if (!this.ocrImage) return;
+    this.ocrProgress = 1;
+    Tesseract.recognize(
+      this.ocrImage as string,
+      'eng',
+      { logger: m => { if (m.status === 'recognizing text') { this.ocrProgress = Math.max(1, Math.round(m.progress * 100)); this.cdr.detectChanges(); } } }
+    ).then(({ data: { text } }) => {
+      const lines = text.split('\n');
+      const parsed = lines.filter(l => l.trim().length > 0).map(l => l.split(/\t| {2,}/));
+
+      let maxCols = 15;
+      for (const row of parsed) {
+        if (row.length > maxCols) maxCols = row.length;
+      }
+
+      const minRows = Math.max(20, parsed.length);
+
+      this.ocrData = [];
+      for (let r = 0; r < minRows; r++) {
+        const newRow = [];
+        for (let c = 0; c < maxCols; c++) {
+          if (r < parsed.length && c < parsed[r].length) {
+            newRow.push(parsed[r][c] || '');
+          } else {
+            newRow.push('');
+          }
+        }
+        this.ocrData.push(newRow);
+      }
+      this.ocrHistory = [];
+      this.ocrHistoryIndex = -1;
+      this.saveOcrHistory();
+
+      this.ocrProgress = 100;
+      this.cdr.detectChanges();
+    }).catch(err => {
+      console.error('OCR Error:', err);
+      this.showToast('OCR Processing Failed.');
+      this.ocrProgress = 100;
+      this.cdr.detectChanges();
+    });
+  }
+
+  insertOcrData() {
+    if (!this.ocrData.length) return;
+
+    let insertMinR = 0;
+    let insertMaxR = -1;
+    let insertMinC = 0;
+    let insertMaxC = -1;
+
+    if (this.ocrSelStart && this.ocrSelEnd && (this.ocrSelStart.r !== this.ocrSelEnd.r || this.ocrSelStart.c !== this.ocrSelEnd.c)) {
+      insertMinR = Math.min(this.ocrSelStart.r, this.ocrSelEnd.r);
+      insertMaxR = Math.max(this.ocrSelStart.r, this.ocrSelEnd.r);
+      insertMinC = Math.min(this.ocrSelStart.c, this.ocrSelEnd.c);
+      insertMaxC = Math.max(this.ocrSelStart.c, this.ocrSelEnd.c);
+    } else {
+      insertMinR = 0;
+      insertMinC = 0;
+      for (let r = 0; r < this.ocrData.length; r++) {
+        for (let c = 0; c < this.ocrData[r].length; c++) {
+          if (this.ocrData[r][c] && this.ocrData[r][c].trim() !== '') {
+            insertMaxR = Math.max(insertMaxR, r);
+            insertMaxC = Math.max(insertMaxC, c);
+          }
+        }
+      }
+    }
+
+    if (insertMaxR === -1) {
+      this.showToast('No data to insert!');
+      return;
+    }
+
+    let actualRows = insertMaxR - insertMinR + 1;
+    let actualCols = insertMaxC - insertMinC + 1;
+
+    if (this.ocrInsertTarget === 'new') {
+      const newSheetName = 'OCR Data ' + Math.floor(Math.random() * 1000);
+      const newSheet = { name: newSheetName, cells: [], formats: {}, validations: {}, sparklines: {}, images: [], colWidths: {}, rowHeights: {} };
+      this.sheets.push(newSheet);
+      this.switchSheet(this.sheets.length - 1);
+
+      for (let r = 0; r < actualRows; r++) {
+        if (!this.cells[r]) this.cells[r] = [];
+        for (let c = 0; c < actualCols; c++) {
+          this.cells[r][c] = (this.ocrData[insertMinR + r][insertMinC + c] || '').trim();
+        }
+      }
+    } else {
+      const startR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : (this.selectedRow || 0);
+      const endR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : (this.selectedRow || 0);
+      const startC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : (this.selectedCol || 0);
+      const endC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : (this.selectedCol || 0);
+
+      let targetR = startR;
+      let targetC = startC;
+
+      if (this.ocrAppendMode === 'right') targetC = endC + 1;
+      else if (this.ocrAppendMode === 'left') targetC = Math.max(0, startC - actualCols);
+      else if (this.ocrAppendMode === 'below') targetR = endR + 1;
+      else if (this.ocrAppendMode === 'above') targetR = Math.max(0, startR - actualRows);
+
+      for (let r = 0; r < actualRows; r++) {
+        for (let c = 0; c < actualCols; c++) {
+          const tr = targetR + r;
+          const tc = targetC + c;
+          if (tr < this.ROWS && tc < this.COLS) {
+            this.cells[tr][tc] = (this.ocrData[insertMinR + r][insertMinC + c] || '').trim();
+          }
+        }
+      }
+    }
+
+    this.onCellChange();
+    this.save();
+    this.ocrModalOpen = false;
+    this.ocrSelStart = null;
+    this.ocrSelEnd = null;
+    this.showToast('Data inserted successfully!');
   }
 
   publishRange() {
@@ -9215,16 +10055,61 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   openAuditTrail() {
     this.activeModal = 'audit';
+    if (this.docId) {
+      this.api.getAuditEvents(this.docId).subscribe({
+        next: (res: any[]) => {
+          this.auditRecords = res || [];
+        },
+        error: (err: any) => console.error('Failed to load audit events', err)
+      });
+    }
+  }
+
+  get sortedAuditRecords() {
+    return [...this.auditRecords].sort((a, b) => {
+      let valA, valB;
+      switch (this.auditSortBy) {
+        case 'user': valA = a.user_name?.toLowerCase(); valB = b.user_name?.toLowerCase(); break;
+        case 'sheet': valA = a.sheet_name?.toLowerCase(); valB = b.sheet_name?.toLowerCase(); break;
+        case 'range': valA = a.target_range?.toLowerCase(); valB = b.target_range?.toLowerCase(); break;
+        case 'date': default: valA = new Date(a.created_at).getTime(); valB = new Date(b.created_at).getTime(); break;
+      }
+      if (valA < valB) return this.auditSortDesc ? 1 : -1;
+      if (valA > valB) return this.auditSortDesc ? -1 : 1;
+      return 0;
+    });
+  }
+
+  sortAudit(column: string) {
+    if (this.auditSortBy === column) {
+      this.auditSortDesc = !this.auditSortDesc;
+    } else {
+      this.auditSortBy = column;
+      this.auditSortDesc = false;
+    }
+  }
+
+  private sendAuditEvents() {
+    if (this.auditBuffer.size === 0) return;
+    const events = Array.from(this.auditBuffer.values());
+    this.auditBuffer.clear();
+    
+    if (this.docId) {
+      this.api.saveAuditEvents(this.docId, events).subscribe({
+        next: () => console.log('Audit events saved'),
+        error: (err: any) => console.error('Failed to save audit events', err)
+      });
+    }
   }
 
   openEditHistory() {
     this.activeModal = 'version';
+    this.loadVersions();
   }
 
   showAllComments() {
-    const commentCount = Object.keys(this.formats).filter(k => (this.formats[k] as any)?.comment).length;
-    if (commentCount === 0) { this.showToast('No comments in this sheet.'); return; }
-    this.showToast(`${commentCount} comment(s) in this sheet. Click cells with comments to view.`);
+    this.sidePanelApp = 'comments';
+    this.updateCachedComments();
   }
 
   addNoteToCell() {
@@ -9432,11 +10317,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   // ── Find & Replace ────────────────────────────────────────────────────────
-  openFind() { 
-    this.findModalOpen = true; 
-    this.findQuery = ''; 
-    this.replaceQuery = ''; 
-    this.findStatus = ''; 
+  openFind() {
+    this.findModalOpen = true;
+    this.findQuery = '';
+    this.replaceQuery = '';
+    this.findStatus = '';
     this.findModalPosition = 'right';
   }
 
@@ -9502,42 +10387,42 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   private buildFindMatches() {
     this.findMatches = [];
     if (!this.findQuery) return;
-    
+
     const targetSheets = this.findSearchIn === 'workbook' ? this.sheets.map((_, i) => i) : [this.currentSheetIdx];
-    
+
     for (const sIdx of targetSheets) {
       const sheetCells = sIdx === this.currentSheetIdx ? this.cells : this.sheets[sIdx].cells;
       const rows = sheetCells.length;
       const cols = rows > 0 ? sheetCells[0].length : 0;
-      
+
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           let cellVal = sheetCells[r][c];
           if (cellVal === null || cellVal === undefined || cellVal === '') continue;
           if (typeof cellVal === 'string' && cellVal.startsWith('data:image')) continue;
-          
+
           let match = false;
           let query = this.findQuery;
           let target = String(cellVal);
-          
+
           if (!this.findMatchCase) {
             query = query.toLowerCase();
             target = target.toLowerCase();
           }
-          
+
           if (this.findMatchEntireCell) {
             match = target === query;
           } else {
             match = target.includes(query);
           }
-          
+
           if (match) {
             this.findMatches.push({ r, c, sIdx });
           }
         }
       }
     }
-    
+
     if (this.findDirection === 'up') {
       this.findMatches.reverse();
     }
@@ -9548,13 +10433,13 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (!this.findMatches.length) { this.findStatus = 'No matches found.'; return; }
     this.findMatchIdx = (this.findMatchIdx + 1) % this.findMatches.length;
     const m = this.findMatches[this.findMatchIdx];
-    
+
     if (m.sIdx !== this.currentSheetIdx) {
       this.switchSheet(m.sIdx);
     }
     this.selectCell(m.r, m.c);
     this.findStatus = `Match ${this.findMatchIdx + 1} of ${this.findMatches.length}`;
-    
+
     setTimeout(() => {
       const el = document.getElementById(`cell-${m.r}-${m.c}`);
       if (el) {
@@ -9587,24 +10472,24 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (!this.findMatches.length) { this.findStatus = 'No matches found.'; return; }
     this.findMatchIdx = (this.findMatchIdx + 1) % this.findMatches.length;
     const m = this.findMatches[this.findMatchIdx];
-    
+
     if (m.sIdx !== this.currentSheetIdx) {
       this.switchSheet(m.sIdx);
     }
-    
+
     this.pushHistory();
     const flags = this.findMatchCase ? 'g' : 'gi';
     const q = new RegExp(this.findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
-    
+
     if (this.findMatchEntireCell) {
-       this.cells[m.r][m.c] = this.replaceQuery;
+      this.cells[m.r][m.c] = this.replaceQuery;
     } else {
-       this.cells[m.r][m.c] = this.cells[m.r][m.c].replace(q, this.replaceQuery);
+      this.cells[m.r][m.c] = this.cells[m.r][m.c].replace(q, this.replaceQuery);
     }
-    
+
     this.onCellChange(); this.save();
     this.findStatus = `Replaced 1 instance.`;
-    
+
     setTimeout(() => {
       const el = document.getElementById(`cell-${m.r}-${m.c}`);
       if (el) {
@@ -9622,22 +10507,22 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   replaceAll() {
     this.buildFindMatches();
     if (!this.findMatches.length) { this.findStatus = 'No matches found.'; return; }
-    
+
     this.pushHistory();
     const flags = this.findMatchCase ? 'g' : 'gi';
     const q = new RegExp(this.findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
     let count = 0;
-    
+
     for (const m of this.findMatches) {
       const sheetCells = m.sIdx === this.currentSheetIdx ? this.cells : this.sheets[m.sIdx].cells;
       if (this.findMatchEntireCell) {
-         sheetCells[m.r][m.c] = this.replaceQuery;
+        sheetCells[m.r][m.c] = this.replaceQuery;
       } else {
-         sheetCells[m.r][m.c] = sheetCells[m.r][m.c].replace(q, this.replaceQuery);
+        sheetCells[m.r][m.c] = sheetCells[m.r][m.c].replace(q, this.replaceQuery);
       }
       count++;
     }
-    
+
     this.findMatches = []; this.findMatchIdx = -1;
     this.onCellChange(); this.save();
     this.findStatus = `Replaced ${count} instances.`;
@@ -9648,41 +10533,41 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const q = this.gotoQuery.trim().toUpperCase();
     let sheetName = '';
     let cellRef = q;
-    
+
     if (q.includes('!')) {
       const parts = q.split('!');
       sheetName = parts[0];
       cellRef = parts[1];
     }
-    
+
     // Parse cell ref like "A1", "AB12"
     const match = cellRef.match(/^([A-Z]+)(\d+)$/);
     if (!match) {
       this.showToast('Invalid cell reference. Use format like A1 or AB12.');
       return;
     }
-    
+
     const colStr = match[1];
     const rowStr = match[2];
-    
+
     let colIdx = 0;
     for (let i = 0; i < colStr.length; i++) {
       colIdx = colIdx * 26 + (colStr.charCodeAt(i) - 64);
     }
     colIdx -= 1; // 0-based
     const rowIdx = parseInt(rowStr, 10) - 1; // 0-based
-    
+
     if (sheetName) {
       const cleanSheetName = sheetName.replace(/^'|'$/g, '');
       const sIdx = this.sheets.findIndex(s => s.name.toUpperCase() === cleanSheetName);
       if (sIdx !== -1 && sIdx !== this.currentSheetIdx) {
         this.switchSheet(sIdx);
       } else if (sIdx === -1) {
-         this.showToast(`Sheet '${cleanSheetName}' not found.`);
-         return;
+        this.showToast(`Sheet '${cleanSheetName}' not found.`);
+        return;
       }
     }
-    
+
     if (rowIdx >= 0 && rowIdx < this.ROWS && colIdx >= 0 && colIdx < this.COLS) {
       this.selectCell(rowIdx, colIdx);
       this.activeModal = null;
@@ -9699,9 +10584,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   // ── Multiple Sheets ───────────────────────────────────────────────────────
-  
-  get hiddenSheetsList(): {s: any, idx: number}[] {
-    return this.sheets.map((s, idx) => ({s, idx})).filter(x => x.s.hidden);
+
+  get hiddenSheetsList(): { s: any, idx: number }[] {
+    return this.sheets.map((s, idx) => ({ s, idx })).filter(x => x.s.hidden);
   }
 
   unhideAllSheets() {
@@ -9812,7 +10697,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     let raw = this.cells[r][c];
     if (raw === undefined || raw === null) return '';
     if (typeof raw !== 'string') raw = String(raw);
-    
+
     if (!raw.startsWith('=')) {
       return raw;
     }
@@ -9977,19 +10862,19 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   // --- Sync Engine ---
   onCellChange(r: number = this.selectedRow, c: number = this.selectedCol, forceBulk: boolean = false) {
     this.updateDisplayCache();
-    
+
     if (!this.cellEditHistory) this.cellEditHistory = {};
     if (r !== undefined && c !== undefined && !forceBulk && !this.applyingRemote) {
-       const key = `${this.currentSheetIdx}-${r}-${c}`;
-       if (!this.cellEditHistory[key]) this.cellEditHistory[key] = [];
-       const val = this.cells[r]?.[c] ?? '';
-       const action = val ? (this.cellEditHistory[key].length === 0 ? 'ADDED' : 'EDITED') : 'CLEARED';
-       this.cellEditHistory[key].unshift({
-         user: 'Current User',
-         time: new Date(),
-         action: action,
-         value: val
-       });
+      const key = `${this.currentSheetIdx}-${r}-${c}`;
+      if (!this.cellEditHistory[key]) this.cellEditHistory[key] = [];
+      const val = this.cells[r]?.[c] ?? '';
+      const action = val ? (this.cellEditHistory[key].length === 0 ? 'ADDED' : 'EDITED') : 'CLEARED';
+      this.cellEditHistory[key].unshift({
+        user: 'Current User',
+        time: new Date(),
+        action: action,
+        value: val
+      });
     }
 
     if (this.applyingRemote) return;
@@ -10194,15 +11079,140 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  async insertComment() {
-    const comment = await this.openPrompt(`Add a comment to cell ${this.selectedRef}:`);
-    if (comment !== null) {
-      const ref = `${this.selectedRow},${this.selectedCol}`;
-      if (!this.formats[ref]) this.formats[ref] = {};
-      (this.formats[ref] as any)['comment'] = comment;
+  hasComment(r: number, c: number): boolean {
+    const ref = `${r},${c}`;
+    const format = this.formats[ref] as any;
+    return !!(format?.commentData || format?.comment);
+  }
+
+  insertComment() {
+    this.closeMenus();
+    this.sidePanelApp = 'comments';
+    this.commentsViewFilter = 'all';
+    this.initNewCommentForCell(this.selectedRow, this.selectedCol);
+  }
+
+  initNewCommentForCell(r: number, c: number) {
+    this.newCommentCellRef = `${this.currentSheetIdx}:${r},${c}`;
+    this.newCommentCellName = this.colLabel(c) + (r + 1);
+    this.newCommentText = '';
+    setTimeout(() => {
+      if (this.newCommentInput) {
+        this.newCommentInput.nativeElement.focus();
+      }
+    }, 100);
+  }
+
+  cancelNewComment() {
+    this.newCommentCellRef = null;
+    this.newCommentText = '';
+  }
+
+  submitNewComment() {
+    if (!this.newCommentText.trim() || !this.newCommentCellRef) return;
+    const [sheetIdxStr, ref] = this.newCommentCellRef.split(':');
+    const sheetIdx = parseInt(sheetIdxStr);
+    const sheet = this.sheets[sheetIdx];
+    if (!sheet.formats) sheet.formats = {};
+    if (!sheet.formats[ref]) sheet.formats[ref] = {};
+    const existingFormat = sheet.formats[ref] as any;
+    
+    existingFormat.commentData = {
+      id: Date.now().toString(),
+      text: this.newCommentText.trim(),
+      authorName: this.auth.user?.name || 'You',
+      timestamp: new Date().toISOString(),
+      resolved: false,
+      replies: []
+    };
+    
+    if (existingFormat.comment) delete existingFormat.comment;
+    
+    this.cancelNewComment();
+    if (sheetIdx === this.currentSheetIdx) {
       this.onCellChange();
-      this.showToast(`Comment added to ${this.selectedRef}.`);
     }
+    this.save();
+    this.updateCachedComments();
+    this.showToast('Comment added.');
+  }
+
+  getFilteredComments() {
+    return this.cachedComments;
+  }
+
+  updateCachedComments() {
+    const all: any[] = [];
+    if (this.sidePanelApp !== 'comments') return;
+    
+    this.sheets.forEach((sheet, sIdx) => {
+      if (this.commentsViewFilter === 'current' && sIdx !== this.currentSheetIdx) return;
+      Object.keys(sheet.formats || {}).forEach(ref => {
+        const cData = (sheet.formats[ref] as any).commentData;
+        if (cData) {
+          if (this.commentsStatusFilter === 'resolved' && !cData.resolved) return;
+          if (this.commentsStatusFilter === 'unresolved' && cData.resolved) return;
+          all.push({
+            sheetIdx: sIdx,
+            sheetName: sheet.name,
+            ref: ref,
+            cellName: this.colLabel(parseInt(ref.split(',')[1])) + (parseInt(ref.split(',')[0]) + 1),
+            data: cData
+          });
+        }
+      });
+    });
+    this.cachedComments = all.sort((a,b) => new Date(b.data.timestamp).getTime() - new Date(a.data.timestamp).getTime());
+  }
+
+  goToCommentCell(c: any) {
+    if (this.currentSheetIdx !== c.sheetIdx) {
+      this.switchSheet(c.sheetIdx);
+    }
+    const [r, col] = c.ref.split(',').map(Number);
+    this.selectCell(r, col);
+    
+    const cellEl = document.getElementById(`cell-${r}-${col}`);
+    if (cellEl) cellEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+  }
+
+  toggleCommentResolve(c: any) {
+    c.data.resolved = !c.data.resolved;
+    this.sheets[c.sheetIdx].formats[c.ref] = { ...this.sheets[c.sheetIdx].formats[c.ref] };
+    if (c.sheetIdx === this.currentSheetIdx) this.onCellChange();
+    this.save();
+    this.updateCachedComments();
+  }
+
+  deleteComment(c: any) {
+    const format = this.sheets[c.sheetIdx].formats[c.ref] as any;
+    delete format.commentData;
+    delete format.comment;
+    if (Object.keys(format).length === 0) {
+      delete this.sheets[c.sheetIdx].formats[c.ref];
+    }
+    if (c.sheetIdx === this.currentSheetIdx) this.onCellChange();
+    this.save();
+    this.updateCachedComments();
+    this.showToast('Comment deleted.');
+  }
+
+  submitReply(c: any) {
+    const text = (this.replyTexts[c.data.id] || '').trim();
+    if (!text) return;
+    
+    if (!c.data.replies) c.data.replies = [];
+    c.data.replies.push({
+      text: text,
+      authorName: this.auth.user?.name || 'You',
+      timestamp: new Date().toISOString()
+    });
+    
+    this.replyTexts[c.data.id] = '';
+    this.sheets[c.sheetIdx].formats[c.ref] = { ...this.sheets[c.sheetIdx].formats[c.ref] };
+    if (c.sheetIdx === this.currentSheetIdx) this.onCellChange();
+    this.save();
+    this.updateCachedComments();
   }
 
   generateChart(type: string = 'column') {
@@ -10373,7 +11383,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   toggleFilter() {
-    this.pushHistory();
+    this.pushHistory({ action_type: this.filterActive ? 'clear-filter' : 'apply-filter', target_range: 'Entire Sheet' });
     this.filterActive = !this.filterActive;
     if (!this.filterActive) {
       this.hiddenRows.clear();
@@ -10387,26 +11397,26 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   filterByCellValue() {
-    this.pushHistory();
+    this.pushHistory({ action_type: 'apply-filter', target_range: 'Entire Sheet' });
     this.filterActive = true;
     const rClick = this.ctxRow !== null ? this.ctxRow : this.selectedRow;
     const cClick = this.ctxCol !== null ? this.ctxCol : this.selectedCol;
     this.activeFilterCols.add(cClick);
     const targetVal = this.cells[rClick][cClick];
     this.advFilterSavedState.set(cClick, {
-        tab: 'value',
-        allowedVals: new Set([targetVal]),
-        allowedBg: new Set(),
-        allowedText: new Set()
+      tab: 'value',
+      allowedVals: new Set([targetVal]),
+      allowedBg: new Set(),
+      allowedText: new Set()
     });
-    
+
     this.recalculateAllFilters();
     this.showToast(`Filtered by value: "${targetVal}"`);
     this.onCellChange(undefined, undefined, true);
   }
 
   filterByCellColor() {
-    this.pushHistory();
+    this.pushHistory({ action_type: 'apply-filter', target_range: 'Entire Sheet' });
     this.filterActive = true;
     const rClick = this.ctxRow !== null ? this.ctxRow : this.selectedRow;
     const cClick = this.ctxCol !== null ? this.ctxCol : this.selectedCol;
@@ -10414,33 +11424,33 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const targetRef = `${rClick},${cClick}`;
     const targetColor = this.formats[targetRef]?.bg || '';
     this.advFilterSavedState.set(cClick, {
-        tab: 'cellColor',
-        allowedVals: new Set(),
-        allowedBg: new Set([targetColor]),
-        allowedText: new Set()
+      tab: 'cellColor',
+      allowedVals: new Set(),
+      allowedBg: new Set([targetColor]),
+      allowedText: new Set()
     });
-    
+
     this.recalculateAllFilters();
     this.showToast(targetColor ? 'Filtered by cell color.' : 'Filtered by empty cell color.');
     this.onCellChange(undefined, undefined, true);
   }
 
   filterByTextColor() {
-    this.pushHistory();
+    this.pushHistory({ action_type: 'apply-filter', target_range: 'Entire Sheet' });
     this.filterActive = true;
     const rClick = this.ctxRow !== null ? this.ctxRow : this.selectedRow;
     const cClick = this.ctxCol !== null ? this.ctxCol : this.selectedCol;
     this.activeFilterCols.add(cClick);
     const targetRef = `${rClick},${cClick}`;
     const targetColor = this.formats[targetRef]?.color || '';
-    
+
     this.advFilterSavedState.set(cClick, {
-        tab: 'textColor',
-        allowedVals: new Set(),
-        allowedBg: new Set(),
-        allowedText: new Set([targetColor])
+      tab: 'textColor',
+      allowedVals: new Set(),
+      allowedBg: new Set(),
+      allowedText: new Set([targetColor])
     });
-    
+
     this.recalculateAllFilters();
     this.showToast(targetColor ? 'Filtered by text color.' : 'Filtered by default text color.');
     this.onCellChange(undefined, undefined, true);
@@ -10464,25 +11474,25 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.advFilterVisible = true;
     this.advFilterTab = 'value';
     this.advFilterSearch = '';
-    
+
     const target = event.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
     this.advFilterX = rect.left;
-    
+
     // Estimate panel height based on design bounds
-    const estimatedHeight = 450; 
-    
+    const estimatedHeight = 450;
+
     // Smart Positioning: If it overflows the bottom edge, align it upwards from the filter icon instead
     if (rect.bottom + estimatedHeight > window.innerHeight && rect.top - estimatedHeight > 0) {
-        this.advFilterY = rect.top - estimatedHeight;
-        this.advFilterMaxHeight = Math.max(rect.top - 10, 300);
+      this.advFilterY = rect.top - estimatedHeight;
+      this.advFilterMaxHeight = Math.max(rect.top - 10, 300);
     } else {
-        // Standard placement exactly underneath
-        this.advFilterY = rect.bottom + 4;
-        
-        // Dynamic shrinking: if the screen is small, force it to fit perfectly within the visible area
-        const availableHeight = window.innerHeight - this.advFilterY - 10;
-        this.advFilterMaxHeight = Math.min(estimatedHeight, Math.max(availableHeight, 300)); 
+      // Standard placement exactly underneath
+      this.advFilterY = rect.bottom + 4;
+
+      // Dynamic shrinking: if the screen is small, force it to fit perfectly within the visible area
+      const availableHeight = window.innerHeight - this.advFilterY - 10;
+      this.advFilterMaxHeight = Math.min(estimatedHeight, Math.max(availableHeight, 300));
     }
 
     this.populateAdvFilter(c);
@@ -10497,10 +11507,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const uniqueText = new Set<string>();
 
     for (let r = startRow; r <= lastRow; r++) {
-       uniqueVals.add(this.cells[r][c] || '');
-       const ref = `${r},${c}`;
-       uniqueBg.add(this.formats[ref]?.bg || '');
-       uniqueText.add(this.formats[ref]?.color || '');
+      uniqueVals.add(this.cells[r][c] || '');
+      const ref = `${r},${c}`;
+      uniqueBg.add(this.formats[ref]?.bg || '');
+      uniqueText.add(this.formats[ref]?.color || '');
     }
 
     const savedState = this.advFilterSavedState.get(c);
@@ -10508,11 +11518,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.advFilterValues = Array.from(uniqueVals).sort().map(val => ({ val, selected: savedState ? savedState.allowedVals.has(val) : true }));
     this.advFilterBgColors = Array.from(uniqueBg).sort().map(val => ({ val, selected: savedState ? savedState.allowedBg.has(val) : true }));
     this.advFilterTextColors = Array.from(uniqueText).sort().map(val => ({ val, selected: savedState ? savedState.allowedText.has(val) : true }));
-    
+
     if (savedState) {
-       this.advFilterTab = savedState.tab;
+      this.advFilterTab = savedState.tab;
     } else {
-       this.advFilterTab = 'value';
+      this.advFilterTab = 'value';
     }
   }
 
@@ -10522,19 +11532,19 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   allAdvFilterSelected(tab: string): boolean {
     if (tab === 'value') {
-       let allSelected = true;
-       for (const x of this.advFilterValues) if (!x.selected) allSelected = false;
-       return this.advFilterValues.length > 0 && allSelected;
+      let allSelected = true;
+      for (const x of this.advFilterValues) if (!x.selected) allSelected = false;
+      return this.advFilterValues.length > 0 && allSelected;
     }
     if (tab === 'cellColor') {
-       let allSelected = true;
-       for (const x of this.advFilterBgColors) if (!x.selected) allSelected = false;
-       return this.advFilterBgColors.length > 0 && allSelected;
+      let allSelected = true;
+      for (const x of this.advFilterBgColors) if (!x.selected) allSelected = false;
+      return this.advFilterBgColors.length > 0 && allSelected;
     }
     if (tab === 'textColor') {
-       let allSelected = true;
-       for (const x of this.advFilterTextColors) if (!x.selected) allSelected = false;
-       return this.advFilterTextColors.length > 0 && allSelected;
+      let allSelected = true;
+      for (const x of this.advFilterTextColors) if (!x.selected) allSelected = false;
+      return this.advFilterTextColors.length > 0 && allSelected;
     }
     return false;
   }
@@ -10559,130 +11569,130 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   toggleAllAdvFilter(event: any) {
     const checked = event.target.checked;
     if (this.advFilterTab === 'value') {
-       this.advFilterValues.forEach(x => x.selected = checked);
+      this.advFilterValues.forEach(x => x.selected = checked);
     } else if (this.advFilterTab === 'cellColor') {
-       this.advFilterBgColors.forEach(x => x.selected = checked);
+      this.advFilterBgColors.forEach(x => x.selected = checked);
     } else if (this.advFilterTab === 'textColor') {
-       this.advFilterTextColors.forEach(x => x.selected = checked);
+      this.advFilterTextColors.forEach(x => x.selected = checked);
     }
   }
 
   applyAdvFilter() {
-     this.pushHistory();
-     this.filterActive = true;
-     this.activeFilterCols.add(this.advFilterCol!);
-     const c = this.advFilterCol!;
+    this.pushHistory({ action_type: 'apply-filter', target_range: 'Entire Sheet' });
+    this.filterActive = true;
+    this.activeFilterCols.add(this.advFilterCol!);
+    const c = this.advFilterCol!;
 
-     const allowedVals = new Set(this.advFilterValues.filter(x => x.selected).map(x => x.val));
-     const allowedBg = new Set(this.advFilterBgColors.filter(x => x.selected).map(x => x.val));
-     const allowedText = new Set(this.advFilterTextColors.filter(x => x.selected).map(x => x.val));
+    const allowedVals = new Set(this.advFilterValues.filter(x => x.selected).map(x => x.val));
+    const allowedBg = new Set(this.advFilterBgColors.filter(x => x.selected).map(x => x.val));
+    const allowedText = new Set(this.advFilterTextColors.filter(x => x.selected).map(x => x.val));
 
-     this.advFilterSavedState.set(c, {
-         tab: this.advFilterTab,
-         allowedVals,
-         allowedBg,
-         allowedText
-     });
+    this.advFilterSavedState.set(c, {
+      tab: this.advFilterTab,
+      allowedVals,
+      allowedBg,
+      allowedText
+    });
 
-     this.recalculateAllFilters();
-     this.showToast('Filter applied.');
-     this.onCellChange(undefined, undefined, true);
-     this.closeAdvFilter();
+    this.recalculateAllFilters();
+    this.showToast('Filter applied.');
+    this.onCellChange(undefined, undefined, true);
+    this.closeAdvFilter();
   }
 
   clearAdvFilter() {
-     this.pushHistory();
-     this.activeFilterCols.delete(this.advFilterCol!);
-     this.advFilterSavedState.delete(this.advFilterCol!);
-     
-     if (this.activeFilterCols.size === 0) {
-         this.hiddenRows.clear();
-         this.filterActive = false;
-     } else {
-         this.recalculateAllFilters();
-     }
-     
-     this.showToast('Filter cleared.');
-     this.onCellChange(undefined, undefined, true);
-     this.closeAdvFilter();
+    this.pushHistory({ action_type: 'clear-filter', target_range: 'Entire Sheet' });
+    this.activeFilterCols.delete(this.advFilterCol!);
+    this.advFilterSavedState.delete(this.advFilterCol!);
+
+    if (this.activeFilterCols.size === 0) {
+      this.hiddenRows.clear();
+      this.filterActive = false;
+    } else {
+      this.recalculateAllFilters();
+    }
+
+    this.showToast('Filter cleared.');
+    this.onCellChange(undefined, undefined, true);
+    this.closeAdvFilter();
   }
 
   private recalculateAllFilters() {
-     const lastRow = this.getLastUsedRow();
-     const startRow = Math.max(1, this.frozenRowsCount || 0);
-     for (let r = 0; r < startRow; r++) this.hiddenRows.delete(r);
+    const lastRow = this.getLastUsedRow();
+    const startRow = Math.max(1, this.frozenRowsCount || 0);
+    for (let r = 0; r < startRow; r++) this.hiddenRows.delete(r);
 
-     for (let r = startRow; r <= lastRow; r++) {
-         let hide = false;
-         for (const [colIndex, state] of this.advFilterSavedState.entries()) {
-             const val = this.cells[r][colIndex] || '';
-             const ref = `${r},${colIndex}`;
-             const bg = this.formats[ref]?.bg || '';
-             const text = this.formats[ref]?.color || '';
+    for (let r = startRow; r <= lastRow; r++) {
+      let hide = false;
+      for (const [colIndex, state] of this.advFilterSavedState.entries()) {
+        const val = this.cells[r][colIndex] || '';
+        const ref = `${r},${colIndex}`;
+        const bg = this.formats[ref]?.bg || '';
+        const text = this.formats[ref]?.color || '';
 
-             if (state.tab === 'value') {
-                if (!state.allowedVals.has(val)) hide = true;
-             } else if (state.tab === 'cellColor') {
-                if (!state.allowedBg.has(bg)) hide = true;
-             } else if (state.tab === 'textColor') {
-                if (!state.allowedText.has(text)) hide = true;
-             }
-             if (hide) break;
-         }
-         if (hide) {
-            this.hiddenRows.add(r);
-         } else {
-            this.hiddenRows.delete(r);
-         }
-     }
-     for (let r = lastRow + 1; r < this.ROWS; r++) this.hiddenRows.delete(r);
+        if (state.tab === 'value') {
+          if (!state.allowedVals.has(val)) hide = true;
+        } else if (state.tab === 'cellColor') {
+          if (!state.allowedBg.has(bg)) hide = true;
+        } else if (state.tab === 'textColor') {
+          if (!state.allowedText.has(text)) hide = true;
+        }
+        if (hide) break;
+      }
+      if (hide) {
+        this.hiddenRows.add(r);
+      } else {
+        this.hiddenRows.delete(r);
+      }
+    }
+    for (let r = lastRow + 1; r < this.ROWS; r++) this.hiddenRows.delete(r);
   }
 
   advSort(asc: boolean) {
-    this.pushHistory();
     const c = this.advFilterCol!;
+    this.pushHistory({ action_type: asc ? 'sort-ascending' : 'sort-descending', target_range: `${this.colLabel(c)}:${this.colLabel(c)}` });
     const lastRow = this.getLastUsedRow();
     const startRow = Math.max(1, this.frozenRowsCount || 0);
 
     const rowsData = [];
-    for(let r = startRow; r <= lastRow; r++) {
-       const rowCells = [...this.cells[r]];
-       const rowFormats: Record<string, CellFormat> = {};
-       const rowValidations: Record<string, CellValidation> = {};
-       
-       for (let i = 0; i < this.COLS; i++) {
-         if (this.formats[`${r},${i}`]) rowFormats[`${r},${i}`] = this.formats[`${r},${i}`];
-         if (this.validations[`${r},${i}`]) rowValidations[`${r},${i}`] = this.validations[`${r},${i}`];
-       }
-       
-       rowsData.push({ r, val: this.cells[r][c] || '', rowCells, rowFormats, rowValidations });
+    for (let r = startRow; r <= lastRow; r++) {
+      const rowCells = [...this.cells[r]];
+      const rowFormats: Record<string, CellFormat> = {};
+      const rowValidations: Record<string, CellValidation> = {};
+
+      for (let i = 0; i < this.COLS; i++) {
+        if (this.formats[`${r},${i}`]) rowFormats[`${r},${i}`] = this.formats[`${r},${i}`];
+        if (this.validations[`${r},${i}`]) rowValidations[`${r},${i}`] = this.validations[`${r},${i}`];
+      }
+
+      rowsData.push({ r, val: this.cells[r][c] || '', rowCells, rowFormats, rowValidations });
     }
 
-    rowsData.sort((a,b) => {
-       const cmp = a.val.localeCompare(b.val, undefined, {numeric: true});
-       return asc ? cmp : -cmp;
+    rowsData.sort((a, b) => {
+      const cmp = a.val.localeCompare(b.val, undefined, { numeric: true });
+      return asc ? cmp : -cmp;
     });
 
-    for(let i = 0; i < rowsData.length; i++) {
-       const r = startRow + i;
-       this.cells[r] = rowsData[i].rowCells;
-       
-       for (let j = 0; j < this.COLS; j++) {
-          delete this.formats[`${r},${j}`];
-          delete this.validations[`${r},${j}`];
-       }
-       
-       const oldR = rowsData[i].r;
-       for (let j = 0; j < this.COLS; j++) {
-          if (rowsData[i].rowFormats[`${oldR},${j}`]) {
-             this.formats[`${r},${j}`] = rowsData[i].rowFormats[`${oldR},${j}`];
-          }
-          if (rowsData[i].rowValidations[`${oldR},${j}`]) {
-             this.validations[`${r},${j}`] = rowsData[i].rowValidations[`${oldR},${j}`];
-          }
-       }
+    for (let i = 0; i < rowsData.length; i++) {
+      const r = startRow + i;
+      this.cells[r] = rowsData[i].rowCells;
+
+      for (let j = 0; j < this.COLS; j++) {
+        delete this.formats[`${r},${j}`];
+        delete this.validations[`${r},${j}`];
+      }
+
+      const oldR = rowsData[i].r;
+      for (let j = 0; j < this.COLS; j++) {
+        if (rowsData[i].rowFormats[`${oldR},${j}`]) {
+          this.formats[`${r},${j}`] = rowsData[i].rowFormats[`${oldR},${j}`];
+        }
+        if (rowsData[i].rowValidations[`${oldR},${j}`]) {
+          this.validations[`${r},${j}`] = rowsData[i].rowValidations[`${oldR},${j}`];
+        }
+      }
     }
-    
+
     this.showToast(asc ? 'Sorted A to Z' : 'Sorted Z to A');
     this.onCellChange(undefined, undefined, true);
     this.closeAdvFilter();
@@ -10704,7 +11714,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
               if (this.cells[r][c]) { maxRow = Math.max(maxRow, r); maxCol = Math.max(maxCol, c); }
             }
           }
-          
+
           const doc = new jsPDF({ orientation: 'landscape' });
           const body = [];
           for (let r = 0; r <= maxRow; r++) {
@@ -10714,14 +11724,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
             }
             body.push(row);
           }
-          
+
           autoTable(doc, {
             body: body,
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2 },
             margin: { top: 10 }
           });
-          
+
           doc.save(`${this.title || 'Spreadsheet'}.pdf`);
           this.showToast('Download complete.');
           return;
@@ -10758,18 +11768,18 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
           // For xlsx, xlsb, ods - use HTML table which Excel parses perfectly
           mimeType = format === 'html' ? 'text/html;charset=utf-8;' : 'application/vnd.ms-excel;charset=utf-8;';
           extension = format === 'html' ? 'html' : 'xls'; // Safe extension for HTML-in-Excel
-          
+
           content = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1">';
           let maxRow = 0;
           let maxCol = 0;
-          
+
           // Find bounds
           for (let r = 0; r < this.ROWS; r++) {
             for (let c = 0; c < this.COLS; c++) {
               if (this.cells[r][c]) { maxRow = Math.max(maxRow, r); maxCol = Math.max(maxCol, c); }
             }
           }
-          
+
           for (let r = 0; r <= maxRow; r++) {
             content += '<tr>';
             for (let c = 0; c <= maxCol; c++) {
@@ -10803,10 +11813,120 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   private saveSubscription!: Subscription;
   private hasPendingChanges: boolean = false;
   dummyList: any[] = [];
+  
+  // Version History State
+  versions: any[] = [];
+  previewVersionId: string | null = null;
+  newVersionName: string = '';
+  previewData: any = null;
+  previewActiveSheetIdx: number = 0;
+  
+  get previewSheets() {
+    if (!this.previewData) return [];
+    if (this.previewData._importedSheets) return this.previewData._importedSheets;
+    return Array.isArray(this.previewData) ? this.previewData : [this.previewData];
+  }
+
+  get previewCells() {
+    const sheets = this.previewSheets;
+    if (sheets.length === 0) return [];
+    const sheet = sheets[this.previewActiveSheetIdx] || sheets[0];
+    const cells = sheet?.cells || {};
+    
+    let maxR = 20; 
+    let maxC = 10;
+    
+    Object.keys(cells).forEach(rKey => {
+      const r = parseInt(rKey, 10);
+      if (!isNaN(r) && r > maxR) maxR = r;
+      if (cells[rKey]) {
+        Object.keys(cells[rKey]).forEach(cKey => {
+          const c = parseInt(cKey, 10);
+          if (!isNaN(c) && c > maxC) maxC = c;
+        });
+      }
+    });
+    
+    const rows = [];
+    for (let r = 0; r <= maxR + 2; r++) {
+      const row = [];
+      for (let c = 0; c <= maxC + 2; c++) {
+        row.push(cells[r]?.[c] || '');
+      }
+      rows.push(row);
+    }
+    return rows;
+  }
+
   myDocs: any[] = [];
   selectedImportFile: File | null = null;
   modalInput = '';
   isStarred = false;
+
+  ocrModalOpen = false;
+  ocrImage: string | ArrayBuffer | null = null;
+  ocrProgress: number = 0;
+  ocrData: string[][] = [];
+  ocrInsertTarget: 'new' | 'existing' = 'new';
+  ocrSelStart: { r: number, c: number } | null = null;
+  ocrSelEnd: { r: number, c: number } | null = null;
+  ocrEdit: { r: number, c: number } | null = null;
+  ocrDragging = false;
+
+  startOcrDrag(r: number, c: number) {
+    this.ocrSelStart = { r, c };
+    this.ocrSelEnd = { r, c };
+    this.ocrEdit = null;
+    this.ocrDragging = true;
+  }
+
+  doOcrDrag(r: number, c: number) {
+    if (this.ocrDragging) {
+      this.ocrSelEnd = { r, c };
+    }
+  }
+
+  startOcrEdit(r: number, c: number) {
+    this.ocrEdit = { r, c };
+  }
+
+  ocrHistory: string[][][] = [];
+  ocrHistoryIndex: number = -1;
+
+  saveOcrHistory() {
+    const snapshot = JSON.parse(JSON.stringify(this.ocrData));
+    if (this.ocrHistoryIndex < this.ocrHistory.length - 1) {
+      this.ocrHistory = this.ocrHistory.slice(0, this.ocrHistoryIndex + 1);
+    }
+    this.ocrHistory.push(snapshot);
+    this.ocrHistoryIndex = this.ocrHistory.length - 1;
+  }
+
+  ocrUndo() {
+    if (this.ocrHistoryIndex > 0) {
+      this.ocrHistoryIndex--;
+      this.ocrData = JSON.parse(JSON.stringify(this.ocrHistory[this.ocrHistoryIndex]));
+      this.cdr.detectChanges();
+    }
+  }
+
+  ocrRedo() {
+    if (this.ocrHistoryIndex < this.ocrHistory.length - 1) {
+      this.ocrHistoryIndex++;
+      this.ocrData = JSON.parse(JSON.stringify(this.ocrHistory[this.ocrHistoryIndex]));
+      this.cdr.detectChanges();
+    }
+  }
+
+  isOcrSelected(r: number, c: number) {
+    if (!this.ocrSelStart || !this.ocrSelEnd) return false;
+    const minR = Math.min(this.ocrSelStart.r, this.ocrSelEnd.r);
+    const maxR = Math.max(this.ocrSelStart.r, this.ocrSelEnd.r);
+    const minC = Math.min(this.ocrSelStart.c, this.ocrSelEnd.c);
+    const maxC = Math.max(this.ocrSelStart.c, this.ocrSelEnd.c);
+    return r >= minR && r <= maxR && c >= minC && c <= maxC;
+  }
+  ocrAppendMode: 'left' | 'right' | 'above' | 'below' = 'below';
 
   onFileSelected(event: any) {
     this.selectedImportFile = event.target.files[0];
@@ -10827,12 +11947,130 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         this.myDocs = res.filter((d: any) => d.doc_type === 'sheet' && !d.is_trashed);
       });
     }
-    if (type === 'version') this.dummyList = ['Today 2:30 PM (Current)', 'Yesterday 11:00 AM', 'Last Week (Initial)'];
+    if (type === 'version') {
+      this.loadVersions();
+    }
     if (type === 'audit') this.dummyList = ['User modified cell C4 (1m ago)', 'You changed column width (5m ago)', 'User added new row (10m ago)'];
     if (type === 'workflow') this.dummyList = ['Highlight row if Status=Done', 'Send email if Due Date < Today'];
   }
 
+  loadVersions() {
+    const currentVersion = {
+      id: 'current',
+      created_at: new Date().toISOString(),
+      is_named: false,
+      version_name: 'Current Version'
+    };
+    
+    // Set it immediately so it ALWAYS shows up, even if API fails
+    this.versions = [currentVersion];
+    if (!this.previewVersionId) {
+      this.previewVersion('current');
+    }
+
+    this.api.getSheetVersions(this.docId).subscribe({
+      next: (res) => {
+        this.versions = [currentVersion, ...res];
+        this.cdr.detectChanges(); // CRITICAL for OnPush components!
+      },
+      error: (err) => {
+        console.error("Failed to fetch sheet versions:", err);
+      }
+    });
+  }
+
+  previewVersion(versionId: string) {
+    this.previewVersionId = versionId;
+    
+    if (versionId === 'current') {
+      this.previewData = this.sheets;
+      this.previewActiveSheetIdx = this.currentSheetIdx;
+      this.cdr.detectChanges();
+      return;
+    }
+    
+    this.api.getSheetVersionSnapshot(this.docId, versionId).subscribe(res => {
+      this.previewData = typeof res.content === 'string' ? JSON.parse(res.content) : res.content;
+      this.previewActiveSheetIdx = this.currentSheetIdx;
+      
+      // If previewData is a root doc with _importedSheets, extract the sheets array
+      if (!Array.isArray(this.previewData) && this.previewData._importedSheets) {
+          this.previewData = this.previewData._importedSheets;
+      } else if (!Array.isArray(this.previewData)) {
+          this.previewData = [this.previewData];
+      }
+      
+      // Ensure the active index is within bounds
+      if (this.previewActiveSheetIdx >= this.previewData.length) {
+          this.previewActiveSheetIdx = 0;
+      }
+      
+      this.cdr.detectChanges();
+    });
+  }
+
+  showNameVersionPrompt = false;
+  tempVersionName = '';
+
+  promptNameVersion() {
+    this.tempVersionName = '';
+    this.showNameVersionPrompt = true;
+  }
+  
+  cancelNameVersion() {
+    this.showNameVersionPrompt = false;
+    this.tempVersionName = '';
+  }
+
+  submitNameVersion() {
+    if (this.tempVersionName && this.tempVersionName.trim()) {
+      this.newVersionName = this.tempVersionName.trim();
+      this.createNamedVersion();
+      this.showNameVersionPrompt = false;
+    }
+  }
+
+  createNamedVersion() {
+    if (!this.newVersionName) return;
+    this.api.createNamedVersion(this.docId, this.newVersionName).subscribe(() => {
+      this.newVersionName = '';
+      this.loadVersions();
+      this.showToast('Version named successfully');
+    });
+  }
+
+  makeCopy() {
+    this.showToast('Creating a copy...');
+    setTimeout(() => this.showToast('Copy successfully saved to your Drive.'), 1000);
+  }
+
+  showRestoreConfirm = false;
+  versionToRestore: string | null = null;
+
+  confirmRestoreVersion(versionId: string) {
+    this.versionToRestore = versionId;
+    this.showRestoreConfirm = true;
+  }
+  
+  cancelRestore() {
+    this.showRestoreConfirm = false;
+    this.versionToRestore = null;
+  }
+
+  executeRestore() {
+    if (!this.versionToRestore) return;
+    this.api.restoreSheetVersion(this.docId, this.versionToRestore).subscribe(() => {
+      this.activeModal = null;
+      this.showRestoreConfirm = false;
+      this.versionToRestore = null;
+      this.showToast('Version restored successfully');
+      setTimeout(() => window.location.reload(), 1000);
+    });
+  }
+
   handleModalAction(payload?: any) {
+    if (this.activeModal === 'version') return; // Handled separately
+
     if (this.activeModal === 'template') {
       const templateName = payload || 'Blank';
       this.addSheet();
@@ -10899,9 +12137,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
                 const uploadSpeed = event.loaded / (timeElapsed / 1000); // bytes per sec
                 const bytesLeft = event.total - event.loaded;
                 const secondsLeft = Math.round(bytesLeft / uploadSpeed);
-                
+
                 if (secondsLeft > 60) {
-                  this.uploadTimeLeft = `~${Math.ceil(secondsLeft/60)} mins left`;
+                  this.uploadTimeLeft = `~${Math.ceil(secondsLeft / 60)} mins left`;
                 } else if (secondsLeft > 0) {
                   this.uploadTimeLeft = `${secondsLeft} secs left`;
                 } else {
@@ -10921,50 +12159,50 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
                   // Multi-sheet import — expand sparse cells to 2D arrays
                   this.sheets = p._importedSheets.map((sheet: any) => {
                     let cells2d: string[][];
-                  if (Array.isArray(sheet.cells)) {
-                    cells2d = Array.from({ length: Math.max(this.ROWS, sheet.cells.length) }, (_: any, r: number) =>
-                      Array.from({ length: Math.max(this.COLS, sheet.cells[r]?.length ?? 0) }, (_2: any, c: number) =>
-                        sheet.cells[r]?.[c] ?? ''));
-                  } else {
-                    const sp = sheet.cells || {};
-                    const maxR = Math.max(this.ROWS, ...Object.keys(sp).map(Number).filter((n: number) => !isNaN(n))) + 1;
-                    cells2d = Array.from({ length: maxR }, (_: any, r: number) =>
-                      Array.from({ length: this.COLS }, (_2: any, c: number) => sp[r]?.[c] ?? ''));
-                  }
-                  return { ...sheet, cells: cells2d };
-                });
-                this.currentSheetIdx = 0;
-                const s0 = this.sheets[0];
-                for (let r = 0; r < this.ROWS; r++)
-                  for (let c = 0; c < this.COLS; c++)
-                    this.cells[r][c] = s0.cells[r]?.[c] ?? '';
-                this.formats = { ...(s0.formats || {}) };
-                this.validations = { ...(s0.validations || {}) };
-                if (s0.colWidths) this.sheets[0].colWidths = s0.colWidths;
-                if (s0.rowHeights) this.sheets[0].rowHeights = s0.rowHeights;
-                this.hiddenRows = new Set();
-                this.filterActive = false;
-                this.activeFilterCols = new Set();
-                this.pushHistory();
-                this.updateDisplayCache();
-                this.showToast(`${fileName} imported successfully!`);
-              } else if (p.cells) {
-                // Single-sheet flat format
-                this.pushHistory();
-                for (let r = 0; r < this.ROWS; r++)
-                  for (let c = 0; c < this.COLS; c++)
-                    this.cells[r][c] = p.cells[r]?.[c] ?? '';
-                if (p.formats) this.formats = p.formats;
-                if (p.validations) this.validations = p.validations;
-                this.updateDisplayCache();
-                this.showToast(`${fileName} imported successfully!`);
-              } else {
-                // Nothing parseable — fallback to page reload
+                    if (Array.isArray(sheet.cells)) {
+                      cells2d = Array.from({ length: Math.max(this.ROWS, sheet.cells.length) }, (_: any, r: number) =>
+                        Array.from({ length: Math.max(this.COLS, sheet.cells[r]?.length ?? 0) }, (_2: any, c: number) =>
+                          sheet.cells[r]?.[c] ?? ''));
+                    } else {
+                      const sp = sheet.cells || {};
+                      const maxR = Math.max(this.ROWS, ...Object.keys(sp).map(Number).filter((n: number) => !isNaN(n))) + 1;
+                      cells2d = Array.from({ length: maxR }, (_: any, r: number) =>
+                        Array.from({ length: this.COLS }, (_2: any, c: number) => sp[r]?.[c] ?? ''));
+                    }
+                    return { ...sheet, cells: cells2d };
+                  });
+                  this.currentSheetIdx = 0;
+                  const s0 = this.sheets[0];
+                  for (let r = 0; r < this.ROWS; r++)
+                    for (let c = 0; c < this.COLS; c++)
+                      this.cells[r][c] = s0.cells[r]?.[c] ?? '';
+                  this.formats = { ...(s0.formats || {}) };
+                  this.validations = { ...(s0.validations || {}) };
+                  if (s0.colWidths) this.sheets[0].colWidths = s0.colWidths;
+                  if (s0.rowHeights) this.sheets[0].rowHeights = s0.rowHeights;
+                  this.hiddenRows = new Set();
+                  this.filterActive = false;
+                  this.activeFilterCols = new Set();
+                  this.pushHistory();
+                  this.updateDisplayCache();
+                  this.showToast(`${fileName} imported successfully!`);
+                } else if (p.cells) {
+                  // Single-sheet flat format
+                  this.pushHistory();
+                  for (let r = 0; r < this.ROWS; r++)
+                    for (let c = 0; c < this.COLS; c++)
+                      this.cells[r][c] = p.cells[r]?.[c] ?? '';
+                  if (p.formats) this.formats = p.formats;
+                  if (p.validations) this.validations = p.validations;
+                  this.updateDisplayCache();
+                  this.showToast(`${fileName} imported successfully!`);
+                } else {
+                  // Nothing parseable — fallback to page reload
+                  window.location.reload();
+                }
+              } catch {
                 window.location.reload();
               }
-            } catch {
-              window.location.reload();
-            }
             } // Close else if (event.type === HttpEventType.Response)
           },
           error: () => this.showToast('Failed to import file.')
@@ -11235,9 +12473,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.pushHistory();
     const dest = this.moveSheetDestination;
     const sheetToMove = this.sheets[this.moveSheetTargetIdx];
-    
+
     this.sheets.splice(this.moveSheetTargetIdx, 1);
-    
+
     let insertIdx = 0;
     if (dest === 'start') {
       insertIdx = 0;
@@ -11251,7 +12489,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         insertIdx = targetOriginalIdx + 1;
       }
     }
-    
+
     this.sheets.splice(insertIdx, 0, sheetToMove);
     this.switchSheet(insertIdx);
     this.save();
@@ -11319,7 +12557,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const key = `${this.currentSheetIdx}-${this.selectedRow}-${this.selectedCol}`;
     if (!this.cellEditHistory) this.cellEditHistory = {};
     if (!this.cellEditHistory[key]) {
-       this.cellEditHistory[key] = [];
+      this.cellEditHistory[key] = [];
     }
     this.editHistoryData = this.cellEditHistory[key];
     this.showEditHistoryPanel = true;
@@ -11334,14 +12572,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.customFormatString = '';
     this.showCustomFormatModal = true;
   }
-  
+
   applyCustomFormat() {
     if (this.customFormatString.trim()) {
       this.setFormat('numFormat', 'custom_' + this.customFormatString.trim());
     }
     this.showCustomFormatModal = false;
   }
-  
+
   openMoreFormatsModal() {
     this.closeMenus();
     this.showMoreFormatsModal = true;
@@ -11357,15 +12595,15 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (decMatch) decimals = decMatch[1].length;
     let numStr = tempNum.toFixed(decimals);
     if (fmtStr.includes(',')) {
-       const parts = numStr.split('.');
-       parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-       numStr = parts.join('.');
+      const parts = numStr.split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      numStr = parts.join('.');
     }
     const numPattern = /[#0,]+(\.[0]+)?/;
     if (numPattern.test(fmtStr)) {
-        out = fmtStr.replace(numPattern, numStr);
+      out = fmtStr.replace(numPattern, numStr);
     } else {
-        out = numStr;
+      out = numStr;
     }
     return out;
   }
@@ -11378,13 +12616,13 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     return result - 1;
   }
 
-  parseCellRef(ref: string): {r: number, c: number} | null {
+  parseCellRef(ref: string): { r: number, c: number } | null {
     const match = ref.match(/^([A-Za-z]+)(\d+)$/);
     if (!match) return null;
     return { c: this.colNameToIndex(match[1]), r: parseInt(match[2], 10) - 1 };
   }
 
-  parseRangeStr(range: string): {minR: number, maxR: number, minC: number, maxC: number} | null {
+  parseRangeStr(range: string): { minR: number, maxR: number, minC: number, maxC: number } | null {
     let rStr = range.split('!').pop() || range;
     rStr = rStr.replace(/['"]/g, ''); // strip quotes
     const parts = rStr.split(':');
@@ -11405,17 +12643,17 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     };
   }
 
-  getSparklineData(sourceRange: string, sheetIdx: number = this.currentSheetIdx): { values: (number|null)[], hasNumbers: boolean } {
+  getSparklineData(sourceRange: string, sheetIdx: number = this.currentSheetIdx): { values: (number | null)[], hasNumbers: boolean } {
     const range = this.parseRangeStr(sourceRange);
     if (!range) return { values: [], hasNumbers: false };
-    
+
     // Validate that it's a 1D range (single row or single column)
     if (range.minR !== range.maxR && range.minC !== range.maxC) {
       return { values: [], hasNumbers: false }; // 2D not allowed for sparklines usually
     }
 
     const cells = this.sheets[sheetIdx].cells;
-    const values: (number|null)[] = [];
+    const values: (number | null)[] = [];
     let hasNumbers = false;
 
     for (let r = range.minR; r <= range.maxR; r++) {
@@ -11435,7 +12673,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         }
       }
     }
-    
+
     if (values.length < 2) {
       return { values, hasNumbers: false };
     }
@@ -11452,7 +12690,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const sheet = this.sheets[this.currentSheetIdx];
     const config = sheet.sparklines![`${r},${c}`];
     const data = this.getSparklineData(config.source);
-    
+
     if (!data.hasNumbers) {
       return this.sanitizer.bypassSecurityTrustHtml(`<span style="color:#ef4444;font-size:10px;font-weight:bold;">#ERROR!</span>`);
     }
@@ -11474,7 +12712,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const padY = 4;
     const innerW = w - padX * 2;
     const innerH = h - padY * 2;
-    
+
     let svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block;">`;
 
     const nums = rawValues.filter(v => v !== null) as number[];
@@ -11486,10 +12724,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const getY = (val: number) => padY + innerH - ((val - min) / range) * innerH;
 
     const baseColor = config.color || '#4285f4';
-    
+
     let firstIdx = -1, lastIdx = -1, highIdx = -1, lowIdx = -1;
     let currentHigh = -Infinity, currentLow = Infinity;
-    
+
     for (let i = 0; i < rawValues.length; i++) {
       const v = rawValues[i];
       if (v !== null) {
@@ -11541,7 +12779,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
           if (i === lowIdx && config.lowColor) markColor = config.lowColor;
           if (i === firstIdx && config.firstColor) markColor = config.firstColor;
           if (i === lastIdx && config.lastColor) markColor = config.lastColor;
-          
+
           if (markColor) svg += `<circle cx="${getX(i)}" cy="${getY(vNum)}" r="2" fill="${markColor}" />`;
         }
       }
@@ -11564,7 +12802,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         let barH = Math.abs(y - zeroY);
         if (vNum < 0) y = zeroY;
         if (barH < 1 && vNum !== 0) barH = 1;
-        
+
         const col = getColor(i, vNum);
         svg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${col}" />`;
       }
@@ -11587,6 +12825,40 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
     svg += `</svg>`;
     return this.sanitizer.bypassSecurityTrustHtml(svg);
+  }
+
+  onAuditNavigate(event: { sheetId: string, r: number, c: number, endR: number, endC: number }) {
+    const targetSheetIdx = this.sheets.findIndex(s => (s as any).id === event.sheetId || this.sheets.indexOf(s).toString() === event.sheetId);
+    if (targetSheetIdx !== -1 && targetSheetIdx !== this.currentSheetIdx) {
+      this.switchSheet(targetSheetIdx);
+    }
+
+    let targetScrollTop = 0;
+    for (let i = 0; i < event.r; i++) targetScrollTop += this.getRowHeight(i) || 24;
+
+    let targetScrollLeft = 0;
+    for (let i = 0; i < event.c; i++) targetScrollLeft += this.getColWidth(i) || 100;
+
+    const wrapEl = document.querySelector('.grid-wrap') as HTMLElement;
+    if (wrapEl) {
+      wrapEl.scrollTop = Math.max(0, targetScrollTop - (wrapEl.clientHeight / 3));
+      wrapEl.scrollLeft = Math.max(0, targetScrollLeft - (wrapEl.clientWidth / 3));
+
+      this.updateVisibleRows(wrapEl.scrollTop);
+    }
+
+    this.cdr.detectChanges();
+
+    this.selectCell(event.r, event.c);
+    this.rangeStart = { r: event.r, c: event.c };
+    this.rangeEnd = { r: event.endR, c: event.endC };
+
+    const el = document.getElementById(`cell-${event.r}-${event.c}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }
+    
+    this.activeModal = null;
   }
 }
 

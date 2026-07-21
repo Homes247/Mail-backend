@@ -60,6 +60,31 @@ export class ApiService implements OnDestroy {
     return this.http.delete(`${this.base}/documents/${id}`);
   }
 
+  getAuditEvents(id: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/documents/${id}/audit-events`);
+  }
+
+  saveAuditEvents(id: string, events: any[]): Observable<any> {
+    return this.http.post(`${this.base}/documents/${id}/audit-events`, events);
+  }
+
+  getSheetVersions(docId: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.base}/documents/${docId}/versions`);
+  }
+  
+  getSheetVersionSnapshot(docId: string, versionId: string): Observable<any> {
+    return this.http.get<any>(`${this.base}/documents/${docId}/versions/${versionId}`);
+  }
+
+  createNamedVersion(docId: string, versionName: string): Observable<any> {
+    return this.http.post<any>(`${this.base}/documents/${docId}/versions`, { version_name: versionName });
+  }
+
+  restoreSheetVersion(docId: string, versionId: string): Observable<any> {
+    return this.http.post<any>(`${this.base}/documents/${docId}/versions/${versionId}/restore`, {});
+  }
+
+
   restoreDocument(id: string): Observable<any> {
     return this.http.put(`${this.base}/documents/${id}`, { is_trashed: 0 });
   }
