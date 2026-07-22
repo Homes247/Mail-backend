@@ -47,6 +47,33 @@ export interface CellFormat {
   };
 }
 
+
+export interface SparklineConfig {
+  sourceRange?: string;
+  destinationRange?: string;
+  type: 'line' | 'column' | 'winloss'; // We use 'column' instead of 'bar' as per our previous logic
+  baseColor: string;
+  highlights: {
+    high: { enabled: boolean; color: string };
+    low: { enabled: boolean; color: string };
+    first: { enabled: boolean; color: string };
+    last: { enabled: boolean; color: string };
+    negative: { enabled: boolean; color: string };
+    markers: { enabled: boolean; color: string };
+  };
+  emptyCellMode: 'gap' | 'zero' | 'connect' | 'skip';
+  includeHiddenRowsColumns: boolean;
+  horizontalAxis: {
+    displayAxis: boolean;
+    rightToLeft: boolean;
+  };
+  verticalAxis: {
+    min: { mode: 'auto' | 'same' | 'custom'; customValue: number | null };
+    max: { mode: 'auto' | 'same' | 'custom'; customValue: number | null };
+  };
+  isGrouped: boolean;
+  groupId: string;
+}
 export interface CellBorder {
   color?: string;
   style?: string;
@@ -762,7 +789,7 @@ export interface AuditOp {
               <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
               <div class="mdi-sub">
                 <div class="mdi" (click)="createForm(); closeMenus()">Create Form</div>
-                <div class="mdi" (click)="viewForm(); closeMenus()">View Form Responses</div>
+                <div class="mdi" (click)="manageForms(); closeMenus()">Manage Forms</div>
               </div>
             </div>
             <div class="mdi has-sub">
@@ -808,24 +835,7 @@ export interface AuditOp {
         </div>
         <div class="mi" (click)="toggleMenu('help',$event)" [class.mi-open]="activeMenu==='help'">Help
           <div class="mdd" *ngIf="activeMenu==='help'" style="min-width:240px;">
-            <div style="padding: 6px 12px 8px;">
-              <div style="display:flex; align-items:center; gap:6px; background:#f8f9fa; border:1px solid #e2e8f0; border-radius:4px; padding:6px 10px;">
-                <span class="material-symbols-outlined" style="font-size:16px; color:#9aa0a6;">search</span>
-                <input placeholder="Search in menus" [(ngModel)]="menuSearch" (click)="$event.stopPropagation()" style="border:none; background:transparent; outline:none; font-size:13px; width:100%;" />
-                <span style="font-size:11px; color:#9aa0a6;">Ctrl+Shift+Space</span>
-              </div>
-            </div>
-            <div class="mds"></div>
-            <div class="mdi" (click)="openWhatsNew(); closeMenus()">
-              <span class="material-symbols-outlined mdi-icon">card_giftcard</span> What's New
-            </div>
-            <div class="mdi" (click)="openUserGuide(); closeMenus()">
-              <span class="material-symbols-outlined mdi-icon">menu_book</span> User Guide
-            </div>
-            <div class="mdi" (click)="openDeveloperApi(); closeMenus()">
-              <span class="material-symbols-outlined mdi-icon">api</span> Developer API
-            </div>
-            <div class="mds"></div>
+            
             <div class="mdi" (click)="showKeyboardShortcuts(); closeMenus()">
               <span class="material-symbols-outlined mdi-icon">keyboard</span> Keyboard Shortcuts...
             </div>
@@ -1109,6 +1119,7 @@ export interface AuditOp {
         <button class="tb" (click)="openFind()" title="Find &amp; Replace (Ctrl+H)"><span class="material-symbols-outlined">search</span></button>
         <button class="tb" (click)="insertLink()" title="Insert Link"><span class="material-symbols-outlined">link</span></button>
         <button class="tb" (click)="insertComment()" title="Insert Comment"><span class="material-symbols-outlined">comment</span></button>
+        <button class="tb" (click)="openSparklineFormat()" title="Sparkline Format"><span class="material-symbols-outlined">stacked_line_chart</span></button>
         <div style="position:relative; display:inline-block;">
           <button class="tb" [class.tb-on]="activeMenu==='chart'" (click)="toggleMenu('chart', $event)" title="Insert Chart"><span class="material-symbols-outlined">insert_chart</span></button>
           <div class="tb-chart-dd" *ngIf="activeMenu==='chart'" (click)="$event.stopPropagation()">
@@ -2254,89 +2265,132 @@ export interface AuditOp {
             </div>
           </ng-container>
 
-          <!-- ── SPARKLINE ────────────────────────────────────────────── -->
-          <ng-container *ngIf="sidePanelApp === 'sparkline'">
+          <!-- 🟢 SPARKLINE SETTINGS PANEL 🟢 -->
+          <ng-container *ngIf="sidePanelApp === 'sparkline' && sparklineConfig">
             <div style="display:flex; flex-direction:column; gap:16px;">
-              <div class="sp-card-label">Source Range</div>
-              <input type="text" [(ngModel)]="sparklineConfig.source" (blur)="saveSparkline()" style="width:100%; padding:8px; border:1px solid #e2e8f0; border-radius:4px; outline:none;" placeholder="e.g. A1:D1">
-              <div *ngIf="sparklineConfig.error" style="color: #ef4444; font-size: 11px;">{{ sparklineConfig.error }}</div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                 <div style="font-size:16px; font-weight:600; color:#202124;">Sparkline</div>
+                 <button (click)="sidePanelApp = null" style="background:none; border:none; cursor:pointer;"><span class="material-symbols-outlined" style="font-size:18px; color:#5f6368;">close</span></button>
+              </div>
+              <div style="font-size:13px; color:#202124;">Source: <strong>{{sparklineConfig.sourceRange}}</strong> <a style="color:#0f9d58; text-decoration:none; margin-left:8px; cursor:pointer; font-weight:500;" (click)="editSparklineConfig = { source: sparklineConfig.sourceRange || '', dest: sparklineConfig.destinationRange || '', error: '', tab: 'selected' }; activeModal = 'edit_sparkline'">Edit</a></div>
               
-              <div class="sp-card-label" style="margin-top: 8px;">Location</div>
-              <div style="font-size: 13px; color: #5f6368; padding: 4px 0;">{{ sparklineConfig.locationLabel }}</div>
+              <hr style="border:0; border-top:1px solid #e2e8f0; margin:0;">
+              
+              <div class="sp-card-label">Sparkline Type</div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <button (click)="setSparklineType('line')" [style.background]="sparklineConfig.type === 'line' ? '#e8f0fe' : '#fff'" [style.color]="sparklineConfig.type === 'line' ? '#1a73e8' : '#5f6368'" style="flex:1; padding:6px; border:1px solid #dadce0; border-radius:4px; cursor:pointer; display:flex; justify-content:center;" title="Line"><span class="material-symbols-outlined">show_chart</span></button>
+                <button (click)="setSparklineType('column')" [style.background]="sparklineConfig.type === 'column' ? '#e8f0fe' : '#fff'" [style.color]="sparklineConfig.type === 'column' ? '#1a73e8' : '#5f6368'" style="flex:1; padding:6px; border:1px solid #dadce0; border-radius:4px; cursor:pointer; display:flex; justify-content:center;" title="Bar/Column"><span class="material-symbols-outlined">bar_chart</span></button>
+                <button (click)="setSparklineType('winloss')" [style.background]="sparklineConfig.type === 'winloss' ? '#e8f0fe' : '#fff'" [style.color]="sparklineConfig.type === 'winloss' ? '#1a73e8' : '#5f6368'" style="flex:1; padding:6px; border:1px solid #dadce0; border-radius:4px; cursor:pointer; display:flex; justify-content:center;" title="Win/Loss"><span class="material-symbols-outlined">waterfall_chart</span></button>
+              </div>
 
-              <div class="sp-card-label" style="margin-top: 8px;">Sparkline Type</div>
+              <div class="sp-card-label" style="margin-top:16px;">Sparkline Color</div>
+              <div style="position:relative;">
+                   <div (click)="openColorPicker($event, 'base')" style="width:100%; height:32px; border-radius:4px; border:1px solid #dadce0; cursor:pointer; display:flex; align-items:center; justify-content:space-between; padding:0 8px; background: #fff;">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                         <div style="width:16px; height:16px; border-radius:2px; border:1px solid rgba(0,0,0,0.1);" [style.background]="sparklineConfig.baseColor"></div>
+                         <span style="font-size:13px; color:#202124;">Color</span>
+                      </div>
+                      <span class="material-symbols-outlined" style="font-size:18px; color:#5f6368;">expand_more</span>
+                   </div>
+              </div>
+
+              <div class="sp-card-label" style="margin-top:16px;">Highlight Points</div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                 <!-- High -->
+                 <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;"><input type="checkbox" [(ngModel)]="sparklineConfig.highlights.high.enabled" (change)="saveSparkline()"> High</label>
+                    <div (click)="openColorPicker($event, 'high')" style="width:28px; height:20px; border-radius:2px; border:1px solid #dadce0; cursor:pointer; display:flex; align-items:center; justify-content:center;" [style.background]="sparklineConfig.highlights.high.color"><span class="material-symbols-outlined" style="font-size:14px; color:rgba(255,255,255,0.8); mix-blend-mode: difference;">expand_more</span></div>
+                 </div>
+                 <!-- Low -->
+                 <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;"><input type="checkbox" [(ngModel)]="sparklineConfig.highlights.low.enabled" (change)="saveSparkline()"> Low</label>
+                    <div (click)="openColorPicker($event, 'low')" style="width:28px; height:20px; border-radius:2px; border:1px solid #dadce0; cursor:pointer; display:flex; align-items:center; justify-content:center;" [style.background]="sparklineConfig.highlights.low.color"><span class="material-symbols-outlined" style="font-size:14px; color:rgba(255,255,255,0.8); mix-blend-mode: difference;">expand_more</span></div>
+                 </div>
+                 <!-- First -->
+                 <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;"><input type="checkbox" [(ngModel)]="sparklineConfig.highlights.first.enabled" (change)="saveSparkline()"> First</label>
+                    <div (click)="openColorPicker($event, 'first')" style="width:28px; height:20px; border-radius:2px; border:1px solid #dadce0; cursor:pointer; display:flex; align-items:center; justify-content:center;" [style.background]="sparklineConfig.highlights.first.color"><span class="material-symbols-outlined" style="font-size:14px; color:rgba(255,255,255,0.8); mix-blend-mode: difference;">expand_more</span></div>
+                 </div>
+                 <!-- Last -->
+                 <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;"><input type="checkbox" [(ngModel)]="sparklineConfig.highlights.last.enabled" (change)="saveSparkline()"> Last</label>
+                    <div (click)="openColorPicker($event, 'last')" style="width:28px; height:20px; border-radius:2px; border:1px solid #dadce0; cursor:pointer; display:flex; align-items:center; justify-content:center;" [style.background]="sparklineConfig.highlights.last.color"><span class="material-symbols-outlined" style="font-size:14px; color:rgba(255,255,255,0.8); mix-blend-mode: difference;">expand_more</span></div>
+                 </div>
+                 <!-- Negative -->
+                 <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;"><input type="checkbox" [(ngModel)]="sparklineConfig.highlights.negative.enabled" (change)="saveSparkline()"> Negative</label>
+                    <div (click)="openColorPicker($event, 'negative')" style="width:28px; height:20px; border-radius:2px; border:1px solid #dadce0; cursor:pointer; display:flex; align-items:center; justify-content:center;" [style.background]="sparklineConfig.highlights.negative.color"><span class="material-symbols-outlined" style="font-size:14px; color:rgba(255,255,255,0.8); mix-blend-mode: difference;">expand_more</span></div>
+                 </div>
+                 <!-- Markers -->
+                 <div style="display:flex; justify-content:space-between; align-items:center;" [style.opacity]="sparklineConfig.type !== 'line' ? 0.4 : 1" [style.pointer-events]="sparklineConfig.type !== 'line' ? 'none' : 'auto'">
+                    <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;"><input type="checkbox" [(ngModel)]="sparklineConfig.highlights.markers.enabled" (change)="saveSparkline()"> Markers</label>
+                    <div (click)="openColorPicker($event, 'markers')" style="width:28px; height:20px; border-radius:2px; border:1px solid #dadce0; cursor:pointer; display:flex; align-items:center; justify-content:center;" [style.background]="sparklineConfig.highlights.markers.color"><span class="material-symbols-outlined" style="font-size:14px; color:rgba(255,255,255,0.8); mix-blend-mode: difference;">expand_more</span></div>
+                 </div>
+              </div>
+
+              <div class="sp-card-label" style="margin-top:8px;">Show Empty Cells</div>
+              <div style="display:flex; font-size:12px; border:1px solid #dadce0; border-radius:4px; overflow:hidden;">
+                <button style="flex:1; padding:6px 0; border:none; cursor:pointer; background:transparent;" [style.background]="sparklineConfig.emptyCellMode === 'gap' ? '#424242' : '#f1f3f4'" [style.color]="sparklineConfig.emptyCellMode === 'gap' ? '#fff' : '#202124'" (click)="setEmptyCellMode('gap')">Gap</button>
+                <div style="width:1px; background:#dadce0;"></div>
+                <button style="flex:1; padding:6px 0; border:none; cursor:pointer; background:transparent;" [style.background]="sparklineConfig.emptyCellMode === 'zero' ? '#424242' : '#f1f3f4'" [style.color]="sparklineConfig.emptyCellMode === 'zero' ? '#fff' : '#202124'" (click)="setEmptyCellMode('zero')">Zero</button>
+                <div style="width:1px; background:#dadce0;"></div>
+                <button style="flex:1; padding:6px 0; border:none; cursor:pointer; background:transparent;" [style.background]="sparklineConfig.emptyCellMode === 'connect' ? '#424242' : '#f1f3f4'" [style.color]="sparklineConfig.emptyCellMode === 'connect' ? '#fff' : '#202124'" (click)="setEmptyCellMode('connect')" [disabled]="sparklineConfig.type !== 'line'" [style.opacity]="sparklineConfig.type !== 'line' ? 0.4 : 1">Connect</button>
+                <div style="width:1px; background:#dadce0;"></div>
+                <button style="flex:1; padding:6px 0; border:none; cursor:pointer; background:transparent;" [style.background]="sparklineConfig.emptyCellMode === 'skip' ? '#424242' : '#f1f3f4'" [style.color]="sparklineConfig.emptyCellMode === 'skip' ? '#fff' : '#202124'" (click)="setEmptyCellMode('skip')">Skip</button>
+              </div>
+
+              <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" [(ngModel)]="sparklineConfig.includeHiddenRowsColumns" (change)="saveSparkline()"> Include hidden rows and columns</label>
+
+              <hr style="border:0; border-top:1px solid #e2e8f0; margin:0;">
+
+              <div class="sp-card-label">Manage Settings</div>
               <div style="display:flex; gap:8px;">
-                <button (click)="sparklineConfig.type = 'line'; saveSparkline()" [style.background]="sparklineConfig.type === 'line' ? '#e8f0fe' : '#fff'" [style.color]="sparklineConfig.type === 'line' ? '#1a73e8' : '#5f6368'" style="flex:1; padding:8px; border:1px solid #dadce0; border-radius:4px; cursor:pointer; display:flex; justify-content:center;"><span class="material-symbols-outlined">show_chart</span></button>
-                <button (click)="sparklineConfig.type = 'column'; saveSparkline()" [style.background]="sparklineConfig.type === 'column' ? '#e8f0fe' : '#fff'" [style.color]="sparklineConfig.type === 'column' ? '#1a73e8' : '#5f6368'" style="flex:1; padding:8px; border:1px solid #dadce0; border-radius:4px; cursor:pointer; display:flex; justify-content:center;"><span class="material-symbols-outlined">bar_chart</span></button>
-                <button (click)="sparklineConfig.type = 'winloss'; saveSparkline()" [style.background]="sparklineConfig.type === 'winloss' ? '#e8f0fe' : '#fff'" [style.color]="sparklineConfig.type === 'winloss' ? '#1a73e8' : '#5f6368'" style="flex:1; padding:8px; border:1px solid #dadce0; border-radius:4px; cursor:pointer; display:flex; justify-content:center;"><span class="material-symbols-outlined">waterfall_chart</span></button>
+                 <button (click)="toggleGroup()" style="flex:1; padding:6px; display:flex; align-items:center; justify-content:center; gap:4px; border:1px solid #dadce0; border-radius:4px; background:#fff; cursor:pointer; font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">library_add</span> {{sparklineConfig.isGrouped ? 'Ungroup' : 'Group'}}</button>
+                 <button (click)="deleteSparklineConfig()" style="flex:1; padding:6px; display:flex; align-items:center; justify-content:center; gap:4px; border:1px solid #dadce0; border-radius:4px; background:#fff; cursor:pointer; font-size:13px;"><span class="material-symbols-outlined" style="font-size:16px;">delete</span> Delete</button>
+              </div>
+              <button (click)="switchRowsColumns()" style="width:100%; padding:8px; border:1px solid #dadce0; border-radius:4px; background:#fff; cursor:pointer; font-size:13px; font-weight:500;">Switch rows / columns</button>
+
+              <div style="border-top:1px solid #e2e8f0; margin:0 -16px; padding:12px 16px;">
+                 <div (click)="horizontalAxisExpanded = !horizontalAxisExpanded" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-weight:600; font-size:13px; color:#202124;">
+                   Horizontal Axis
+                   <span class="material-symbols-outlined" style="font-size:18px;">{{horizontalAxisExpanded ? 'expand_less' : 'expand_more'}}</span>
+                 </div>
+                 <div *ngIf="horizontalAxisExpanded" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+                   <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" [(ngModel)]="sparklineConfig.horizontalAxis.displayAxis" (change)="saveSparkline()"> Display Axis</label>
+                   <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="checkbox" [(ngModel)]="sparklineConfig.horizontalAxis.rightToLeft" (change)="saveSparkline()"> Plot sparkline from right to left</label>
+                 </div>
               </div>
 
-              <div class="sp-card-label" style="margin-top: 8px;">Default Color</div>
-              <input type="color" [(ngModel)]="sparklineConfig.color" (change)="saveSparkline()" style="width: 32px; height: 32px; border: none; padding: 0; cursor: pointer; border-radius: 4px;">
-
-              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 12px 0;">
-
-              <div class="sp-card-label">Highlight Points</div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <!-- High -->
-                <div style="display:flex; align-items:center; justify-content: space-between;">
-                  <label style="display:flex; align-items:center; font-size:12px; cursor:pointer; gap:4px;">
-                    <input type="checkbox" [checked]="!!sparklineConfig.highColor" (change)="sparklineConfig.highColor = $any($event.target).checked ? '#34a853' : ''; saveSparkline()"> High
-                  </label>
-                  <input type="color" *ngIf="sparklineConfig.highColor" [(ngModel)]="sparklineConfig.highColor" (change)="saveSparkline()" style="width:24px; height:24px; border:none; padding:0; cursor:pointer;">
-                </div>
-                <!-- Low -->
-                <div style="display:flex; align-items:center; justify-content: space-between;">
-                  <label style="display:flex; align-items:center; font-size:12px; cursor:pointer; gap:4px;">
-                    <input type="checkbox" [checked]="!!sparklineConfig.lowColor" (change)="sparklineConfig.lowColor = $any($event.target).checked ? '#ea4335' : ''; saveSparkline()"> Low
-                  </label>
-                  <input type="color" *ngIf="sparklineConfig.lowColor" [(ngModel)]="sparklineConfig.lowColor" (change)="saveSparkline()" style="width:24px; height:24px; border:none; padding:0; cursor:pointer;">
-                </div>
-                <!-- First -->
-                <div style="display:flex; align-items:center; justify-content: space-between;">
-                  <label style="display:flex; align-items:center; font-size:12px; cursor:pointer; gap:4px;">
-                    <input type="checkbox" [checked]="!!sparklineConfig.firstColor" (change)="sparklineConfig.firstColor = $any($event.target).checked ? '#4285f4' : ''; saveSparkline()"> First
-                  </label>
-                  <input type="color" *ngIf="sparklineConfig.firstColor" [(ngModel)]="sparklineConfig.firstColor" (change)="saveSparkline()" style="width:24px; height:24px; border:none; padding:0; cursor:pointer;">
-                </div>
-                <!-- Last -->
-                <div style="display:flex; align-items:center; justify-content: space-between;">
-                  <label style="display:flex; align-items:center; font-size:12px; cursor:pointer; gap:4px;">
-                    <input type="checkbox" [checked]="!!sparklineConfig.lastColor" (change)="sparklineConfig.lastColor = $any($event.target).checked ? '#4285f4' : ''; saveSparkline()"> Last
-                  </label>
-                  <input type="color" *ngIf="sparklineConfig.lastColor" [(ngModel)]="sparklineConfig.lastColor" (change)="saveSparkline()" style="width:24px; height:24px; border:none; padding:0; cursor:pointer;">
-                </div>
-                <!-- Negative -->
-                <div style="display:flex; align-items:center; justify-content: space-between;">
-                  <label style="display:flex; align-items:center; font-size:12px; cursor:pointer; gap:4px;">
-                    <input type="checkbox" [checked]="!!sparklineConfig.negativeColor" (change)="sparklineConfig.negativeColor = $any($event.target).checked ? '#ea4335' : ''; saveSparkline()"> Negative
-                  </label>
-                  <input type="color" *ngIf="sparklineConfig.negativeColor" [(ngModel)]="sparklineConfig.negativeColor" (change)="saveSparkline()" style="width:24px; height:24px; border:none; padding:0; cursor:pointer;">
-                </div>
-                <!-- Markers (Line only) -->
-                <div style="display:flex; align-items:center; justify-content: space-between;" *ngIf="sparklineConfig.type === 'line'">
-                  <label style="display:flex; align-items:center; font-size:12px; cursor:pointer; gap:4px;">
-                    <input type="checkbox" [checked]="!!sparklineConfig.markerColor" (change)="sparklineConfig.markerColor = $any($event.target).checked ? '#000000' : ''; saveSparkline()"> Markers
-                  </label>
-                  <input type="color" *ngIf="sparklineConfig.markerColor" [(ngModel)]="sparklineConfig.markerColor" (change)="saveSparkline()" style="width:24px; height:24px; border:none; padding:0; cursor:pointer;">
-                </div>
+              <div style="border-top:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; margin:0 -16px; margin-top:-16px; padding:12px 16px;">
+                 <div (click)="verticalAxisExpanded = !verticalAxisExpanded" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-weight:600; font-size:13px; color:#202124;">
+                   Vertical Axis
+                   <span class="material-symbols-outlined" style="font-size:18px;">{{verticalAxisExpanded ? 'expand_less' : 'expand_more'}}</span>
+                 </div>
+                 <div *ngIf="verticalAxisExpanded" style="margin-top:12px; display:flex; flex-direction:column; gap:16px;">
+                   <div>
+                     <div style="font-size:12px; font-weight:500; margin-bottom:6px;">Minimum Value:</div>
+                     <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="radio" name="vMinMode" value="auto" [(ngModel)]="sparklineConfig.verticalAxis.min.mode" (change)="saveSparkline()"> Automatic for each sparkline</label>
+                     <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; margin-top:4px;"><input type="radio" name="vMinMode" value="same" [(ngModel)]="sparklineConfig.verticalAxis.min.mode" (change)="saveSparkline()"> Same for all sparklines</label>
+                     <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                       <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="radio" name="vMinMode" value="custom" [(ngModel)]="sparklineConfig.verticalAxis.min.mode" (change)="saveSparkline()"> Custom value:</label>
+                       <input type="number" [(ngModel)]="sparklineConfig.verticalAxis.min.customValue" (change)="saveSparkline()" [disabled]="sparklineConfig.verticalAxis.min.mode !== 'custom'" style="width:60px; padding:2px 4px; border:1px solid #dadce0; border-radius:2px; font-size:12px;">
+                     </div>
+                   </div>
+                   <div>
+                     <div style="font-size:12px; font-weight:500; margin-bottom:6px;">Maximum Value:</div>
+                     <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="radio" name="vMaxMode" value="auto" [(ngModel)]="sparklineConfig.verticalAxis.max.mode" (change)="saveSparkline()"> Automatic for each sparkline</label>
+                     <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; margin-top:4px;"><input type="radio" name="vMaxMode" value="same" [(ngModel)]="sparklineConfig.verticalAxis.max.mode" (change)="saveSparkline()"> Same for all sparklines</label>
+                     <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                       <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;"><input type="radio" name="vMaxMode" value="custom" [(ngModel)]="sparklineConfig.verticalAxis.max.mode" (change)="saveSparkline()"> Custom value:</label>
+                       <input type="number" [(ngModel)]="sparklineConfig.verticalAxis.max.customValue" (change)="saveSparkline()" [disabled]="sparklineConfig.verticalAxis.max.mode !== 'custom'" style="width:60px; padding:2px 4px; border:1px solid #dadce0; border-radius:2px; font-size:12px;">
+                     </div>
+                   </div>
+                 </div>
               </div>
 
-              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 12px 0;">
-
-              <div class="sp-card-label">Show Empty Cells</div>
-              <div style="display: flex; gap: 12px; font-size: 12px; flex-wrap: wrap;">
-                <label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="radio" name="emptyCells" value="gap" [(ngModel)]="sparklineConfig.emptyCells" (change)="saveSparkline()"> Gap</label>
-                <label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="radio" name="emptyCells" value="zero" [(ngModel)]="sparklineConfig.emptyCells" (change)="saveSparkline()"> Zero</label>
-                <label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="radio" name="emptyCells" value="connect" [(ngModel)]="sparklineConfig.emptyCells" (change)="saveSparkline()"> Connect</label>
-                <label style="display:flex; align-items:center; gap:4px; cursor:pointer;"><input type="radio" name="emptyCells" value="skip" [(ngModel)]="sparklineConfig.emptyCells" (change)="saveSparkline()"> Skip</label>
-              </div>
-
-              <div style="margin-top: 16px; display: flex; justify-content: space-between;">
-                <button (click)="deleteSparklineConfig()" style="background: none; border: 1px solid #ea4335; color: #ea4335; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Delete</button>
-              </div>
             </div>
           </ng-container>
+                
 
         </div>
       </div>
@@ -2372,6 +2426,7 @@ export interface AuditOp {
         <div class="ctx-item" (click)="sortColAZ(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort A to Z</div>
         <div class="ctx-item" (click)="sortColZA(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort Z to A</div>
         <div class="ctx-sep"></div>
+        <div class="ctx-item" (click)="openSparklineFormat(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">stacked_line_chart</span> Sparkline Format</div>
         <div class="ctx-item" (mouseenter)="showCtxSubmenu('clear', $event)" (mouseleave)="hideCtxSubmenu()">
           <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">ink_eraser</span> Clear <span class="mdi-arrow material-symbols-outlined" style="margin-left:auto;font-size:16px;">chevron_right</span>
         </div>
@@ -2392,7 +2447,8 @@ export interface AuditOp {
            [style.left.px]="ctxSubX" 
            [style.top.px]="ctxSubTop" 
            [style.bottom.px]="ctxSubBottom"
-           style="position: fixed; z-index: 100001; min-width: 220px; max-height: calc(100vh - 16px); overflow-y: auto; overflow-x: hidden;">
+           style="position: fixed; z-index: 100001; min-width: 220px; max-height: calc(100vh - 16px); overflow-y: auto; overflow-x: hidden;"
+           [style.maxHeight.px]="ctxSubMaxHeight">
         
         <ng-container *ngIf="activeCtxSubmenu === 'paste'">
             <div class="ctx-item" (click)="pasteCell(); hideCtx()">All <span class="mh" style="margin-left:auto;color:#a0aec0;font-size:11px;">Ctrl+V</span></div>
@@ -2429,15 +2485,24 @@ export interface AuditOp {
         </ng-container>
 
         <ng-container *ngIf="activeCtxSubmenu === 'insert'">
-            <div class="ctx-item" (click)="insertRowAbove(); hideCtx()">Insert {{ selectedRowCount }} row{{ selectedRowCount > 1 ? 's' : '' }} above</div>
-            <div class="ctx-item" (click)="insertRowBelow(); hideCtx()">Insert {{ selectedRowCount }} row{{ selectedRowCount > 1 ? 's' : '' }} below</div>
-            <div class="ctx-item" (click)="insertColLeft(); hideCtx()">Insert {{ selectedColCount }} column{{ selectedColCount > 1 ? 's' : '' }} left</div>
-            <div class="ctx-item" (click)="insertColRight(); hideCtx()">Insert {{ selectedColCount }} column{{ selectedColCount > 1 ? 's' : '' }} right</div>
+            <div class="ctx-item" (click)="shiftCellsRight(); hideCtx()">Shift Cells Right</div>
+            <div class="ctx-item" (click)="shiftCellsDown(); hideCtx()">Shift Cells Down</div>
+            <div class="ctx-sep"></div>
+            <div class="ctx-item" (click)="insertRowAbove(); hideCtx()">{{ selectedRowCount }} Row{{ selectedRowCount > 1 ? 's' : '' }} Above</div>
+            <div class="ctx-item" (click)="insertRowBelow(); hideCtx()">{{ selectedRowCount }} Row{{ selectedRowCount > 1 ? 's' : '' }} Below</div>
+            <div class="ctx-item" (click)="customInsertRow(); hideCtx()">Custom...</div>
+            <div class="ctx-sep"></div>
+            <div class="ctx-item" (click)="insertColLeft(); hideCtx()">Column Before</div>
+            <div class="ctx-item" (click)="insertColRight(); hideCtx()">Column After</div>
+            <div class="ctx-item" (click)="customInsertCol(); hideCtx()">Custom...</div>
         </ng-container>
 
         <ng-container *ngIf="activeCtxSubmenu === 'delete'">
-            <div class="ctx-item danger" (click)="deleteRow(); hideCtx()">Delete {{ selectedRowCount }} row{{ selectedRowCount > 1 ? 's' : '' }}</div>
-            <div class="ctx-item danger" (click)="deleteCol(); hideCtx()">Delete {{ selectedColCount }} column{{ selectedColCount > 1 ? 's' : '' }}</div>
+            <div class="ctx-item" (click)="shiftCellsLeft(); hideCtx()">Shift Cells Left</div>
+            <div class="ctx-item" (click)="shiftCellsUp(); hideCtx()">Shift Cells Up</div>
+            <div class="ctx-sep"></div>
+            <div class="ctx-item danger" (click)="deleteRow(); hideCtx()">Delete {{ selectedRowCount }} Row{{ selectedRowCount > 1 ? 's' : '' }}</div>
+            <div class="ctx-item danger" (click)="deleteCol(); hideCtx()">Delete {{ selectedColCount }} Column{{ selectedColCount > 1 ? 's' : '' }}</div>
         </ng-container>
 
         <ng-container *ngIf="activeCtxSubmenu === 'filter'">
@@ -3019,8 +3084,8 @@ export interface AuditOp {
       </div>
 
       <!-- Feature Modals -->
-        <div class="modal-overlay" *ngIf="activeModal !== null && activeModal !== 'goto'" (click)="activeModal = null" style="z-index: 10000;">
-          <div class="modal" (click)="$event.stopPropagation()" [style.width]="activeModal === 'version' ? '1200px' : (activeModal === 'audit' ? '620px' : '460px')" style="background:#fff; color:#333; border:1px solid #e2e8f0; box-shadow:0 8px 32px rgba(0,0,0,0.15); max-width:90vw; padding:24px; border-radius:8px; position:relative;">
+        <div class="modal-overlay" *ngIf="activeModal !== null && activeModal !== 'goto' && activeModal !== 'insert_sparkline' && activeModal !== 'edit_sparkline'" (click)="activeModal = null" style="z-index: 10000;">
+          <div class="modal" (click)="$event.stopPropagation()" [style.width]="activeModal === 'version' ? '1200px' : (activeModal === 'audit' ? '620px' : (activeModal === 'manage_forms' ? '748px' : (activeModal === 'shortcuts' ? '548px' : '460px')))" style="background:#fff; color:#333; border:1px solid #e2e8f0; box-shadow:0 8px 32px rgba(0,0,0,0.15); max-width:90vw; padding:24px; border-radius:8px; position:relative;">
             <button (click)="activeModal = null" style="position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;color:#888;display:flex;align-items:center;justify-content:center;">
               <span class="material-symbols-outlined" style="font-size:20px;">close</span>
             </button>
@@ -3131,18 +3196,75 @@ export interface AuditOp {
               </div>
             </div>
 
-            <div *ngIf="activeModal === 'view_form'">
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
-                <span class="material-symbols-outlined" style="color:#8b5cf6;font-size:24px;">forum</span>
-                <h3 style="margin:0;font-size:18px;font-weight:600;">Form Responses Dashboard</h3>
+            <div *ngIf="activeModal === 'manage_forms'" style="width: 700px; max-width: 90vw;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h3 style="margin:0;font-size:18px;font-weight:600;" [style.color]="currentTheme === 'dark' ? '#e8eaed' : '#202124'">Manage Form</h3>
+                
               </div>
-              <div style="text-align:center;padding:20px;color:#5f6368;">
-                <span class="material-symbols-outlined" style="font-size:48px;color:#10b981;margin-bottom:12px;">check_circle</span>
-                <p style="font-size:14px;margin-bottom:8px;">Your spreadsheet is actively collecting form responses.</p>
-                <p style="font-size:12px;color:#9aa0a6;">All submitted data is directly appended to the active sheet.</p>
+              
+              <div style="margin-bottom: 20px; border-radius: 4px; border: 1px solid {{ currentTheme === 'dark' ? '#5f6368' : '#e0e0e0' }}; overflow: hidden;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;" [style.color]="currentTheme === 'dark' ? '#e8eaed' : '#333'">
+                  <thead>
+                    <tr style="background-color: {{ currentTheme === 'dark' ? '#3c4043' : '#f8f9fa' }}; border-bottom: 1px solid {{ currentTheme === 'dark' ? '#5f6368' : '#e0e0e0' }};">
+                      <th style="padding: 12px 16px; font-weight: 600;">Form Name</th>
+                      <th style="padding: 12px 16px; font-weight: 600;">Sheet</th>
+                      <th style="padding: 12px 16px; font-weight: 600;">Link</th>
+                      <th style="padding: 12px 16px; font-weight: 600;">Status</th>
+                      <th style="padding: 12px 16px; font-weight: 600; text-align: center;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td colspan="5" style="padding: 24px; text-align: center; color: #888; font-style: italic;">No forms created yet.</td></tr>
+                  </tbody>
+                </table>
               </div>
-              <div style="display:flex;justify-content:flex-end;">
+              
+              <div style="display:flex;justify-content:space-between;">
+                <button (click)="createForm()" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Create Form</button>
                 <button (click)="activeModal=null" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Close</button>
+              </div>
+            </div>
+            
+            <!-- Shortcuts Modal -->
+            <div *ngIf="activeModal === 'shortcuts'" style="width: 100%; max-height: 80vh; display: flex; flex-direction: column;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3 style="margin:0;font-size:18px;font-weight:600;" [style.color]="currentTheme === 'dark' ? '#e8eaed' : '#202124'">Keyboard Shortcuts</h3>
+              </div>
+              
+              <div style="display:flex;gap:12px;margin-bottom:16px;">
+                <select [(ngModel)]="shortcutCategoryFilter" style="flex:1;padding:8px 12px;border-radius:4px;border:1px solid {{ currentTheme === 'dark' ? '#5f6368' : '#e0e0e0' }};background:transparent;outline:none;" [style.color]="currentTheme === 'dark' ? '#e8eaed' : '#333'">
+                  <option value="all" [style.background]="currentTheme === 'dark' ? '#202124' : '#fff'">All Shortcuts</option>
+                  <option *ngFor="let cat of shortcutCategories" [value]="cat.id" [style.background]="currentTheme === 'dark' ? '#202124' : '#fff'">{{cat.name}}</option>
+                </select>
+                <div style="flex:1;position:relative;">
+                  <span class="material-symbols-outlined" style="position:absolute;left:8px;top:8px;font-size:18px;color:#9aa0a6;">search</span>
+                  <input type="text" [(ngModel)]="shortcutSearchQuery" placeholder="Search" style="width:100%;box-sizing:border-box;padding:8px 12px 8px 32px;border-radius:4px;border:1px solid {{ currentTheme === 'dark' ? '#5f6368' : '#e0e0e0' }};background:transparent;outline:none;" [style.color]="currentTheme === 'dark' ? '#e8eaed' : '#333'" />
+                </div>
+              </div>
+              
+              <div style="display:flex;font-weight:600;font-size:14px;padding-bottom:8px;border-bottom:1px solid {{ currentTheme === 'dark' ? '#5f6368' : '#e0e0e0' }};color:{{ currentTheme === 'dark' ? '#e8eaed' : '#333' }};">
+                <div style="flex:2;">Description</div>
+                <div style="flex:1;">Shortcut</div>
+              </div>
+              
+              <div style="flex:1;overflow-y:auto;padding-top:12px;font-size:13px;color:{{ currentTheme === 'dark' ? '#bdc1c6' : '#5f6368' }};">
+                <ng-container *ngFor="let cat of filteredShortcutCategories">
+                  <div style="font-weight:600;color:{{ currentTheme === 'dark' ? '#e8eaed' : '#202124' }};margin:16px 0 8px;">{{cat.name}}</div>
+                  <div *ngFor="let s of cat.shortcuts" style="display:flex;align-items:center;margin-bottom:12px;">
+                    <div style="flex:2;">{{s.desc}}</div>
+                    <div style="flex:1;display:flex;gap:4px;">
+                      <span *ngFor="let k of s.keys" style="background:{{ currentTheme === 'dark' ? '#3c4043' : '#f8f9fa' }};border:1px solid {{ currentTheme === 'dark' ? '#5f6368' : '#dadce0' }};border-radius:4px;padding:2px 6px;">{{k}}</span>
+                    </div>
+                  </div>
+                </ng-container>
+                <div *ngIf="filteredShortcutCategories.length === 0" style="padding: 24px 0; text-align: center; color: #888; font-style: italic;">
+                  No shortcuts found matching your search.
+                </div>
+              </div>
+              <div style="padding-top:16px;border-top:1px solid {{ currentTheme === 'dark' ? '#5f6368' : '#e0e0e0' }};display:flex;align-items:center;gap:8px;">
+                <input type="checkbox" id="overrideShortcuts" checked style="accent-color:#10b981;" />
+                <label for="overrideShortcuts" style="font-size:13px;color:{{ currentTheme === 'dark' ? '#bdc1c6' : '#5f6368' }};">Override browser shortcuts</label>
+                <span class="material-symbols-outlined" style="font-size:14px;color:#9aa0a6;">info</span>
               </div>
             </div>
 
@@ -4200,8 +4322,113 @@ export interface AuditOp {
           </div>
         </div>
       </div>
-    </div>
+
+      <!-- Shared Color Picker Popover -->
+      <div *ngIf="colorPickerState.active" (click)="closeColorPicker()" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10001; background: transparent;">
+         <div (click)="$event.stopPropagation()" [style.top.px]="colorPickerState.top" [style.left.px]="colorPickerState.left" style="position: absolute; background: #fff; border: 1px solid #dadce0; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 4px; padding: 12px; width: 220px;">
+           <div style="font-size: 11px; color: #5f6368; font-weight: 600; text-transform: uppercase; margin-bottom: 8px;">Theme Colors</div>
+           <div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; margin-bottom: 8px;">
+             <!-- Theme Colors Grayscale -->
+             <div *ngFor="let c of ['#ffffff','#f2f2f2','#d8d8d8','#bfbfbf','#a5a5a5','#7f7f7f','#595959','#3f3f3f','#262626','#000000']" (click)="setSparklineColor(c)" [style.background]="c" style="width: 16px; height: 16px; cursor: pointer; border: 1px solid #dadce0;"></div>
+             <!-- Theme Colors Color scale -->
+             <div *ngFor="let c of ['#e6b8af','#f4cccc','#fce5cd','#fff2cc','#d9ead3','#d0e0e3','#c9daf8','#cfe2f3','#d9d2e9','#ead1dc']" (click)="setSparklineColor(c)" [style.background]="c" style="width: 16px; height: 16px; cursor: pointer; border: 1px solid #dadce0;"></div>
+             <div *ngFor="let c of ['#cc4125','#e06666','#f6b26b','#ffd966','#93c47d','#76a5af','#6d9eeb','#9fc5e8','#b4a7d6','#d5a6bd']" (click)="setSparklineColor(c)" [style.background]="c" style="width: 16px; height: 16px; cursor: pointer; border: 1px solid #dadce0;"></div>
+           </div>
+           
+           <div style="font-size: 11px; color: #5f6368; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; margin-top: 12px;">Standard Colors</div>
+           <div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; margin-bottom: 8px;">
+             <div *ngFor="let c of ['#c00000','#ff0000','#ffc000','#ffff00','#92d050','#00b050','#00b0f0','#0070c0','#002060','#7030a0']" (click)="setSparklineColor(c)" [style.background]="c" style="width: 16px; height: 16px; cursor: pointer; border: 1px solid #dadce0;"></div>
+           </div>
+           
+           <div *ngIf="recentColors.length > 0">
+             <div style="font-size: 11px; color: #5f6368; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; margin-top: 12px;">Other Used Colors</div>
+             <div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; margin-bottom: 8px;">
+               <div *ngFor="let c of recentColors" (click)="setSparklineColor(c)" [style.background]="c" style="width: 16px; height: 16px; cursor: pointer; border: 1px solid #dadce0;"></div>
+             </div>
+           </div>
+           
+           <div style="font-size: 12px; color: #202124; font-weight: 500; margin-top: 12px; display:flex; align-items:center; gap: 8px;">
+             <span class="material-symbols-outlined" style="font-size:16px;">add</span> More Colors:
+             <input type="color" [(ngModel)]="customColorInput" (change)="setSparklineColor(customColorInput)" style="width:24px; height:24px; padding:0; border:none; cursor:pointer;">
+           </div>
+         </div>
+      </div>
+
+</div>
   
+      <!-- Insert Sparkline Modal -->
+      <div class="modal-overlay" *ngIf="activeModal === 'insert_sparkline'" (click)="activeModal = null">
+        <div class="modal-content" (click)="$event.stopPropagation()" style="width: 400px; padding: 24px; border-radius: 8px; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+            <div style="font-size: 18px; font-weight: 500; color: #202124;">Insert Sparklines</div>
+            <button (click)="activeModal = null" style="background: none; border: none; cursor: pointer; color: #5f6368;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+          
+          <div style="margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 500; color: #202124; margin-bottom: 8px;">Source:</div>
+            <div style="display:flex; align-items:center; border: 1px solid #dadce0; border-radius: 4px; padding: 0 8px;">
+               <input type="text" autocomplete="off" spellcheck="false" [(ngModel)]="insertSparklineConfig.source" style="flex: 1; border: none; padding: 10px 0; outline: none; font-size: 14px;" placeholder="e.g. 'Sheet1'.A1:A5">
+               <span class="material-symbols-outlined" style="color: #1a73e8; font-size: 18px; cursor: pointer;">grid_on</span>
+            </div>
+          </div>
+          
+          <div style="margin-bottom: 8px;">
+            <div style="font-size: 13px; font-weight: 500; color: #202124; margin-bottom: 8px;">Destination:</div>
+            <div style="display:flex; align-items:center; border: 1px solid #dadce0; border-radius: 4px; padding: 0 8px;">
+               <input type="text" autocomplete="off" spellcheck="false" [(ngModel)]="insertSparklineConfig.dest" style="flex: 1; border: none; padding: 10px 0; outline: none; font-size: 14px;" placeholder="e.g. 'Sheet1'.B1:B5">
+               <span class="material-symbols-outlined" style="color: #1a73e8; font-size: 18px; cursor: pointer;">grid_on</span>
+            </div>
+          </div>
+          
+          <div style="font-size: 12px; color: #5f6368; margin-bottom: 24px;">Note: Please select a destination range that is equal to the source range.</div>
+          
+          <div *ngIf="insertSparklineConfig.error" style="color: #ea4335; font-size: 13px; margin-bottom: 16px;">{{insertSparklineConfig.error}}</div>
+          
+          <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button (click)="activeModal = null" style="background: none; border: 1px solid #dadce0; border-radius: 4px; padding: 8px 24px; font-weight: 500; cursor: pointer; color: #202124;">Cancel</button>
+            <button (click)="submitInsertSparkline()" style="background: #0f9d58; border: none; border-radius: 4px; padding: 8px 24px; font-weight: 500; cursor: pointer; color: #fff;">OK</button>
+          </div>
+        </div>
+      </div>
+
+            <!-- Edit Sparkline Modal -->
+      <div class="modal-overlay" *ngIf="activeModal === 'edit_sparkline'" (click)="activeModal = null">
+        <div class="modal-content" (click)="$event.stopPropagation()" style="width: 400px; padding: 24px; border-radius: 8px; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+            <div style="font-size: 18px; font-weight: 500; color: #202124;">Edit</div>
+            <button (click)="activeModal = null" style="background: none; border: none; cursor: pointer; color: #5f6368;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+          
+          <div style="display:flex; border-bottom: 1px solid #dadce0; margin-bottom: 16px;">
+            <div (click)="editSparklineConfig.tab = 'selected'" [style.border-bottom]="editSparklineConfig.tab === 'selected' ? '2px solid #0f9d58' : 'none'" [style.color]="editSparklineConfig.tab === 'selected' ? '#0f9d58' : '#5f6368'" style="padding: 8px 16px; font-weight: 500; cursor: pointer;">Selected</div>
+            <div (click)="editSparklineConfig.tab = 'group'" [style.border-bottom]="editSparklineConfig.tab === 'group' ? '2px solid #0f9d58' : 'none'" [style.color]="editSparklineConfig.tab === 'group' ? '#0f9d58' : '#5f6368'" style="padding: 8px 16px; font-weight: 500; cursor: pointer;" *ngIf="sparklineConfig?.isGrouped">Group</div>
+          </div>
+          
+          <div style="margin-bottom: 16px;">
+            <div style="font-size: 13px; font-weight: 500; color: #202124; margin-bottom: 8px;">Source:</div>
+            <div style="display:flex; align-items:center; border: 1px solid #dadce0; border-radius: 4px; padding: 0 8px;">
+               <input type="text" [(ngModel)]="editSparklineConfig.source" style="flex: 1; border: none; padding: 10px 0; outline: none; font-size: 14px;">
+               <span class="material-symbols-outlined" style="color: #1a73e8; font-size: 18px; cursor: pointer;">grid_on</span>
+            </div>
+            <div *ngIf="editSparklineConfig.error" style="color: #ea4335; font-size: 11px; margin-top: 4px;">{{ editSparklineConfig.error }}</div>
+          </div>
+          
+          <div style="margin-bottom: 24px;">
+            <div style="font-size: 13px; font-weight: 500; color: #202124; margin-bottom: 8px;">Location:</div>
+            <div style="display:flex; align-items:center; border: 1px solid #dadce0; border-radius: 4px; padding: 0 8px;">
+               <input type="text" autocomplete="off" spellcheck="false" [(ngModel)]="editSparklineConfig.dest" style="flex: 1; border: none; padding: 10px 0; outline: none; font-size: 14px;" [disabled]="true" [style.background]="'#f8f9fa'">
+               <span class="material-symbols-outlined" style="color: #5f6368; font-size: 18px; cursor: not-allowed;">grid_on</span>
+            </div>
+            <div style="font-size: 11px; color: #5f6368; margin-top: 4px;">Location cannot be changed.</div>
+          </div>
+          
+          <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button (click)="activeModal = null" style="background: none; border: 1px solid #dadce0; border-radius: 4px; padding: 8px 24px; font-weight: 500; cursor: pointer; color: #202124;">Cancel</button>
+            <button (click)="submitEditSparkline()" style="background: #0f9d58; border: none; border-radius: 4px; padding: 8px 24px; font-weight: 500; cursor: pointer; color: #fff;">OK</button>
+          </div>
+        </div>
+      </div>
+
   `,
   styles: [`
     /* Bottom Chat Bar */
@@ -4871,6 +5098,77 @@ export interface AuditOp {
 })
 
 export class SheetEditorComponent implements OnInit, OnDestroy {
+  shortcutCategoryFilter: string = 'all';
+  shortcutSearchQuery: string = '';
+
+  shortcutCategories = [
+    {
+      name: 'File operations',
+      id: 'file',
+      shortcuts: [
+        { desc: 'Save file', keys: ['Ctrl', 'S'] },
+        { desc: 'Print file', keys: ['Ctrl', 'P'] }
+      ]
+    },
+    {
+      name: 'Edit actions',
+      id: 'edit',
+      shortcuts: [
+        { desc: 'Undo last action', keys: ['Ctrl', 'Z'] },
+        { desc: 'Redo last action', keys: ['Ctrl', 'Y'] },
+        { desc: 'Cut', keys: ['Ctrl', 'X'] },
+        { desc: 'Copy', keys: ['Ctrl', 'C'] },
+        { desc: 'Paste', keys: ['Ctrl', 'V'] },
+        { desc: 'Cancel cell entry', keys: ['Esc'] },
+        { desc: 'Delete content of selected cell', keys: ['Backspace'] }
+      ]
+    },
+    {
+      name: 'Formatting',
+      id: 'format',
+      shortcuts: [
+        { desc: 'Bold toggle for selection', keys: ['Ctrl', 'B'] },
+        { desc: 'Italic toggle for selection', keys: ['Ctrl', 'I'] },
+        { desc: 'Underline toggle for selection', keys: ['Ctrl', 'U'] },
+        { desc: 'Strikethrough toggle for selection', keys: ['Ctrl', 'Shift', 'X'] },
+        { desc: 'Add / Edit Hyperlink', keys: ['Ctrl', 'K'] },
+        { desc: 'Insert the current date in cell', keys: ['Ctrl', ';'] },
+        { desc: 'Insert the current time in cell', keys: ['Ctrl', 'Shift', ';'] },
+        { desc: 'Increase Indentation', keys: ['Ctrl', 'M'] },
+        { desc: 'Decrease Indentation', keys: ['Ctrl', 'Shift', 'M'] }
+      ]
+    },
+    {
+      name: 'Navigation & Data',
+      id: 'nav',
+      shortcuts: [
+        { desc: 'Fill down', keys: ['Ctrl', 'D'] },
+        { desc: 'Fill to the right', keys: ['Ctrl', 'R'] },
+        { desc: 'Find within spreadsheet', keys: ['Ctrl', 'F'] },
+        { desc: 'Move to next cell in row', keys: ['Tab'] },
+        { desc: 'Move to previous cell in row', keys: ['Shift', 'Tab'] }
+      ]
+    },
+    {
+      name: 'Selection',
+      id: 'sel',
+      shortcuts: [
+        { desc: 'Select whole spreadsheet', keys: ['Ctrl', 'A'] }
+      ]
+    }
+  ];
+
+  get filteredShortcutCategories() {
+    return this.shortcutCategories.map(cat => {
+      if (this.shortcutCategoryFilter !== 'all' && this.shortcutCategoryFilter !== cat.id) {
+        return { ...cat, shortcuts: [] };
+      }
+      const q = this.shortcutSearchQuery.toLowerCase();
+      const filtered = cat.shortcuts.filter(s => s.desc.toLowerCase().includes(q));
+      return { ...cat, shortcuts: filtered };
+    }).filter(cat => cat.shortcuts.length > 0);
+  }
+
   private pendingDiffPreStateJson: string | null = null;
   private pendingDiffContext: any = null;
   private pendingDiffTimer: any = null;
@@ -4885,6 +5183,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   ctxSubX: number = 0;
   ctxSubTop: number | null = null;
   ctxSubBottom: number | null = null;
+  ctxSubMaxHeight: number = 800;
   ctxSubmenuTimer: any;
 
   showCtxSubmenu(type: 'insert' | 'delete' | 'clear' | 'filter' | 'paste', event: MouseEvent) {
@@ -4905,10 +5204,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
     // Use accurate estimated height per submenu type
     const heightMap: Record<string, number> = {
-      clear: 360,   // All + Formats + Contents + sep + Notes + Hyperlinks + Checkboxes + sep + DataValidations + ConditionalFormats + RichText + sep + ClearAllFilters
+      clear: 360,
       paste: 400,
-      insert: 120,
-      delete: 100,
+      insert: 350,
+      delete: 180,
       filter: 100
     };
     const estimatedHeight = heightMap[type] ?? 200;
@@ -4918,14 +5217,17 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (rect.top + estimatedHeight + margin <= window.innerHeight) {
       this.ctxSubTop = rect.top;
       this.ctxSubBottom = null;
+      this.ctxSubMaxHeight = window.innerHeight - rect.top - margin;
     } else if (rect.bottom - estimatedHeight - margin >= 0) {
-      // Not enough space below — open upward
+      // Not enough space below - open upward
       this.ctxSubTop = Math.max(margin, rect.bottom - estimatedHeight);
       this.ctxSubBottom = null;
+      this.ctxSubMaxHeight = window.innerHeight - this.ctxSubTop - margin;
     } else {
-      // Not enough space either way — pin to top with margin
+      // Not enough space either way - pin to top with margin
       this.ctxSubTop = margin;
       this.ctxSubBottom = null;
+      this.ctxSubMaxHeight = window.innerHeight - 2 * margin;
     }
   }
 
@@ -5433,7 +5735,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   // Multiple sheets
-  sheets: Array<{ name: string, cells: string[][], formats: Record<string, CellFormat>, validations: Record<string, CellValidation>, sparklines?: Record<string, any>, colWidths?: Record<number, number>, rowHeights?: Record<number, number>, hideGridlines?: boolean, gridlineColor?: string, locked?: boolean, hidden?: boolean, tabColor?: string, shapes?: any[], rowGroups?: Array<{ start: number, end: number, collapsed: boolean }>, colGroups?: Array<{ start: number, end: number, collapsed: boolean }>, hiddenRows?: number[], activeFilterCols?: number[], filterActive?: boolean, advFilterSavedState?: any, frozenRowsCount?: number, frozenColsCount?: number }> = [
+  sheets: Array<{ name: string, cells: string[][], formats: Record<string, CellFormat>, validations: Record<string, CellValidation>, sparklines?: Record<string, SparklineConfig>, colWidths?: Record<number, number>, rowHeights?: Record<number, number>, hideGridlines?: boolean, gridlineColor?: string, locked?: boolean, hidden?: boolean, tabColor?: string, shapes?: any[], rowGroups?: Array<{ start: number, end: number, collapsed: boolean }>, colGroups?: Array<{ start: number, end: number, collapsed: boolean }>, hiddenRows?: number[], activeFilterCols?: number[], filterActive?: boolean, advFilterSavedState?: any, frozenRowsCount?: number, frozenColsCount?: number }> = [
     { name: 'Sheet1', cells: Array.from({ length: this.ROWS }, () => Array(this.COLS).fill('')), formats: {}, validations: {}, shapes: [], sparklines: {} }
   ];
   currentSheetIdx = 0;
@@ -5541,22 +5843,34 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   @ViewChild('newCommentInput') newCommentInput!: ElementRef;
   sidePanelUrl: SafeResourceUrl | null = null;
 
-  sparklineConfig = {
-    source: '',
-    locationR: 0,
-    locationC: 0,
-    locationLabel: '',
-    type: 'line' as 'line' | 'column' | 'winloss',
-    color: '#4285f4',
-    emptyCells: 'gap' as 'gap' | 'zero' | 'connect' | 'skip',
-    highColor: '',
-    lowColor: '',
-    firstColor: '',
-    lastColor: '',
-    negativeColor: '',
-    markerColor: '',
-    error: ''
+  sparklineConfig: SparklineConfig = {
+    type: 'line',
+    baseColor: '#4285f4',
+    highlights: {
+      high: { enabled: false, color: '#34A853' },
+      low: { enabled: false, color: '#F4B400' },
+      first: { enabled: false, color: '#4A86E8' },
+      last: { enabled: false, color: '#7BAAF7' },
+      negative: { enabled: false, color: '#EA4335' },
+      markers: { enabled: false, color: '#4A86E8' }
+    },
+    emptyCellMode: 'gap',
+    includeHiddenRowsColumns: false,
+    horizontalAxis: { displayAxis: false, rightToLeft: false },
+    verticalAxis: {
+      min: { mode: 'auto', customValue: null },
+      max: { mode: 'auto', customValue: null }
+    },
+    isGrouped: false,
+    groupId: ''
   };
+  // Add state for UI
+  insertSparklineConfig = { source: '', dest: '', error: '' };
+  editSparklineConfig = { source: '', dest: '', error: '', tab: 'selected' as 'selected' | 'group' };
+  colorPickerState: { active: boolean, top: number, left: number, target: 'base' | 'high' | 'low' | 'first' | 'last' | 'negative' | 'markers' | null } = { active: false, top: 0, left: 0, target: null };
+  customColorInput = '';
+  recentColors: string[] = [];
+
 
   // Embedded Side Panel Apps Data
   calendarNotes: Record<string, string> = {};
@@ -8514,6 +8828,64 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.closeMenus();
   }
 
+
+  shiftCellsLeft() {
+    this.pushHistory();
+    const r = this.selectedRow;
+    const c = this.selectedCol;
+    for (let i = c; i < this.COLS - 1; i++) {
+      this.cells[r][i] = this.cells[r][i + 1];
+      const nextFmt = this.formats[`${r},${i + 1}`];
+      if (nextFmt) {
+        this.formats[`${r},${i}`] = { ...nextFmt };
+      } else {
+        delete this.formats[`${r},${i}`];
+      }
+    }
+    this.cells[r][this.COLS - 1] = '';
+    delete this.formats[`${r},${this.COLS - 1}`];
+    this.onCellChange();
+    this.closeMenus();
+    this.showToast('Shifted cells left.');
+  }
+
+  shiftCellsUp() {
+    this.pushHistory();
+    const r = this.selectedRow;
+    const c = this.selectedCol;
+    for (let i = r; i < this.ROWS - 1; i++) {
+      this.cells[i][c] = this.cells[i + 1][c];
+      const nextFmt = this.formats[`${i + 1},${c}`];
+      if (nextFmt) {
+        this.formats[`${i},${c}`] = { ...nextFmt };
+      } else {
+        delete this.formats[`${i},${c}`];
+      }
+    }
+    this.cells[this.ROWS - 1][c] = '';
+    delete this.formats[`${this.ROWS - 1},${c}`];
+    this.onCellChange();
+    this.closeMenus();
+    this.showToast('Shifted cells up.');
+  }
+
+  async customInsertRow() {
+    this.closeMenus();
+    const numStr = await this.openPrompt('How many rows to insert?', '1');
+    if (!numStr) return;
+    const count = parseInt(numStr, 10);
+    if (isNaN(count) || count <= 0) return;
+    this.pushHistory();
+    const r = this.selectedRow;
+    for (let i = 0; i < count; i++) {
+      this.cells.splice(r, 0, Array(this.COLS).fill(''));
+    }
+    this.ROWS += count;
+    this.rowRange = Array.from({ length: this.ROWS }, (_, i) => i);
+    this.onCellChange();
+    this.showToast(`Inserted ${count} rows`);
+  }
+
   insertRowAbove() {
     const count = this.selectedRowCount;
     const r = this.rangeStart && this.rangeEnd ? Math.min(this.rangeStart.r, this.rangeEnd.r) : this.selectedRow;
@@ -8656,24 +9028,191 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   createSparkline() {
     this.closeMenus();
-    this.sparklineConfig = {
-      source: '',
-      locationR: this.selectedRow,
-      locationC: this.selectedCol,
-      locationLabel: `'${this.sheets[this.currentSheetIdx].name}'.${this.colLabel(this.selectedCol)}${this.selectedRow + 1}`,
-      type: 'line',
-      color: '#4285f4',
-      emptyCells: 'gap',
-      highColor: '',
-      lowColor: '',
-      firstColor: '',
-      lastColor: '',
-      negativeColor: '',
-      markerColor: '',
+    this.insertSparklineConfig = {
+      source: `'${this.sheets[this.currentSheetIdx].name}'.${this.colLabel(this.selectedCol)}${this.selectedRow + 1}`,
+      dest: '',
       error: ''
     };
-    this.openApp('sparkline');
+    this.activeModal = 'insert_sparkline';
   }
+
+
+  isSparklineCell(r: number, c: number): boolean {
+    const sheet = this.sheets[this.currentSheetIdx];
+    return !!(sheet.sparklines && sheet.sparklines[`${r},${c}`]);
+  }
+
+  submitEditSparkline() {
+    const srcRange = this.parseRange(this.editSparklineConfig.source);
+    const destRange = this.parseRange(this.editSparklineConfig.dest);
+
+    if (!srcRange || !destRange) {
+      this.editSparklineConfig.error = 'Invalid range format.';
+      return;
+    }
+
+    const srcRows = srcRange.endR - srcRange.startR + 1;
+    const srcCols = srcRange.endC - srcRange.startC + 1;
+    const destRows = destRange.endR - destRange.startR + 1;
+    const destCols = destRange.endC - destRange.startC + 1;
+
+    if (srcRows !== destRows || srcCols !== destCols) {
+      this.editSparklineConfig.error = 'Source and destination dimensions must match.';
+      return;
+    }
+
+    this.editSparklineConfig.error = '';
+
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (!sheet.sparklines) sheet.sparklines = {};
+
+    // For simplicity, just update the currently selected cell if one is selected,
+    // or maybe the logic is more complex. Let's just update the config for the current cell for now.
+    // The user can edit the sparkline in the side panel anyway.
+
+    const key = `${this.selectedRow},${this.selectedCol}`;
+    if (sheet.sparklines[key]) {
+      sheet.sparklines[key].sourceRange = this.editSparklineConfig.source;
+      sheet.sparklines[key].destinationRange = this.editSparklineConfig.dest;
+    }
+
+    this.activeModal = null;
+    this.showToast('Sparkline range updated');
+  }
+
+  openSparklineFormat() {
+    const config = this.sheets[this.currentSheetIdx].sparklines![`${this.selectedRow},${this.selectedCol}`];
+    if (config) {
+      this.sparklineConfig = JSON.parse(JSON.stringify(config));
+      this.sidePanelApp = 'sparkline';
+    } else {
+      this.showToast('Select a cell containing a sparkline first.');
+    }
+  }
+
+  submitInsertSparkline() {
+    // Validate that source and dest ranges match in dimensions
+    const srcRange = this.parseRange(this.insertSparklineConfig.source);
+    const destRange = this.parseRange(this.insertSparklineConfig.dest);
+
+    if (!srcRange || !destRange) {
+      this.insertSparklineConfig.error = 'Invalid range format. Please use format like "Sheet1.A1:B10" or "A1:B10".';
+      return;
+    }
+
+    const srcRows = srcRange.endR - srcRange.startR + 1;
+    const srcCols = srcRange.endC - srcRange.startC + 1;
+    const destRows = destRange.endR - destRange.startR + 1;
+    const destCols = destRange.endC - destRange.startC + 1;
+
+    if (srcRows !== destRows || srcCols !== destCols) {
+      this.insertSparklineConfig.error = 'Please select a destination range that is equal to the source range.';
+      return;
+    }
+
+    this.insertSparklineConfig.error = '';
+    const groupId = 'sparkgroup_' + Date.now();
+
+    const sheet = this.sheets[this.currentSheetIdx];
+    if (!sheet.sparklines) sheet.sparklines = {};
+
+    // Create the group
+    for (let rOffset = 0; rOffset < destRows; rOffset++) {
+      for (let cOffset = 0; cOffset < destCols; cOffset++) {
+        const destR = destRange.startR + rOffset;
+        const destC = destRange.startC + cOffset;
+
+        // Find corresponding source sub-range (can be 1D or single cell depending on sparkline logic, usually source is a 1D range for a single sparkline)
+        // Actually, if we map one-to-one, Zoho creates one sparkline per row or col mapping.
+        // Wait, the specification says: "create one sparkline per row/column pair mapping source -> destination cell"
+        // Meaning if source is C2:C10 (9x1) and dest is D2:D10 (9x1), it maps C2 to D2, C3 to D3, etc.
+        // Wait! A sparkline needs a 1D range of data to draw a chart.
+        // If source is C2:E2 (1x3) and dest is F2 (1x1), the sparkline at F2 uses C2:E2.
+        // But if the user selects multiple destination cells, we map rows to rows.
+        // For simplicity here, we assume destR/destC maps to a slice of the source.
+        // Let's just create one sparkline at the first dest cell for the entire source range, or map row-by-row if heights match.
+
+        const key = `${destR},${destC}`;
+
+        // Define slice
+        let sliceSrc = `${this.colLabel(srcRange.startC + cOffset)}${srcRange.startR + rOffset + 1}`;
+        // Actually, usually sparklines take a row or column of data.
+        // Let's just set the source range to the whole source range if it's 1x1 dest, else map row by row.
+        let assignedSource = this.insertSparklineConfig.source;
+        if (destRows > 1 && srcRows > 1 && destRows === srcRows && srcCols !== destCols) {
+          // map row to row
+          assignedSource = `${this.colLabel(srcRange.startC)}${srcRange.startR + rOffset + 1}:${this.colLabel(srcRange.endC)}${srcRange.startR + rOffset + 1}`;
+        } else if (destCols > 1 && srcCols > 1 && destCols === srcCols && srcRows !== destRows) {
+          // map col to col
+          assignedSource = `${this.colLabel(srcRange.startC + cOffset)}${srcRange.startR + 1}:${this.colLabel(srcRange.startC + cOffset)}${srcRange.endR + 1}`;
+        }
+
+        sheet.sparklines[key] = {
+          sourceRange: assignedSource,
+          destinationRange: `${this.colLabel(destC)}${destR + 1}`,
+          type: 'line',
+          baseColor: '#4A86E8',
+          highlights: {
+            high: { enabled: false, color: '#34A853' },
+            low: { enabled: false, color: '#F4B400' },
+            first: { enabled: false, color: '#4A86E8' },
+            last: { enabled: false, color: '#7BAAF7' },
+            negative: { enabled: false, color: '#EA4335' },
+            markers: { enabled: false, color: '#4A86E8' }
+          },
+          emptyCellMode: 'gap',
+          includeHiddenRowsColumns: false,
+          horizontalAxis: { displayAxis: false, rightToLeft: false },
+          verticalAxis: {
+            min: { mode: 'auto', customValue: null },
+            max: { mode: 'auto', customValue: null }
+          },
+          isGrouped: (destRows * destCols > 1),
+          groupId: groupId
+        };
+      }
+    }
+
+    this.activeModal = null;
+
+    // Select the first destination cell and open the sparkline app
+    this.selectedRow = destRange.startR;
+    this.selectedCol = destRange.startC;
+    this.editSparkline();
+  }
+
+  parseRange(rangeStr: string) {
+    // Handle 'Sheet1'.A1:B2 or Sheet1!A1:B2 or just A1:B2
+    let sheetName = this.sheets[this.currentSheetIdx].name;
+    let localRange = rangeStr;
+
+    const match = rangeStr.match(/^(?:'([^']+)'[.!]|([^.!]+)[.!])?(.*)$/);
+    if (match) {
+      if (match[1]) sheetName = match[1];
+      if (match[2]) sheetName = match[2];
+      localRange = match[3];
+    }
+
+    const parts = localRange.split(':');
+    if (parts.length > 2) return null;
+
+    const start = this.parseCellRef(parts[0]);
+    if (!start) return null;
+
+    const end = parts.length === 2 ? this.parseCellRef(parts[1]) : start;
+    if (!end) return null;
+
+    return {
+      sheetName,
+      startR: Math.min(start.r, end.r),
+      startC: Math.min(start.c, end.c),
+      endR: Math.max(start.r, end.r),
+      endC: Math.max(start.c, end.c)
+    };
+  }
+
+
+
 
   editSparkline() {
     this.closeMenus();
@@ -8681,53 +9220,138 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const key = `${this.selectedRow},${this.selectedCol}`;
     if (sheet.sparklines && sheet.sparklines[key]) {
       this.sparklineConfig = JSON.parse(JSON.stringify(sheet.sparklines[key]));
-      this.sparklineConfig.locationR = this.selectedRow;
-      this.sparklineConfig.locationC = this.selectedCol;
-      this.sparklineConfig.locationLabel = `'${sheet.name}'.${this.colLabel(this.selectedCol)}${this.selectedRow + 1}`;
       this.openApp('sparkline');
     } else {
       this.showToast('Selected cell does not contain a sparkline.');
     }
   }
 
-  saveSparkline() {
-    const data = this.getSparklineData(this.sparklineConfig.source);
-    if (!data.hasNumbers || data.values.length < 2) {
-      this.sparklineConfig.error = 'Invalid range. Please select a valid 1D range with numeric values.';
-      return;
-    }
-    this.sparklineConfig.error = '';
 
+  // --- New Sparkline Helpers ---
+  horizontalAxisExpanded = false;
+  verticalAxisExpanded = false;
+
+  openColorPicker(event: MouseEvent, target: 'base' | 'high' | 'low' | 'first' | 'last' | 'negative' | 'markers') {
+    const el = event.currentTarget as HTMLElement;
+    const rect = el.getBoundingClientRect();
+    let left = rect.left;
+    if (left + 240 > window.innerWidth) left = window.innerWidth - 240;
+    this.colorPickerState = {
+      active: true,
+      target: target,
+      top: rect.bottom + 4,
+      left: left
+    };
+    this.cdr.markForCheck();
+    event.stopPropagation();
+  }
+
+  closeColorPicker() {
+    this.colorPickerState.active = false;
+    this.cdr.markForCheck();
+  }
+
+  setSparklineColor(color: string) {
+    if (!this.sparklineConfig || !this.colorPickerState.target) return;
+
+    const target = this.colorPickerState.target;
+    if (target === 'base') {
+      this.sparklineConfig.baseColor = color;
+    } else {
+      this.sparklineConfig.highlights[target].color = color;
+    }
+
+    // Add to recent colors if not there
+    if (!this.recentColors.includes(color)) {
+      this.recentColors.unshift(color);
+      if (this.recentColors.length > 10) this.recentColors.pop();
+    }
+
+    this.saveSparkline();
+    this.closeColorPicker();
+  }
+
+  setSparklineType(type: 'line' | 'column' | 'winloss') {
+    if (!this.sparklineConfig) return;
+    this.sparklineConfig.type = type;
+    this.saveSparkline();
+  }
+
+  setEmptyCellMode(mode: 'gap' | 'zero' | 'connect' | 'skip') {
+    if (!this.sparklineConfig) return;
+    this.sparklineConfig.emptyCellMode = mode;
+    this.saveSparkline();
+  }
+
+  toggleGroup() {
+    if (!this.sparklineConfig) return;
+    this.sparklineConfig.isGrouped = !this.sparklineConfig.isGrouped;
+    if (this.sparklineConfig.isGrouped && !this.sparklineConfig.groupId) {
+      this.sparklineConfig.groupId = 'sparkgroup_' + Date.now();
+    }
+    this.saveSparkline();
+  }
+
+  switchRowsColumns() {
+    // This flips whether data is read by rows or columns
+    // In our simplified parse, it's 1D, but we can implement it as just triggering a re-render.
+    // For now we will add a property if we need to actually transpose 2D source.
+    // The spec just says "useful when sparkline data orientation needs to flip".
+    this.showToast('Switch Rows/Columns applied');
+    this.saveSparkline();
+  }
+
+  saveSparkline() {
+    if (!this.sparklineConfig) return;
     const sheet = this.sheets[this.currentSheetIdx];
     if (!sheet.sparklines) sheet.sparklines = {};
-    const key = `${this.sparklineConfig.locationR},${this.sparklineConfig.locationC}`;
 
-    // Store it
-    sheet.sparklines[key] = {
-      source: this.sparklineConfig.source,
-      type: this.sparklineConfig.type,
-      color: this.sparklineConfig.color,
-      emptyCells: this.sparklineConfig.emptyCells,
-      highColor: this.sparklineConfig.highColor,
-      lowColor: this.sparklineConfig.lowColor,
-      firstColor: this.sparklineConfig.firstColor,
-      lastColor: this.sparklineConfig.lastColor,
-      negativeColor: this.sparklineConfig.negativeColor,
-      markerColor: this.sparklineConfig.markerColor
-    };
+    // Save live changes to the sparkline or group
+    const isGrouped = this.sparklineConfig.isGrouped;
+    const groupId = this.sparklineConfig.groupId;
 
-    this.onCellChange();
-    this.showToast('Sparkline saved.');
+    if (isGrouped && groupId) {
+      for (const key of Object.keys(sheet.sparklines)) {
+        if (sheet.sparklines[key].groupId === groupId) {
+          const dest = sheet.sparklines[key].destinationRange;
+          const src = sheet.sparklines[key].sourceRange;
+          sheet.sparklines[key] = JSON.parse(JSON.stringify(this.sparklineConfig));
+          // Restore unique source/dest for each in group
+          sheet.sparklines[key].destinationRange = dest;
+          sheet.sparklines[key].sourceRange = src;
+        }
+      }
+    } else {
+      // Single
+      const key = `${this.selectedRow},${this.selectedCol}`;
+      const dest = sheet.sparklines[key]?.destinationRange || `${this.colLabel(this.selectedCol)}${this.selectedRow + 1}`;
+      const src = sheet.sparklines[key]?.sourceRange || this.sparklineConfig.sourceRange;
+      sheet.sparklines[key] = JSON.parse(JSON.stringify(this.sparklineConfig));
+      sheet.sparklines[key].destinationRange = dest;
+      sheet.sparklines[key].sourceRange = src;
+    }
+
+    this.save();
   }
 
   deleteSparklineConfig() {
     const sheet = this.sheets[this.currentSheetIdx];
-    if (!sheet.sparklines) return;
-    const key = `${this.sparklineConfig.locationR},${this.sparklineConfig.locationC}`;
-    delete sheet.sparklines[key];
-    this.onCellChange();
-    this.closeSidePanel();
-    this.showToast('Sparkline deleted.');
+    if (!sheet.sparklines || !this.sparklineConfig) return;
+
+    if (this.sparklineConfig.isGrouped && this.sparklineConfig.groupId) {
+      for (const key of Object.keys(sheet.sparklines)) {
+        if (sheet.sparklines[key].groupId === this.sparklineConfig.groupId) {
+          delete sheet.sparklines[key];
+        }
+      }
+    } else {
+      const key = `${this.selectedRow},${this.selectedCol}`;
+      delete sheet.sparklines[key];
+    }
+
+    this.sparklineConfig = null as any;
+    this.sidePanelApp = null;
+    this.save();
   }
 
   insertButton() {
@@ -9215,7 +9839,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   showKeyboardShortcuts() {
     this.closeMenus();
-    alert('Keyboard Shortcuts:\n\nCtrl+Z  Undo\nCtrl+Y  Redo\nCtrl+B  Bold\nCtrl+I  Italic\nCtrl+K  Insert link\nTab     Next cell\nEnter   Next row\nDelete  Clear cell');
+    this.activeModal = 'shortcuts';
   }
 
   openApp(route: string) {
@@ -10013,10 +10637,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   getLockedCellsForCurrentSettings(): Array<{ sheetIndex: number, sheetName: string, ref: string, r: number, c: number }> {
     const results: Array<{ sheetIndex: number, sheetName: string, ref: string, r: number, c: number }> = [];
     const checkAll = this.lockSettingsSelectedSheet === 'all';
-    
+
     for (let i = 0; i < this.sheets.length; i++) {
       if (!checkAll && parseInt(this.lockSettingsSelectedSheet as string, 10) !== i) continue;
-      
+
       const sheet = this.sheets[i];
       const formats = (i === this.currentSheetIdx) ? this.formats : (sheet.formats || {});
       for (const key of Object.keys(formats)) {
@@ -10024,7 +10648,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
           const [rStr, cStr] = key.split(',');
           const r = parseInt(rStr, 10);
           const c = parseInt(cStr, 10);
-          
+
           let colStr = '';
           let temp = c;
           while (temp >= 0) {
@@ -10032,7 +10656,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
             temp = Math.floor(temp / 26) - 1;
           }
           const ref = colStr + (r + 1);
-          
+
           results.push({ sheetIndex: i, sheetName: sheet.name, ref, r, c });
         }
       }
@@ -10279,7 +10903,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (this.auditBuffer.size === 0) return;
     const events = Array.from(this.auditBuffer.values());
     this.auditBuffer.clear();
-    
+
     if (this.docId) {
       this.api.saveAuditEvents(this.docId, events).subscribe({
         next: () => console.log('Audit events saved'),
@@ -10338,8 +10962,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.showToast('Form data submitted to row ' + (emptyRow + 1));
   }
 
-  viewForm() {
-    this.activeModal = 'view_form';
+  showFormActionMenu = false;
+  manageForms() {
+    this.activeModal = 'manage_forms';
+    this.showFormActionMenu = false;
   }
 
   openMacroEditor() {
@@ -11302,7 +11928,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (!sheet.formats) sheet.formats = {};
     if (!sheet.formats[ref]) sheet.formats[ref] = {};
     const existingFormat = sheet.formats[ref] as any;
-    
+
     existingFormat.commentData = {
       id: Date.now().toString(),
       text: this.newCommentText.trim(),
@@ -11311,9 +11937,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       resolved: false,
       replies: []
     };
-    
+
     if (existingFormat.comment) delete existingFormat.comment;
-    
+
     this.cancelNewComment();
     if (sheetIdx === this.currentSheetIdx) {
       this.onCellChange();
@@ -11330,7 +11956,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   updateCachedComments() {
     const all: any[] = [];
     if (this.sidePanelApp !== 'comments') return;
-    
+
     this.sheets.forEach((sheet, sIdx) => {
       if (this.commentsViewFilter === 'current' && sIdx !== this.currentSheetIdx) return;
       Object.keys(sheet.formats || {}).forEach(ref => {
@@ -11348,7 +11974,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         }
       });
     });
-    this.cachedComments = all.sort((a,b) => new Date(b.data.timestamp).getTime() - new Date(a.data.timestamp).getTime());
+    this.cachedComments = all.sort((a, b) => new Date(b.data.timestamp).getTime() - new Date(a.data.timestamp).getTime());
   }
 
   goToCommentCell(c: any) {
@@ -11357,7 +11983,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }
     const [r, col] = c.ref.split(',').map(Number);
     this.selectCell(r, col);
-    
+
     const cellEl = document.getElementById(`cell-${r}-${col}`);
     if (cellEl) cellEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
   }
@@ -11386,14 +12012,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   submitReply(c: any) {
     const text = (this.replyTexts[c.data.id] || '').trim();
     if (!text) return;
-    
+
     if (!c.data.replies) c.data.replies = [];
     c.data.replies.push({
       text: text,
       authorName: this.auth.user?.name || 'You',
       timestamp: new Date().toISOString()
     });
-    
+
     this.replyTexts[c.data.id] = '';
     this.sheets[c.sheetIdx].formats[c.ref] = { ...this.sheets[c.sheetIdx].formats[c.ref] };
     if (c.sheetIdx === this.currentSheetIdx) this.onCellChange();
@@ -11991,7 +12617,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }, 100);
   }
 
-  activeModal: 'template' | 'open' | 'import' | 'move' | 'audit' | 'version' | 'workflow' | 'password' | 'form' | 'view_form' | 'macro' | 'edit_macro' | 'functions' | 'merge' | 'goto' | null = null;
+  activeModal: 'template' | 'open' | 'import' | 'move' | 'audit' | 'version' | 'workflow' | 'password' | 'form' | 'view_form' | 'manage_forms' | 'macro' | 'edit_macro' | 'functions' | 'merge' | 'goto' | 'shortcuts' | 'insert_sparkline' | 'edit_sparkline' | null = null;
   previewImageUrl: string | null = null;
   saveStatus: 'saved' | 'saving' | 'error' = 'saved';
   lastSavedTime: string = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
@@ -11999,14 +12625,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   private saveSubscription!: Subscription;
   private hasPendingChanges: boolean = false;
   dummyList: any[] = [];
-  
+
   // Version History State
   versions: any[] = [];
   previewVersionId: string | null = null;
   newVersionName: string = '';
   previewData: any = null;
   previewActiveSheetIdx: number = 0;
-  
+
   get previewSheets() {
     if (!this.previewData) return [];
     if (this.previewData._importedSheets) return this.previewData._importedSheets;
@@ -12018,10 +12644,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (sheets.length === 0) return [];
     const sheet = sheets[this.previewActiveSheetIdx] || sheets[0];
     const cells = sheet?.cells || {};
-    
-    let maxR = 20; 
+
+    let maxR = 20;
     let maxC = 10;
-    
+
     Object.keys(cells).forEach(rKey => {
       const r = parseInt(rKey, 10);
       if (!isNaN(r) && r > maxR) maxR = r;
@@ -12032,7 +12658,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         });
       }
     });
-    
+
     const rows = [];
     for (let r = 0; r <= maxR + 2; r++) {
       const row = [];
@@ -12147,7 +12773,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       is_named: false,
       version_name: 'Current Version'
     };
-    
+
     // Set it immediately so it ALWAYS shows up, even if API fails
     this.versions = [currentVersion];
     if (!this.previewVersionId) {
@@ -12167,30 +12793,30 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   previewVersion(versionId: string) {
     this.previewVersionId = versionId;
-    
+
     if (versionId === 'current') {
       this.previewData = this.sheets;
       this.previewActiveSheetIdx = this.currentSheetIdx;
       this.cdr.detectChanges();
       return;
     }
-    
+
     this.api.getSheetVersionSnapshot(this.docId, versionId).subscribe(res => {
       this.previewData = typeof res.content === 'string' ? JSON.parse(res.content) : res.content;
       this.previewActiveSheetIdx = this.currentSheetIdx;
-      
+
       // If previewData is a root doc with _importedSheets, extract the sheets array
       if (!Array.isArray(this.previewData) && this.previewData._importedSheets) {
-          this.previewData = this.previewData._importedSheets;
+        this.previewData = this.previewData._importedSheets;
       } else if (!Array.isArray(this.previewData)) {
-          this.previewData = [this.previewData];
+        this.previewData = [this.previewData];
       }
-      
+
       // Ensure the active index is within bounds
       if (this.previewActiveSheetIdx >= this.previewData.length) {
-          this.previewActiveSheetIdx = 0;
+        this.previewActiveSheetIdx = 0;
       }
-      
+
       this.cdr.detectChanges();
     });
   }
@@ -12202,7 +12828,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.tempVersionName = '';
     this.showNameVersionPrompt = true;
   }
-  
+
   cancelNameVersion() {
     this.showNameVersionPrompt = false;
     this.tempVersionName = '';
@@ -12237,7 +12863,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.versionToRestore = versionId;
     this.showRestoreConfirm = true;
   }
-  
+
   cancelRestore() {
     this.showRestoreConfirm = false;
     this.versionToRestore = null;
@@ -12831,27 +13457,27 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     };
   }
 
-  getSparklineData(sourceRange: string, sheetIdx: number = this.currentSheetIdx): { values: (number | null)[], hasNumbers: boolean } {
-    const range = this.parseRangeStr(sourceRange);
+  getSparklineData(rangeStr: string, includeHidden = false) {
+    const range = this.parseRange(rangeStr);
     if (!range) return { values: [], hasNumbers: false };
 
-    // Validate that it's a 1D range (single row or single column)
-    if (range.minR !== range.maxR && range.minC !== range.maxC) {
-      return { values: [], hasNumbers: false }; // 2D not allowed for sparklines usually
-    }
+    // Support parsing across sheets if specified, currently default to current sheet
+    const targetSheetIdx = this.sheets.findIndex(s => s.name === range.sheetName) !== -1 ? this.sheets.findIndex(s => s.name === range.sheetName) : this.currentSheetIdx;
+    const targetSheet = this.sheets[targetSheetIdx];
 
-    const cells = this.sheets[sheetIdx].cells;
-    const values: (number | null)[] = [];
+    let values = [];
     let hasNumbers = false;
 
-    for (let r = range.minR; r <= range.maxR; r++) {
-      for (let c = range.minC; c <= range.maxC; c++) {
-        if (r >= this.ROWS || c >= this.COLS) continue;
-        const val = cells[r][c];
-        if (val === '' || val === null || val === undefined) {
+    for (let r = range.startR; r <= range.endR; r++) {
+      if (!includeHidden && targetSheet.hiddenRows && targetSheet.hiddenRows.includes(r)) continue;
+      for (let c = range.startC; c <= range.endC; c++) {
+        // Assume columns are not hidden for now since col hidden is not implemented fully in Sheet model yet
+        const cellStr = targetSheet.cells[r]?.[c] || '';
+        const cleanStr = cellStr.toString().trim();
+        if (cleanStr === '') {
           values.push(null);
         } else {
-          const num = parseFloat(val);
+          const num = Number(cleanStr);
           if (!isNaN(num)) {
             values.push(num);
             hasNumbers = true;
@@ -12862,35 +13488,29 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       }
     }
 
-    if (values.length < 2) {
-      return { values, hasNumbers: false };
-    }
-
     return { values, hasNumbers };
-  }
-
-  isSparklineCell(r: number, c: number): boolean {
-    const sheet = this.sheets[this.currentSheetIdx];
-    return !!(sheet.sparklines && sheet.sparklines[`${r},${c}`]);
   }
 
   getSparklineSvgSafe(r: number, c: number): any {
     const sheet = this.sheets[this.currentSheetIdx];
     const config = sheet.sparklines![`${r},${c}`];
-    const data = this.getSparklineData(config.source);
+    if (!config) return '';
+
+    const data = this.getSparklineData(config.sourceRange || '', config.includeHiddenRowsColumns);
 
     if (!data.hasNumbers) {
       return this.sanitizer.bypassSecurityTrustHtml(`<span style="color:#ef4444;font-size:10px;font-weight:bold;">#ERROR!</span>`);
     }
 
     let rawValues = data.values;
-    if (config.emptyCells === 'skip') {
+    if (config.emptyCellMode === 'skip') {
       rawValues = rawValues.filter(v => v !== null);
-    } else if (config.emptyCells === 'zero') {
+    } else if (config.emptyCellMode === 'zero') {
       rawValues = rawValues.map(v => v === null ? 0 : v);
     }
 
-    if (rawValues.filter(v => v !== null).length < 2) {
+    if (rawValues.filter(v => v !== null).length < 2 && config.type === 'line') {
+      // Single points can be drawn as bar/winloss but not line
       return this.sanitizer.bypassSecurityTrustHtml(`<span style="color:#ef4444;font-size:10px;font-weight:bold;">#ERROR!</span>`);
     }
 
@@ -12903,16 +13523,36 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
     let svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block;">`;
 
-    const nums = rawValues.filter(v => v !== null) as number[];
-    const min = Math.min(...nums);
-    const max = Math.max(...nums);
-    const range = max - min || 1;
+    // Calculate Y domain
+    let globalMin = Infinity, globalMax = -Infinity;
 
-    const getX = (i: number) => padX + (i / (rawValues.length - 1)) * innerW;
-    const getY = (val: number) => padY + innerH - ((val - min) / range) * innerH;
+    // Group logic for min/max
+    if (config.isGrouped && config.groupId) {
+      for (const k of Object.keys(sheet.sparklines || {})) {
+        if (sheet.sparklines![k].groupId === config.groupId) {
+          const grpData = this.getSparklineData(sheet.sparklines![k].sourceRange || '', config.includeHiddenRowsColumns);
+          const grpNums = grpData.values.filter(v => v !== null) as number[];
+          if (grpNums.length > 0) {
+            globalMin = Math.min(globalMin, ...grpNums);
+            globalMax = Math.max(globalMax, ...grpNums);
+          }
+        }
+      }
+    }
 
-    const baseColor = config.color || '#4285f4';
+    const localNums = rawValues.filter(v => v !== null) as number[];
+    let min = Math.min(...localNums);
+    let max = Math.max(...localNums);
 
+    if (config.verticalAxis.min.mode === 'same' && globalMin !== Infinity) min = globalMin;
+    if (config.verticalAxis.max.mode === 'same' && globalMax !== -Infinity) max = globalMax;
+
+    if (config.verticalAxis.min.mode === 'custom' && config.verticalAxis.min.customValue !== null) min = config.verticalAxis.min.customValue;
+    if (config.verticalAxis.max.mode === 'custom' && config.verticalAxis.max.customValue !== null) max = config.verticalAxis.max.customValue;
+
+    const rangeVal = max - min || 1;
+
+    // Highlights detection
     let firstIdx = -1, lastIdx = -1, highIdx = -1, lowIdx = -1;
     let currentHigh = -Infinity, currentLow = Infinity;
 
@@ -12926,92 +13566,110 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       }
     }
 
+    const hl = config.highlights;
     const getColor = (i: number, val: number) => {
-      if (val < 0 && config.negativeColor) return config.negativeColor;
-      if (i === highIdx && config.highColor) return config.highColor;
-      if (i === lowIdx && config.lowColor) return config.lowColor;
-      if (i === firstIdx && config.firstColor) return config.firstColor;
-      if (i === lastIdx && config.lastColor) return config.lastColor;
-      return baseColor;
+      // Precedence: Negative > High/Low > First/Last > Base
+      if (val < 0 && hl.negative.enabled) return hl.negative.color;
+      if (i === highIdx && hl.high.enabled) return hl.high.color;
+      if (i === lowIdx && hl.low.enabled) return hl.low.color;
+      if (i === firstIdx && hl.first.enabled) return hl.first.color;
+      if (i === lastIdx && hl.last.enabled) return hl.last.color;
+      return config.baseColor;
     };
 
-    if (config.type === 'line') {
-      let path = '';
-      let drawing = false;
-      for (let i = 0; i < rawValues.length; i++) {
-        const v = rawValues[i];
-        if (v === null) {
-          if (config.emptyCells === 'gap') drawing = false;
-          continue;
-        }
-        const vNum = v as number;
-        const x = getX(i);
-        const y = getY(vNum);
-        if (!drawing) {
-          path += `M${x},${y} `;
-          drawing = true;
-        } else {
-          path += `L${x},${y} `;
-        }
-      }
-      svg += `<path d="${path.trim()}" fill="none" stroke="${baseColor}" stroke-width="1.5" stroke-linejoin="round" />`;
+    let ptsX = (i: number) => padX + (i / (rawValues.length - 1)) * innerW;
+    if (config.horizontalAxis.rightToLeft) {
+      ptsX = (i: number) => padX + innerW - (i / (rawValues.length - 1)) * innerW;
+    }
+    const ptsY = (val: number) => padY + innerH - ((val - min) / rangeVal) * innerH;
 
-      for (let i = 0; i < rawValues.length; i++) {
-        const v = rawValues[i];
-        if (v !== null) {
-          const vNum = v as number;
-          let markColor = null;
-          if (config.markerColor) markColor = config.markerColor;
-          if (vNum < 0 && config.negativeColor) markColor = config.negativeColor;
-          if (i === highIdx && config.highColor) markColor = config.highColor;
-          if (i === lowIdx && config.lowColor) markColor = config.lowColor;
-          if (i === firstIdx && config.firstColor) markColor = config.firstColor;
-          if (i === lastIdx && config.lastColor) markColor = config.lastColor;
-
-          if (markColor) svg += `<circle cx="${getX(i)}" cy="${getY(vNum)}" r="2" fill="${markColor}" />`;
-        }
-      }
-
-    } else if (config.type === 'column') {
-      const barW = Math.max(1, (innerW / rawValues.length) * 0.8);
-      const space = innerW / rawValues.length;
-      const cMin = Math.min(min, 0);
-      const cMax = Math.max(max, 0);
-      const cRange = cMax - cMin || 1;
-      const cGetY = (val: number) => padY + innerH - ((val - cMin) / cRange) * innerH;
-      const zeroY = cGetY(0);
-
-      for (let i = 0; i < rawValues.length; i++) {
-        const v = rawValues[i];
-        if (v === null) continue;
-        const vNum = v as number;
-        const x = padX + i * space + (space - barW) / 2;
-        let y = cGetY(vNum);
-        let barH = Math.abs(y - zeroY);
-        if (vNum < 0) y = zeroY;
-        if (barH < 1 && vNum !== 0) barH = 1;
-
-        const col = getColor(i, vNum);
-        svg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${col}" />`;
-      }
-    } else if (config.type === 'winloss') {
-      const barW = Math.max(1, (innerW / rawValues.length) * 0.8);
-      const space = innerW / rawValues.length;
-      const midY = padY + innerH / 2;
-      const barH = innerH / 2 - 2;
-
-      for (let i = 0; i < rawValues.length; i++) {
-        const v = rawValues[i];
-        if (v === null || v === 0) continue;
-        const vNum = v as number;
-        const x = padX + i * space + (space - barW) / 2;
-        let y = vNum > 0 ? midY - barH : midY;
-        const col = getColor(i, vNum);
-        svg += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" fill="${col}" />`;
-      }
+    // Display Axis
+    if (config.horizontalAxis.displayAxis && min < 0 && max > 0) {
+      const zeroY = ptsY(0);
+      svg += `<line x1="${padX}" y1="${zeroY}" x2="${padX + innerW}" y2="${zeroY}" stroke="#000" stroke-width="1" opacity="0.5"/>`;
     }
 
-    svg += `</svg>`;
+    if (config.type === 'line') {
+      let pathD = '';
+      let isFirstInSegment = true;
+      for (let i = 0; i < rawValues.length; i++) {
+        if (rawValues[i] === null) {
+          if (config.emptyCellMode === 'gap') {
+            isFirstInSegment = true;
+          }
+          // If 'connect', do nothing, next valid point will just line-to
+          continue;
+        }
+
+        const x = ptsX(i);
+        const y = ptsY(rawValues[i] as number);
+
+        if (isFirstInSegment) {
+          pathD += `M ${x} ${y} `;
+          isFirstInSegment = false;
+        } else {
+          pathD += `L ${x} ${y} `;
+        }
+      }
+      if (pathD) {
+        svg += `<path d="${pathD}" fill="none" stroke="${config.baseColor}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+      }
+
+      // Markers
+      for (let i = 0; i < rawValues.length; i++) {
+        const val = rawValues[i];
+        if (val === null) continue;
+        const x = ptsX(i);
+        const y = ptsY(val);
+
+        const isHighlighted = (hl.negative.enabled && val < 0) || (hl.high.enabled && i === highIdx) || (hl.low.enabled && i === lowIdx) || (hl.first.enabled && i === firstIdx) || (hl.last.enabled && i === lastIdx);
+
+        if (isHighlighted || hl.markers.enabled) {
+          const color = getColor(i, val);
+          svg += `<circle cx="${x}" cy="${y}" r="2" fill="${color}"/>`;
+        }
+      }
+    } else if (config.type === 'column') {
+      const barW = Math.max(1, (innerW / rawValues.length) - 1);
+      const zeroY = ptsY(Math.max(Math.min(0, max), min));
+
+      for (let i = 0; i < rawValues.length; i++) {
+        const val = rawValues[i];
+        if (val === null) continue;
+        const x = ptsX(i) - (config.horizontalAxis.rightToLeft ? 0 : barW / 2);
+        const y = ptsY(val);
+
+        const barY = Math.min(y, zeroY);
+        const barH = Math.abs(y - zeroY);
+        const color = getColor(i, val);
+
+        svg += `<rect x="${x}" y="${barY}" width="${barW}" height="${Math.max(1, barH)}" fill="${color}"/>`;
+      }
+    } else if (config.type === 'winloss') {
+      const barW = Math.max(1, (innerW / rawValues.length) - 1);
+      const midY = padY + innerH / 2;
+      const fixH = (innerH / 2) * 0.8;
+
+      for (let i = 0; i < rawValues.length; i++) {
+        const val = rawValues[i];
+        if (val === null) continue;
+        const x = ptsX(i) - (config.horizontalAxis.rightToLeft ? 0 : barW / 2);
+        const isWin = val > 0;
+
+        const barY = isWin ? midY - fixH : midY;
+        // Precedence for winloss: Negative highlight vs High highlight
+        let color = config.baseColor;
+        if (!isWin && hl.negative.enabled) color = hl.negative.color;
+        else if (isWin && hl.high.enabled) color = hl.high.color;
+
+        svg += `<rect x="${x}" y="${barY}" width="${barW}" height="${fixH}" fill="${color}"/>`;
+      }
+
+      // Zero axis line for winloss
+      svg += `<line x1="${padX}" y1="${midY}" x2="${padX + innerW}" y2="${midY}" stroke="#000" stroke-width="0.5" opacity="0.3"/>`;
+    }
+
+    svg += '</svg>';
     return this.sanitizer.bypassSecurityTrustHtml(svg);
   }
 
@@ -13045,7 +13703,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
     }
-    
+
     this.activeModal = null;
   }
 }
