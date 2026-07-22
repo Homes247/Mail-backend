@@ -95,7 +95,9 @@ async def create_document(
         doc.content_version = 1
         await db.commit()
     except Exception as e:
+        import traceback
         print(f"Error saving document to storage: {e}")
+        print(traceback.format_exc())
         
     return {"id": doc.id, "title": doc.title, "doc_type": doc.doc_type}
 
@@ -929,7 +931,9 @@ async def get_document(
                 file_path=doc.file_path,
             )
         except Exception as e:
+            import traceback
             print(f"Failed to load doc {doc.id} from storage: {e}")
+            print(traceback.format_exc())
             pass
 
     return {"id": doc.id, "title": doc.title, "doc_type": doc.doc_type, "content": content}
@@ -1150,7 +1154,9 @@ async def update_document(
                         db.add(new_version)
                         
             except Exception as e:
+                import traceback
                 print(f"Failed to save document {doc.id} to storage: {e}")
+                print(traceback.format_exc())
             
     if body.is_trashed is not None:
         doc.is_trashed = body.is_trashed
