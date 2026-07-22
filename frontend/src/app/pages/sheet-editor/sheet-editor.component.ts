@@ -668,13 +668,19 @@ export interface AuditOp {
                 <span class="material-symbols-outlined mdi-icon">lock</span> Lock
                 <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
                 <div class="mdi-sub">
+                  <div class="mdi" (click)="lockSelectedRange(); closeMenus()">
+                    <span class="material-symbols-outlined mdi-icon">{{ isSelectionLocked() ? 'lock_open' : 'lock' }}</span>
+                    {{ isSelectionLocked() ? 'Unlock Cells...' : 'Lock Cells...' }}
+                  </div>
                   <div class="mdi" (click)="lockCurrentSheet(); closeMenus()">
                     <span class="material-symbols-outlined mdi-icon">lock</span>
-                    {{ sheets[currentSheetIdx].locked ? 'Unlock Sheet' : 'Lock Sheet' }}
+                    {{ sheets[currentSheetIdx].locked ? 'Unlock Sheet...' : 'Lock Sheet...' }}
                   </div>
-                  <div class="mds"></div>
-                  <div class="mdi" (click)="lockSelectedRange(); closeMenus()">
-                    <span class="material-symbols-outlined mdi-icon">lock_open</span> Lock Selected Range
+                  <div class="mdi" (click)="manageLockSettings(); closeMenus()">
+                    <span class="material-symbols-outlined mdi-icon">settings</span> Manage Lock Settings...
+                  </div>
+                  <div class="mdi" (click)="highlightLocks(); closeMenus()">
+                    <span class="material-symbols-outlined mdi-icon">highlight</span> {{ showLockPattern ? 'Hide Locked Cells' : 'Highlight Locks' }}
                   </div>
                 </div>
             </div>
@@ -739,10 +745,12 @@ export interface AuditOp {
               <span class="material-symbols-outlined mdi-icon">lock</span> Lock
               <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
               <div class="mdi-sub">
+                <div class="mdi" (click)="lockSelectedRange(); closeMenus()">{{ isSelectionLocked() ? 'Unlock Cells...' : 'Lock Cells...' }}</div>
                 <div class="mdi" (click)="lockCurrentSheet(); closeMenus()">
-                  {{ sheets[currentSheetIdx].locked ? 'Unlock Sheet' : 'Lock Sheet' }}
+                  {{ sheets[currentSheetIdx].locked ? 'Unlock Sheet...' : 'Lock Sheet...' }}
                 </div>
-                <div class="mdi" (click)="lockSelectedRange(); closeMenus()">Lock Selected Range</div>
+                <div class="mdi" (click)="manageLockSettings(); closeMenus()">Manage Lock Settings...</div>
+                <div class="mdi" (click)="highlightLocks(); closeMenus()">{{ showLockPattern ? 'Hide Locked Cells' : 'Highlight Locks' }}</div>
               </div>
             </div>
           </div>
@@ -3794,6 +3802,74 @@ export interface AuditOp {
           <!-- Footer -->
           <div style="padding:12px 16px; display:flex; justify-content:flex-end;">
             <button (click)="statsModalOpen=false" style="background:#f8f9fa; color:#333; border:1px solid #ccc; padding:6px 16px; border-radius:4px; font-size:13px; font-weight:500; cursor:pointer;">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manage Lock Settings Modal -->
+      <div class="modal-overlay" *ngIf="manageLockSettingsModalOpen" (click)="manageLockSettingsModalOpen=false" style="z-index:10000; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.5);">
+        <div class="modal" (click)="$event.stopPropagation()" [style.background]="currentTheme === 'dark' ? '#242424' : '#fff'" [style.color]="currentTheme === 'dark' ? '#fff' : '#333'" style="width:480px; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.5); display:flex; flex-direction:column; font-family:'Roboto',sans-serif; min-height: 300px;">
+          
+          <!-- Header -->
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px;">
+            <div style="font-size:18px; font-weight:500;">Manage Lock Settings</div>
+            <button (click)="manageLockSettingsModalOpen=false" style="background:none; border:none; cursor:pointer; display:flex; align-items:center;" [style.color]="currentTheme === 'dark' ? '#9aa0a6' : '#5f6368'"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+          </div>
+          
+          <!-- Tabs -->
+          <div style="display:flex; padding:0 20px; gap: 24px;" [style.border-bottom]="currentTheme === 'dark' ? '1px solid #3c4043' : '1px solid #e0e0e0'">
+            <div (click)="lockSettingsTab = 'ranges'" [style.color]="lockSettingsTab === 'ranges' ? '#1da954' : (currentTheme === 'dark' ? '#e8eaed' : '#5f6368')" [style.border-bottom]="lockSettingsTab === 'ranges' ? '2px solid #1da954' : '2px solid transparent'" style="padding:10px 4px; cursor:pointer; font-weight:500; font-size:14px; transition: 0.2s;">Ranges</div>
+            <div (click)="lockSettingsTab = 'sheets'" [style.color]="lockSettingsTab === 'sheets' ? '#1da954' : (currentTheme === 'dark' ? '#e8eaed' : '#5f6368')" [style.border-bottom]="lockSettingsTab === 'sheets' ? '2px solid #1da954' : '2px solid transparent'" style="padding:10px 4px; cursor:pointer; font-weight:500; font-size:14px; transition: 0.2s;">Sheets</div>
+          </div>
+          
+          <!-- Body -->
+          <div style="padding:20px; flex:1; display:flex; flex-direction:column;">
+            <div *ngIf="lockSettingsTab === 'ranges'">
+              <div style="display:flex; align-items:center; margin-bottom: 24px;">
+                <span style="font-weight:600; font-size:14px; margin-right:16px;">View Locked Cells in:</span>
+                <select [(ngModel)]="lockSettingsSelectedSheet" [style.background]="currentTheme === 'dark' ? '#303134' : '#fff'" [style.color]="currentTheme === 'dark' ? '#e8eaed' : '#333'" [style.border]="currentTheme === 'dark' ? '1px solid #5f6368' : '1px solid #ccc'" style="flex:1; border-radius:4px; padding:8px 12px; font-size:14px; outline:none;">
+                  <option value="all">Whole Spreadsheet</option>
+                  <option *ngFor="let s of sheets; let i = index" [value]="i">{{ s.name }}</option>
+                </select>
+              </div>
+              <div *ngIf="getLockedCellsForCurrentSettings().length === 0" style="display:flex; justify-content:center; align-items:center; flex:1; min-height:120px; font-size:14px;" [style.color]="currentTheme === 'dark' ? '#9aa0a6' : '#5f6368'">
+                No Locked Cells
+              </div>
+              <div *ngIf="getLockedCellsForCurrentSettings().length > 0" style="flex: 1; overflow-y: auto; max-height: 200px; border: 1px solid {{ currentTheme === 'dark' ? '#3c4043' : '#e0e0e0' }}; border-radius: 4px; padding: 4px 0;">
+                <div *ngFor="let item of getLockedCellsForCurrentSettings(); trackBy: trackByCellRef" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; border-bottom: 1px solid {{ currentTheme === 'dark' ? '#3c4043' : '#e0e0e0' }};" [style.color]="currentTheme === 'dark' ? '#e8eaed' : '#333'">
+                  <div style="font-size: 13px;">
+                    <span *ngIf="lockSettingsSelectedSheet === 'all'" style="opacity: 0.7; margin-right: 8px;">{{ item.sheetName }}</span>
+                    <span style="font-weight: 500;">Cell {{ item.ref }}</span>
+                  </div>
+                  <button (click)="unlockCellFromSettings(item)" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; color: #ea4335;" title="Unlock Cell">
+                    <span class="material-symbols-outlined" style="font-size: 16px;">lock_open</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="lockSettingsTab === 'sheets'">
+              <div style="font-weight:600; font-size:14px; margin-bottom: 24px;">View Locked Sheet(s)</div>
+              
+              <div *ngIf="getLockedSheets().length === 0" style="display:flex; justify-content:center; align-items:center; flex:1; min-height:120px; font-size:14px;" [style.color]="currentTheme === 'dark' ? '#9aa0a6' : '#5f6368'">
+                No Locked Sheets
+              </div>
+              <div *ngIf="getLockedSheets().length > 0" style="flex: 1; overflow-y: auto; max-height: 200px; border: 1px solid {{ currentTheme === 'dark' ? '#3c4043' : '#e0e0e0' }}; border-radius: 4px; padding: 4px 0;">
+                <div *ngFor="let item of getLockedSheets(); trackBy: trackBySheetIndex" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; border-bottom: 1px solid {{ currentTheme === 'dark' ? '#3c4043' : '#e0e0e0' }};" [style.color]="currentTheme === 'dark' ? '#e8eaed' : '#333'">
+                  <div style="font-size: 13px;">
+                    <span style="font-weight: 500;">{{ item.sheetName }}</span>
+                  </div>
+                  <button (click)="toggleLockSheet(item.sheetIndex); $event.stopPropagation()" style="background: none; border: none; cursor: pointer; display: flex; align-items: center; color: #ea4335;" title="Unlock Sheet">
+                    <span class="material-symbols-outlined" style="font-size: 18px; pointer-events: none;">lock_open</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Footer -->
+          <div style="padding:16px 20px; display:flex; justify-content:flex-end;">
+            <button (click)="manageLockSettingsModalOpen=false" [style.background]="currentTheme === 'dark' ? '#3c4043' : '#f8f9fa'" [style.color]="currentTheme === 'dark' ? '#e8eaed' : '#333'" [style.border]="currentTheme === 'dark' ? 'none' : '1px solid #ccc'" style="padding:8px 16px; border-radius:4px; font-size:14px; font-weight:500; cursor:pointer;">Close</button>
           </div>
         </div>
       </div>
@@ -7491,6 +7567,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       this.showToast('This sheet is locked.');
       return;
     }
+    if ((this.formats[`${this.selectedRow},${this.selectedCol}`] as any)?.locked) {
+      this.showToast('This cell is locked.');
+      return;
+    }
     this.isEditingCell = true;
     this.editValue = initialValue !== undefined ? initialValue : this.cells[this.selectedRow][this.selectedCol];
     setTimeout(() => {
@@ -8044,6 +8124,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   pasteCell() {
+    if (this.sheets[this.currentSheetIdx]?.locked) { this.showToast('This sheet is locked.'); return; }
+    if (this.isSelectionLocked()) { this.showToast('Some cells in the selected range are locked.'); return; }
     if (this.richClipboard) {
       // Use rich internal clipboard (preserves formats, validations, multi-cell ranges)
       this.applyRichPaste('all');
@@ -8414,6 +8496,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   recalculate() { this.updateDisplayCache(); this.showToast('Recalculated.'); }
 
   clearCell() {
+    if (this.sheets[this.currentSheetIdx]?.locked) { this.showToast('This sheet is locked.'); return; }
+    if ((this.formats[`${this.selectedRow},${this.selectedCol}`] as any)?.locked) { this.showToast('This cell is locked.'); return; }
     this.pushHistory();
     this.cells[this.selectedRow][this.selectedCol] = '';
     const ref = `${this.selectedRow},${this.selectedCol}`;
@@ -9055,6 +9139,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   statsModalOpen = false;
+  manageLockSettingsModalOpen = false;
+  lockSettingsTab = 'ranges';
+  lockSettingsSelectedSheet = 'all';
   personalDictModalOpen = false;
   personalDictWords: string[] = [];
   personalDictNewWord = '';
@@ -9272,6 +9359,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         const l = getB(fmt.borders.left); if (l) style['border-left'] = l;
         const r = getB(fmt.borders.right); if (r) style['border-right'] = r;
       }
+    }
+
+    if (this.showLockPattern && (fmt as any).locked) {
+      style['background-image'] = 'repeating-linear-gradient(45deg, rgba(255, 165, 0, 0.2), rgba(255, 165, 0, 0.2) 10px, transparent 10px, transparent 20px)';
     }
 
     return style;
@@ -9869,11 +9960,106 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const maxR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
     const minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
     const maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
-    for (let r = minR; r <= maxR; r++)
-      for (let c = minC; c <= maxC; c++)
-        this.formats[`${r},${c}`] = { ...(this.formats[`${r},${c}`] || {}), locked: true } as any;
+    const currentlyLocked = this.isSelectionLocked();
+    const targetLockedState = !currentlyLocked;
+
+    for (let r = minR; r <= maxR; r++) {
+      for (let c = minC; c <= maxC; c++) {
+        if (targetLockedState) {
+          this.formats[`${r},${c}`] = { ...(this.formats[`${r},${c}`] || {}), locked: true } as any;
+        } else {
+          if (this.formats[`${r},${c}`]) {
+            delete (this.formats[`${r},${c}`] as any).locked;
+          }
+        }
+      }
+    }
     this.onCellChange(); this.save();
-    this.showToast(`Range locked: ${this.colLabel(minC)}${minR + 1}:${this.colLabel(maxC)}${maxR + 1}`);
+    this.showToast(`Range ${targetLockedState ? 'locked' : 'unlocked'}: ${this.colLabel(minC)}${minR + 1}:${this.colLabel(maxC)}${maxR + 1}`);
+  }
+
+  isSelectionLocked(): boolean {
+    const minR = this.rangeStart ? Math.min(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const maxR = this.rangeStart ? Math.max(this.rangeStart.r, this.rangeEnd!.r) : this.selectedRow;
+    const minC = this.rangeStart ? Math.min(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    const maxC = this.rangeStart ? Math.max(this.rangeStart.c, this.rangeEnd!.c) : this.selectedCol;
+    for (let r = minR; r <= maxR; r++) {
+      for (let c = minC; c <= maxC; c++) {
+        if ((this.formats[`${r},${c}`] as any)?.locked) return true;
+      }
+    }
+    return false;
+  }
+
+  manageLockSettings() {
+    this.manageLockSettingsModalOpen = true;
+    this.lockSettingsTab = 'ranges';
+    this.lockSettingsSelectedSheet = 'all';
+  }
+
+  trackBySheetIndex(index: number, item: any) { return item.sheetIndex; }
+  trackByCellRef(index: number, item: any) { return item.sheetIndex + '-' + item.ref; }
+
+  getLockedSheets(): Array<{ sheetIndex: number, sheetName: string }> {
+    const results: Array<{ sheetIndex: number, sheetName: string }> = [];
+    for (let i = 0; i < this.sheets.length; i++) {
+      if (this.sheets[i].locked) {
+        results.push({ sheetIndex: i, sheetName: this.sheets[i].name });
+      }
+    }
+    return results;
+  }
+
+  getLockedCellsForCurrentSettings(): Array<{ sheetIndex: number, sheetName: string, ref: string, r: number, c: number }> {
+    const results: Array<{ sheetIndex: number, sheetName: string, ref: string, r: number, c: number }> = [];
+    const checkAll = this.lockSettingsSelectedSheet === 'all';
+    
+    for (let i = 0; i < this.sheets.length; i++) {
+      if (!checkAll && parseInt(this.lockSettingsSelectedSheet as string, 10) !== i) continue;
+      
+      const sheet = this.sheets[i];
+      const formats = (i === this.currentSheetIdx) ? this.formats : (sheet.formats || {});
+      for (const key of Object.keys(formats)) {
+        if ((formats[key] as any)?.locked) {
+          const [rStr, cStr] = key.split(',');
+          const r = parseInt(rStr, 10);
+          const c = parseInt(cStr, 10);
+          
+          let colStr = '';
+          let temp = c;
+          while (temp >= 0) {
+            colStr = String.fromCharCode(65 + (temp % 26)) + colStr;
+            temp = Math.floor(temp / 26) - 1;
+          }
+          const ref = colStr + (r + 1);
+          
+          results.push({ sheetIndex: i, sheetName: sheet.name, ref, r, c });
+        }
+      }
+    }
+    return results;
+  }
+
+  unlockCellFromSettings(item: { sheetIndex: number, sheetName: string, ref: string, r: number, c: number }) {
+    const key = `${item.r},${item.c}`;
+    if (item.sheetIndex === this.currentSheetIdx) {
+      if (this.formats[key]) {
+        delete (this.formats[key] as any).locked;
+        this.formats = { ...this.formats };
+      }
+    } else {
+      const sheet = this.sheets[item.sheetIndex];
+      if (sheet.formats && sheet.formats[key]) {
+        delete (sheet.formats[key] as any).locked;
+      }
+    }
+    this.save();
+    this.showToast(`Unlocked Cell ${item.ref} on ${item.sheetName}`);
+    if (this.cdr) this.cdr.detectChanges();
+  }
+
+  highlightLocks() {
+    this.showLockPattern = !this.showLockPattern;
   }
 
   async linkSpreadsheet() {
@@ -12529,9 +12715,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   toggleLockSheet(idx: number) {
+    console.log('[SheetEditor] toggleLockSheet called with idx:', idx);
     this.sheets[idx].locked = !this.sheets[idx].locked;
     this.save();
     this.showToast(this.sheets[idx].locked ? 'Sheet locked.' : 'Sheet unlocked.');
+    if (this.cdr) this.cdr.detectChanges();
   }
 
   publishSheet(idx: number) {
