@@ -454,12 +454,7 @@ export interface AuditOp {
             <div class="mdi" (click)="addSheet()"><span class="mdi-icon material-symbols-outlined">post_add</span>Sheet<span class="mh">Shift+F11</span></div>
             <div class="mds"></div>
             <div class="mdi" (click)="generateChart()"><span class="mdi-icon material-symbols-outlined">insert_chart</span>Chart...</div>
-            <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">show_chart</span>Sparkline <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
-              <div class="mdi-sub">
-                <div class="mdi" (click)="createSparkline()">Create Sparkline...</div>
-                <div class="mdi" (click)="editSparkline()">Edit Sparkline...</div>
-              </div>
-            </div>
+
             <div class="mdi has-sub"><span class="mdi-icon material-symbols-outlined">image</span>Image <span class="mdi-arrow material-symbols-outlined">chevron_right</span>
               <div class="mdi-sub">
                 <div class="mdi" (click)="triggerImageInsert('cell')">Image in cell...</div>
@@ -1123,7 +1118,6 @@ export interface AuditOp {
         <button class="tb" (click)="openFind()" title="Find &amp; Replace (Ctrl+H)"><span class="material-symbols-outlined">search</span></button>
         <button class="tb" (click)="insertLink()" title="Insert Link"><span class="material-symbols-outlined">link</span></button>
         <button class="tb" (click)="insertComment()" title="Insert Comment"><span class="material-symbols-outlined">comment</span></button>
-        <button class="tb" (click)="openSparklineFormat()" title="Sparkline Format"><span class="material-symbols-outlined">stacked_line_chart</span></button>
         <div style="position:relative; display:inline-block;">
           <button class="tb" [class.tb-on]="activeMenu==='chart'" (click)="toggleMenu('chart', $event)" title="Insert Chart"><span class="material-symbols-outlined">insert_chart</span></button>
           <div class="tb-chart-dd" *ngIf="activeMenu==='chart'" (click)="$event.stopPropagation()">
@@ -1997,12 +1991,12 @@ export interface AuditOp {
       <div class="side-panel" *ngIf="sidePanelApp">
         <div class="sp-head">
           <div class="sp-head-left">
-            <div class="sp-icon-wrap" [class.sp-icon-cal]="sidePanelApp==='calendar'" [class.sp-icon-notes]="sidePanelApp==='notes'" [class.sp-icon-tasks]="sidePanelApp==='tasks'" [class.sp-icon-pivot]="sidePanelApp==='pivot'" [style.background]="sidePanelApp==='pivot'?'#10b981':(sidePanelApp==='navigation'?'#1a73e8':(sidePanelApp==='comments'?'#f59e0b':'inherit'))">
-              <span class="material-symbols-outlined sp-head-icon" [style.color]="sidePanelApp==='navigation'?'#fff':(sidePanelApp==='comments'?'#fff':'')">{{sidePanelApp==='pivot'?'pivot_table_chart':sidePanelApp==='calendar'?'calendar_month':sidePanelApp==='notes'?'sticky_note_2':sidePanelApp==='navigation'?'web_stories':sidePanelApp==='comments'?'forum':'task_alt'}}</span>
+            <div class="sp-icon-wrap" [class.sp-icon-cal]="sidePanelApp==='calendar'" [class.sp-icon-notes]="sidePanelApp==='notes'" [class.sp-icon-tasks]="sidePanelApp==='tasks'" [class.sp-icon-pivot]="sidePanelApp==='pivot'" [style.background]="sidePanelApp==='pivot'?'#10b981':(sidePanelApp==='navigation'?'#1a73e8':(sidePanelApp==='comments'?'#f59e0b':(sidePanelApp==='sparkline'?'#6366f1':'inherit')))">
+              <span class="material-symbols-outlined sp-head-icon" [style.color]="sidePanelApp==='navigation'?'#fff':(sidePanelApp==='comments'?'#fff':(sidePanelApp==='sparkline'?'#fff':''))">{{sidePanelApp==='pivot'?'pivot_table_chart':sidePanelApp==='calendar'?'calendar_month':sidePanelApp==='notes'?'sticky_note_2':sidePanelApp==='navigation'?'web_stories':sidePanelApp==='comments'?'forum':sidePanelApp==='sparkline'?'ssid_chart':'task_alt'}}</span>
             </div>
             <div>
-              <div class="sp-title">{{sidePanelApp==='pivot'?'Pivot Table Editor':sidePanelApp==='calendar'?'Calendar':sidePanelApp==='notes'?'Notes':sidePanelApp==='navigation'?'Navigation':sidePanelApp==='comments'?'Comments':'Tasks'}}</div>
-              <div class="sp-subtitle">{{sidePanelApp==='pivot'?'Configure rows and values':sidePanelApp==='calendar'?'Schedule & meeting notes':sidePanelApp==='notes'?'Quick capture':sidePanelApp==='navigation'?'Manage objects and charts':sidePanelApp==='comments'?'Discuss with your team':'Track your work'}}</div>
+              <div class="sp-title">{{sidePanelApp==='pivot'?'Pivot Table Editor':sidePanelApp==='calendar'?'Calendar':sidePanelApp==='notes'?'Notes':sidePanelApp==='navigation'?'Navigation':sidePanelApp==='comments'?'Comments':sidePanelApp==='sparkline'?'Sparkline':'Tasks'}}</div>
+              <div class="sp-subtitle">{{sidePanelApp==='pivot'?'Configure rows and values':sidePanelApp==='calendar'?'Schedule & meeting notes':sidePanelApp==='notes'?'Quick capture':sidePanelApp==='navigation'?'Manage objects and charts':sidePanelApp==='comments'?'Discuss with your team':sidePanelApp==='sparkline'?'Configure appearance':'Track your work'}}</div>
             </div>
           </div>
           <button class="sp-close-btn" (click)="closeSidePanel()">
@@ -4290,6 +4284,7 @@ export interface AuditOp {
         </div>
 
       </div>
+    </div>
       
       <!-- Custom Restore Confirmation Modal -->
       <div *ngIf="showRestoreConfirm" style="position: absolute; inset: 0; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; z-index: 100000; backdrop-filter: blur(2px);">
@@ -4360,7 +4355,6 @@ export interface AuditOp {
          </div>
       </div>
 
-</div>
   
       <!-- Insert Sparkline Modal -->
       <div class="modal-overlay" *ngIf="activeModal === 'insert_sparkline'" (click)="activeModal = null">
@@ -9064,7 +9058,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const destRows = destRange.endR - destRange.startR + 1;
     const destCols = destRange.endC - destRange.startC + 1;
 
-    if (srcRows !== destRows || srcCols !== destCols) {
+    if (!(destRows === 1 && destCols === 1) && (srcRows !== destRows || srcCols !== destCols)) {
       this.editSparklineConfig.error = 'Source and destination dimensions must match.';
       return;
     }
@@ -9082,9 +9076,15 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (sheet.sparklines[key]) {
       sheet.sparklines[key].sourceRange = this.editSparklineConfig.source;
       sheet.sparklines[key].destinationRange = this.editSparklineConfig.dest;
+      
+      if (this.sparklineConfig && this.sidePanelApp === 'sparkline') {
+        this.sparklineConfig.sourceRange = this.editSparklineConfig.source;
+        this.sparklineConfig.destinationRange = this.editSparklineConfig.dest;
+      }
     }
 
     this.activeModal = null;
+    this.save();
     this.showToast('Sparkline range updated');
   }
 
@@ -9113,7 +9113,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const destRows = destRange.endR - destRange.startR + 1;
     const destCols = destRange.endC - destRange.startC + 1;
 
-    if (srcRows !== destRows || srcCols !== destCols) {
+    if (!(destRows === 1 && destCols === 1) && (srcRows !== destRows || srcCols !== destCols)) {
       this.insertSparklineConfig.error = 'Please select a destination range that is equal to the source range.';
       return;
     }
@@ -13521,18 +13521,18 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const range = this.parseRange(rangeStr);
     if (!range) return { values: [], hasNumbers: false };
 
-    // Support parsing across sheets if specified, currently default to current sheet
     const targetSheetIdx = this.sheets.findIndex(s => s.name === range.sheetName) !== -1 ? this.sheets.findIndex(s => s.name === range.sheetName) : this.currentSheetIdx;
-    const targetSheet = this.sheets[targetSheetIdx];
+    const isCurrentSheet = targetSheetIdx === this.currentSheetIdx;
+    const targetCells = isCurrentSheet ? this.cells : this.sheets[targetSheetIdx].cells;
+    const targetHiddenRows = isCurrentSheet ? this.hiddenRows : new Set(this.sheets[targetSheetIdx].hiddenRows || []);
 
     let values = [];
     let hasNumbers = false;
 
     for (let r = range.startR; r <= range.endR; r++) {
-      if (!includeHidden && targetSheet.hiddenRows && targetSheet.hiddenRows.includes(r)) continue;
+      if (!includeHidden && targetHiddenRows.has(r)) continue;
       for (let c = range.startC; c <= range.endC; c++) {
-        // Assume columns are not hidden for now since col hidden is not implemented fully in Sheet model yet
-        const cellStr = targetSheet.cells[r]?.[c] || '';
+        const cellStr = targetCells[r]?.[c] || '';
         const cleanStr = cellStr.toString().trim();
         if (cleanStr === '') {
           values.push(null);
