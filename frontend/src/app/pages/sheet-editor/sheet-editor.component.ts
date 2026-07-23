@@ -13,6 +13,7 @@ import { AuthService } from '../../services/auth.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { PickerModule } from '@ctrl/ngx-emoji-mart';
+import * as XLSX from 'xlsx';
 const colName = (i: number) => {
   let name = '';
   let temp = i;
@@ -88,8 +89,12 @@ export interface DropdownOption {
 }
 
 export interface CellValidation {
-  type: 'list';
+  type: string;
   options: (string | DropdownOption)[];
+  isMultiSelect?: boolean;
+  displayAsChip?: boolean;
+  colorMode?: 'none' | 'single' | 'multi';
+  singleColor?: string;
 }
 
 export interface AuditOp {
@@ -797,8 +802,8 @@ export interface AuditOp {
               <span class="material-symbols-outlined mdi-icon">code</span> VBA Macros
               <span class="material-symbols-outlined mdi-arrow">chevron_right</span>
               <div class="mdi-sub">
-                <div class="mdi" (click)="openMacroEditor(); closeMenus()">Record Macro</div>
-                <div class="mdi" (click)="openMacroEditor(); closeMenus()">Edit Macros</div>
+                <div class="mdi" (click)="openMacroEditor(); closeMenus()">VBA Editor</div>
+                <div class="mdi" (click)="runMacro(); closeMenus()">Run Macro</div>
               </div>
             </div>
             <div class="mdi has-sub">
@@ -1920,9 +1925,25 @@ export interface AuditOp {
                   <ng-template #dropdownCell>
                     <ng-container *ngIf="hasCellDropdown(r, c); else plainInput">
                       <!-- Custom Picklist rendering -->
-                    <div class="cell-dropdown-ui" (click)="openCustomDropdown($event, r, c)" [style.background]="getDropdownColor(r, c, cells[r][c]) || '#fff'" [style.color]="getDropdownColor(r, c, cells[r][c]) ? '#fff' : '#000'" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; cursor:pointer; padding: 0 6px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; box-sizing: border-box; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; user-select: none;">
-                      <span style="overflow: hidden; text-overflow: ellipsis;">{{ cells[r][c] }}</span>
-                      <span class="material-symbols-outlined" style="font-size: 16px;">arrow_drop_down</span>
+                    <div class="cell-dropdown-ui" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 0 6px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; box-sizing: border-box; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; user-select: none;">
+                      <div *ngIf="isDisplayAsChip(r, c)" style="display:flex; gap:4px; overflow:hidden; flex-wrap:nowrap; pointer-events:none; flex:1;">
+                        <span *ngFor="let part of splitValue(cells[r][c])" 
+                              [style.background]="getDropdownColor(r, c, part) || '#f1f5f9'" 
+                              [style.color]="getDropdownColor(r, c, part) ? '#fff' : '#333'" 
+                              style="padding: 2px 8px; border-radius: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                          {{ part }}
+                        </span>
+                      </div>
+                      <div *ngIf="!isDisplayAsChip(r, c)" style="display:flex; gap:4px; overflow:hidden; flex-wrap:nowrap; pointer-events:none; flex:1;">
+                        <span *ngFor="let part of splitValue(cells[r][c]); let last = last" 
+                              [style.color]="getDropdownColor(r, c, part) || '#000'" 
+                              style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                          {{ part }}{{ last ? '' : ',' }}
+                        </span>
+                      </div>
+                      <div (click)="openCustomDropdown($event, r, c)" style="display: flex; align-items: center; justify-content: center; height: 100%; cursor: pointer; padding: 0 4px; border-radius: 4px;">
+                        <span class="material-symbols-outlined" style="font-size: 16px;">arrow_drop_down</span>
+                      </div>
                     </div>
                   </ng-container>
                   <ng-template #plainInput>
@@ -2687,10 +2708,17 @@ export interface AuditOp {
               </div>
               
               <div style="padding:12px; max-height:220px; overflow-y:auto;">
+                <datalist id="presetColors">
+                  <option>#ef4444</option><option>#f97316</option><option>#f59e0b</option>
+                  <option>#84cc16</option><option>#22c55e</option><option>#10b981</option>
+                  <option>#06b6d4</option><option>#3b82f6</option><option>#6366f1</option>
+                  <option>#8b5cf6</option><option>#d946ef</option><option>#f43f5e</option>
+                  <option>#ffffff</option><option>#94a3b8</option><option>#000000</option>
+                </datalist>
                 <div *ngFor="let opt of picklistOptions; let i = index" style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                    <div style="color:#cbd5e1; cursor:grab; display:flex;"><span class="material-symbols-outlined" style="font-size:18px;">drag_indicator</span></div>
                    <div style="position:relative; width:20px; height:20px; border-radius:50%; overflow:hidden; border:1px solid #e2e8f0; flex-shrink:0;">
-                     <input type="color" [(ngModel)]="opt.color" style="position:absolute;top:-5px;left:-5px;width:30px;height:30px;border:none;cursor:pointer;padding:0;background:transparent;">
+                     <input type="color" [(ngModel)]="opt.color" list="presetColors" style="position:absolute;top:-5px;left:-5px;width:30px;height:30px;border:none;cursor:pointer;padding:0;background:transparent;">
                    </div>
                    <input type="text" [(ngModel)]="opt.label" placeholder="Item name" style="flex:1; border:1px solid transparent; background:#f1f5f9; color:#333; padding:6px 12px; border-radius:16px; outline:none; font-size:13px; transition:border 0.2s;">
                    <button (click)="picklistOptions.splice(i, 1)" style="background:none;border:none;color:#a0aec0;cursor:pointer;font-size:18px;padding:4px;display:flex;align-items:center;"><span class="material-symbols-outlined" style="font-size:18px;">close</span></button>
@@ -2818,21 +2846,57 @@ export interface AuditOp {
 
       <!-- Feedback Modal -->
       <div class="modal-overlay" *ngIf="feedbackModalOpen" (click)="feedbackModalOpen=false" style="z-index:10000;">
-        <div class="modal" (click)="$event.stopPropagation()" style="width:420px;background:#fff;color:#333;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);padding:24px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h3 style="margin:0;font-size:18px;font-weight:600;">Send Feedback</h3>
-            <button (click)="feedbackModalOpen=false" style="background:none;border:none;cursor:pointer;color:#888;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
+        <div class="modal" (click)="$event.stopPropagation()" style="width:420px;background:#fff;color:#333;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);padding:0; overflow:hidden; display:flex; flex-direction:column;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #e0e0e0;">
+            <h3 style="margin:0;font-size:16px;font-weight:600;">Feedback</h3>
+            <button (click)="feedbackModalOpen=false" style="background:none;border:none;cursor:pointer;color:#888;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
           </div>
-          <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px;">
-            <div style="font-size:13px;color:#555;">Rate your experience:</div>
-            <div style="display:flex;gap:8px;">
-              <span *ngFor="let s of [1,2,3,4,5]" (click)="feedbackRating=s" style="font-size:28px;cursor:pointer;" [style.opacity]="s<=feedbackRating?'1':'0.3'">⭐</span>
+          <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+            <div style="font-size:14px; color:#5f6368;">Love us or not—let us know!</div>
+            
+            <div style="display:flex; justify-content:space-around; align-items:center; padding: 4px 0;">
+              <div (click)="feedbackType='Love'" style="display:flex; flex-direction:column; align-items:center; cursor:pointer;" [style.opacity]="feedbackType === 'Love' ? '1' : '0.4'" [style.filter]="feedbackType === 'Love' ? 'none' : 'grayscale(100%)'">
+                <span style="font-size:24px;">❤️</span>
+                <span style="font-size:12px; margin-top:4px; font-weight:500;">Love</span>
+              </div>
+              <div (click)="feedbackType='Idea'" style="display:flex; flex-direction:column; align-items:center; cursor:pointer;" [style.opacity]="feedbackType === 'Idea' ? '1' : '0.4'" [style.filter]="feedbackType === 'Idea' ? 'none' : 'grayscale(100%)'">
+                <span style="font-size:24px;">💡</span>
+                <span style="font-size:12px; margin-top:4px; font-weight:500;">Idea</span>
+              </div>
+              <div (click)="feedbackType='Help'" style="display:flex; flex-direction:column; align-items:center; cursor:pointer;" [style.opacity]="feedbackType === 'Help' ? '1' : '0.4'" [style.filter]="feedbackType === 'Help' ? 'none' : 'grayscale(100%)'">
+                <span style="font-size:24px;">❓</span>
+                <span style="font-size:12px; margin-top:4px; font-weight:500;">Help</span>
+              </div>
+              <div (click)="feedbackType='Bug'" style="display:flex; flex-direction:column; align-items:center; cursor:pointer;" [style.opacity]="feedbackType === 'Bug' ? '1' : '0.4'" [style.filter]="feedbackType === 'Bug' ? 'none' : 'grayscale(100%)'">
+                <span style="font-size:24px;">🐞</span>
+                <span style="font-size:12px; margin-top:4px; font-weight:500;">Bug</span>
+              </div>
             </div>
-            <textarea [(ngModel)]="feedbackText" placeholder="Tell us what you think..." style="border:1px solid #cbd5e1;border-radius:4px;padding:8px;font-size:13px;height:100px;outline:none;resize:none;font-family:inherit;"></textarea>
+
+            <textarea [(ngModel)]="feedbackText" placeholder="Post your comments" style="border:1px solid #dadce0;border-radius:4px;padding:12px;font-size:13px;height:90px;outline:none;resize:none;font-family:inherit;"></textarea>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <button style="display:flex; align-items:center; gap:6px; background:#fff; border:1px solid #dadce0; border-radius:4px; padding:6px 12px; color:#333; cursor:pointer; font-size:13px; font-weight:500;">
+                <span class="material-symbols-outlined" style="font-size:18px;">attach_file</span>
+                Attach file
+              </button>
+              <div style="display:flex; flex-direction:column; align-items:center;">
+                <span style="font-size:12px; color:#5f6368; margin-bottom:4px; font-weight:500;">Rate us</span>
+                <div style="display:flex; gap:2px;">
+                  <span *ngFor="let s of [1,2,3,4,5]" (click)="feedbackRating=s" class="material-symbols-outlined" [style.color]="s<=feedbackRating ? '#f29900' : '#dadce0'" style="font-size:20px; cursor:pointer; font-variation-settings: 'FILL' {{ s <= feedbackRating ? 1 : 0 }};">star</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:8px; align-items:flex-start; margin-top:4px;">
+              <input type="checkbox" [(ngModel)]="feedbackRecordScreen" style="margin-top:2px; accent-color:#10b981;" id="recordScreenCb">
+              <label for="recordScreenCb" style="font-size:12px; color:#333; line-height:1.4; cursor:pointer;">Record my screen to help the team understand my issue and take necessary actions quickly.</label>
+            </div>
           </div>
-          <div style="display:flex;justify-content:flex-end;gap:8px;">
-            <button (click)="submitFeedback()" style="background:#10b981;color:#fff;border:none;padding:8px 24px;border-radius:4px;font-weight:600;cursor:pointer;">Submit</button>
-            <button (click)="feedbackModalOpen=false" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 24px;border-radius:4px;font-weight:600;cursor:pointer;">Cancel</button>
+          
+          <div style="display:flex;justify-content:flex-end;gap:12px; padding:16px 20px; border-top:1px solid #e0e0e0; background:#f8f9fa;">
+            <button (click)="submitFeedback()" style="background:#10b981;color:#fff;border:none;padding:8px 24px;border-radius:4px;font-weight:600;cursor:pointer;font-size:13px;">Submit</button>
+            <button (click)="feedbackModalOpen=false" style="background:#fff;color:#333;border:1px solid #dadce0;padding:8px 24px;border-radius:4px;font-weight:600;cursor:pointer;font-size:13px;">Cancel</button>
           </div>
         </div>
       </div>
@@ -2968,6 +3032,58 @@ export interface AuditOp {
           <div style="margin-left: 84px; margin-bottom: 16px;">
             <textarea placeholder="Line Separated Values (one per line)" [(ngModel)]="validationInput" style="width: 100%; height: 80px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px; font-size:13px; outline:none; font-family:inherit; resize:none; box-sizing:border-box;"></textarea>
           </div>
+
+          <ng-container *ngIf="dvCriteria === 'list'">
+            <!-- Single vs Multi Select -->
+            <div style="margin-left: 84px; margin-bottom: 12px; display:flex; align-items:center; gap:16px;">
+              <label style="display:flex; align-items:center; gap:4px; font-size:13px; cursor:pointer;">
+                <input type="radio" name="pickType" [value]="false" [(ngModel)]="dvIsMultiSelect" style="accent-color:#10b981;"> Single-Select
+              </label>
+              <label style="display:flex; align-items:center; gap:4px; font-size:13px; cursor:pointer;">
+                <input type="radio" name="pickType" [value]="true" [(ngModel)]="dvIsMultiSelect" style="accent-color:#10b981;"> Multi-Select
+              </label>
+            </div>
+
+            <!-- Display as chip -->
+            <div style="margin-left: 84px; margin-bottom: 12px;">
+              <label style="display:flex; align-items:center; gap:4px; font-size:13px; cursor:pointer;">
+                <input type="checkbox" [(ngModel)]="dvDisplayAsChip" style="accent-color:#10b981;"> Display as chip
+              </label>
+            </div>
+
+            <!-- Color Options -->
+            <div style="margin-left: 84px; margin-bottom: 16px; display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:13px;">Color options:</span>
+                <select [(ngModel)]="dvColorMode" style="border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px; font-size:13px; width:130px; outline:none; background:#fff;">
+                  <option value="none">None</option>
+                  <option value="single">Single Color</option>
+                  <option value="multi">Multi Color</option>
+                </select>
+                <div *ngIf="dvColorMode === 'single'" style="display:flex; align-items:center; gap:4px;">
+                   <input type="color" [(ngModel)]="dvSingleColor" list="presetColors" style="width:24px; height:24px; padding:0; border:none; cursor:pointer; background:transparent;">
+                </div>
+              </div>
+              
+              <!-- Multi Color Options Mapping -->
+              <div *ngIf="dvColorMode === 'multi'" style="display:flex; flex-direction:column; gap:6px; max-height:120px; overflow-y:auto; padding-right:8px; border:1px solid #e2e8f0; border-radius:4px; padding:8px;">
+                 <div *ngFor="let item of getParsedValidationItems()" style="display:flex; justify-content:space-between; align-items:center; font-size:13px;">
+                   <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px;">{{item}}</span>
+                   <div style="position:relative;">
+                     <div (click)="openColorPalette(item)" [style.background]="dvItemColors[item] || '#e2e8f0'" style="width:20px; height:20px; border:1px solid #ccc; border-radius:4px; cursor:pointer;"></div>
+                     <!-- Basic Palette Popup -->
+                     <div *ngIf="dvPaletteItem === item" style="position:absolute; right:0; top:24px; z-index:100; background:#fff; border:1px solid #cbd5e1; border-radius:4px; box-shadow:0 4px 6px rgba(0,0,0,0.1); padding:8px; width:160px; display:flex; flex-wrap:wrap; gap:4px;">
+                       <div *ngFor="let c of ['#ef4444','#f97316','#f59e0b','#84cc16','#22c55e','#10b981','#14b8a6','#06b6d4','#0ea5e9','#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e','#cbd5e1','#94a3b8','#64748b','#334155']" 
+                            (click)="setPaletteColor(item, c)" 
+                            [style.background]="c" 
+                            style="width:24px; height:24px; border-radius:4px; cursor:pointer; border:1px solid #e2e8f0;"></div>
+                     </div>
+                   </div>
+                 </div>
+                 <div *ngIf="!getParsedValidationItems().length" style="font-size:12px; color:#888;">Enter values above first.</div>
+              </div>
+            </div>
+          </ng-container>
 
           <div style="margin-left: 84px; margin-bottom: 16px;">
             <label style="display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer;">
@@ -3111,8 +3227,8 @@ export interface AuditOp {
 
       <!-- Feature Modals -->
         <div class="modal-overlay" *ngIf="activeModal !== null && activeModal !== 'goto' && activeModal !== 'insert_sparkline' && activeModal !== 'edit_sparkline' && activeModal !== 'emoji'" (click)="activeModal = null" style="z-index: 10000;">
-          <div class="modal" (click)="$event.stopPropagation()" [style.width]="activeModal === 'version' ? '1200px' : (activeModal === 'audit' ? '620px' : (activeModal === 'manage_forms' ? '748px' : (activeModal === 'shortcuts' ? '548px' : '460px')))" style="background:#fff; color:#333; border:1px solid #e2e8f0; box-shadow:0 8px 32px rgba(0,0,0,0.15); max-width:90vw; padding:24px; border-radius:8px; position:relative;">
-            <button (click)="activeModal = null" style="position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;color:#888;display:flex;align-items:center;justify-content:center;">
+          <div class="modal" (click)="$event.stopPropagation()" [style.width]="activeModal === 'version' ? '1200px' : (activeModal === 'macro' || activeModal === 'edit_macro' ? '800px' : (activeModal === 'audit' ? '620px' : (activeModal === 'manage_forms' ? '748px' : (activeModal === 'shortcuts' ? '548px' : '460px'))))" [style.padding]="(activeModal === 'macro' || activeModal === 'edit_macro') ? '0' : '24px'" style="background:#fff; color:#333; border:1px solid #e2e8f0; box-shadow:0 8px 32px rgba(0,0,0,0.15); max-width:90vw; border-radius:8px; position:relative; overflow:hidden; display:flex; flex-direction:column;">
+            <button *ngIf="activeModal !== 'macro' && activeModal !== 'edit_macro'" (click)="activeModal = null" style="position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;color:#888;display:flex;align-items:center;justify-content:center;z-index:10;">
               <span class="material-symbols-outlined" style="font-size:20px;">close</span>
             </button>
 
@@ -3294,19 +3410,90 @@ export interface AuditOp {
               </div>
             </div>
 
-            <div *ngIf="activeModal === 'macro' || activeModal === 'edit_macro'">
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
-                <span class="material-symbols-outlined" style="color:#ef4444;font-size:24px;">integration_instructions</span>
-                <h3 style="margin:0;font-size:18px;font-weight:600;">VBA Macro Script Editor</h3>
+            <div *ngIf="activeModal === 'macro' || activeModal === 'edit_macro'" style="width: 100%; height: 500px; display: flex; flex-direction: column;">
+              
+              <!-- Header -->
+              <div style="display:flex; justify-content:space-between; align-items:center; padding: 12px 16px; border-bottom: 1px solid #e0e0e0; background: #fff;">
+                <h3 style="margin:0; font-size:16px; font-weight:600; color: #202124;">VBA Editor</h3>
+                <div style="display:flex; gap: 8px;">
+                  <span class="material-symbols-outlined" style="cursor:pointer; font-size: 18px; color: #5f6368;" (click)="activeModal=null">minimize</span>
+                  <span class="material-symbols-outlined" style="cursor:pointer; font-size: 18px; color: #5f6368;" (click)="activeModal=null">close</span>
+                </div>
               </div>
-              <div style="margin-bottom:16px;">
-                <p style="font-size:12px;color:#5f6368;margin-bottom:8px;">Write JavaScript to automate tasks. Use 'this.cells[row][col]' to access data.</p>
-                <textarea [(ngModel)]="macroScript" style="width:100%;height:150px;background:#1e1e1e;color:#d4d4d4;font-family:monospace;font-size:13px;padding:12px;border-radius:6px;border:none;resize:none;box-sizing:border-box;outline:none;"></textarea>
+
+              <!-- Toolbar -->
+              <div style="display:flex; align-items:center; gap: 16px; padding: 8px 16px; border-bottom: 1px solid #e0e0e0; background: #f8f9fa; font-size: 13px; color: #3c4043;">
+                <div style="display:flex; gap: 8px; cursor:pointer;" title="Undo"><span class="material-symbols-outlined" style="font-size:16px;">undo</span></div>
+                <div style="display:flex; gap: 8px; cursor:pointer;" title="Redo"><span class="material-symbols-outlined" style="font-size:16px;">redo</span></div>
+                <div style="display:flex; gap: 4px; align-items:center; cursor:pointer;"><span class="material-symbols-outlined" style="font-size:16px;">search</span> Find & Replace</div>
+                <div style="display:flex; gap: 4px; align-items:center; cursor:pointer;"><span class="material-symbols-outlined" style="font-size:16px;">arrow_forward</span> Go To</div>
+                <div style="display:flex; gap: 4px; align-items:center; cursor:pointer;"><span class="material-symbols-outlined" style="font-size:16px;">data_object</span> Insert Procedure</div>
+                <div style="display:flex; gap: 4px; align-items:center; cursor:pointer;" (click)="save()"><span class="material-symbols-outlined" style="font-size:16px;">save</span> Save</div>
+                <div style="display:flex; gap: 4px; align-items:center; cursor:pointer; color: #188038;" (click)="runMacro()"><span class="material-symbols-outlined" style="font-size:16px;">play_arrow</span> Run</div>
+                <div style="display:flex; gap: 4px; align-items:center; cursor:pointer; color: #188038;" (click)="save(); runMacro()"><span class="material-symbols-outlined" style="font-size:16px;">save</span> Save & Run</div>
               </div>
-              <div style="display:flex;justify-content:flex-end;gap:10px;">
-                <button (click)="activeModal=null" style="background:#f1f5f9;color:#333;border:1px solid #e2e8f0;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;">Cancel</button>
-                <button (click)="runMacro()" style="background:#ef4444;color:#fff;border:none;padding:8px 20px;border-radius:4px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;">play_arrow</span> Run Macro</button>
+
+              <!-- Main Content -->
+              <div style="display: flex; flex: 1; min-height: 0;">
+                
+                <!-- Sidebar -->
+                <div style="width: 220px; border-right: 1px solid #e0e0e0; display:flex; flex-direction: column; background: #fff;">
+                  <div style="padding: 8px 12px; font-weight: 600; font-size: 12px; color: #5f6368; border-bottom: 1px solid #f1f3f4;">Macros</div>
+                  <div style="flex: 1; overflow-y: auto; padding: 8px; font-size: 13px;">
+                    <div style="display:flex; align-items:center; gap: 6px; padding: 4px; cursor: pointer;">
+                      <span class="material-symbols-outlined" style="font-size:16px; color:#5f6368;">folder</span> Spreadsheet Objects
+                    </div>
+                    <div style="margin-left: 20px;">
+                      <div style="display:flex; align-items:center; gap: 6px; padding: 4px; cursor: pointer; color: #1a73e8; background: #e8f0fe; border-radius: 4px;">
+                        <span class="material-symbols-outlined" style="font-size:16px; color:#1a73e8;">description</span> This Workbook
+                      </div>
+                      <div *ngFor="let sheet of sheets; let i = index" style="display:flex; align-items:center; gap: 6px; padding: 4px; cursor: pointer;">
+                        <span class="material-symbols-outlined" style="font-size:16px; color:#5f6368;">grid_on</span> Sheet{{i+1}}({{sheet.name}})
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Editor & Terminal -->
+                <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+                  <!-- Editor -->
+                  <div style="flex: 1; display:flex; position: relative;">
+                    <textarea [(ngModel)]="macroScript" style="width:100%; height:100%; border:none; resize:none; padding:12px; font-family: 'Courier New', Courier, monospace; font-size: 14px; outline: none; line-height: 1.5; color: #333;"></textarea>
+                  </div>
+
+                  <!-- Terminal/Output -->
+                  <div style="height: 140px; border-top: 1px solid #e0e0e0; display:flex; flex-direction: column; background: #f8f9fa;">
+                    <!-- Tabs -->
+                    <div style="display: flex; gap: 24px; padding: 0 16px; border-bottom: 1px solid #e0e0e0;">
+                      <div (click)="macroActiveTab='Errors'" [style.border-bottom]="macroActiveTab === 'Errors' ? '2px solid #d32f2f' : '2px solid transparent'" [style.color]="macroActiveTab === 'Errors' ? '#d32f2f' : '#5f6368'" style="padding: 8px 0; cursor: pointer; font-size: 13px; font-weight: 500; display:flex; align-items:center; gap:6px;">
+                        <span class="material-symbols-outlined" style="font-size:16px;">error</span> Errors
+                      </div>
+                      <div (click)="macroActiveTab='Messages'" [style.border-bottom]="macroActiveTab === 'Messages' ? '2px solid #1a73e8' : '2px solid transparent'" [style.color]="macroActiveTab === 'Messages' ? '#1a73e8' : '#5f6368'" style="padding: 8px 0; cursor: pointer; font-size: 13px; font-weight: 500; display:flex; align-items:center; gap:6px;">
+                        <span class="material-symbols-outlined" style="font-size:16px;">info</span> Messages
+                      </div>
+                      <div (click)="macroActiveTab='Warnings'" [style.border-bottom]="macroActiveTab === 'Warnings' ? '2px solid #f59e0b' : '2px solid transparent'" [style.color]="macroActiveTab === 'Warnings' ? '#f59e0b' : '#5f6368'" style="padding: 8px 0; cursor: pointer; font-size: 13px; font-weight: 500; display:flex; align-items:center; gap:6px;">
+                        <span class="material-symbols-outlined" style="font-size:16px;">warning</span> Warnings
+                      </div>
+                    </div>
+                    <!-- Output content -->
+                    <div style="flex: 1; overflow-y: auto; padding: 8px 16px; font-family: monospace; font-size: 12px; color: #333; background: #fff;">
+                      <div *ngIf="macroActiveTab === 'Errors'">
+                        <div *ngFor="let err of macroErrors" style="color: #d32f2f; margin-bottom: 4px;">{{err}}</div>
+                        <div *ngIf="macroErrors.length === 0" style="color: #9aa0a6;">No errors.</div>
+                      </div>
+                      <div *ngIf="macroActiveTab === 'Messages'">
+                        <div *ngFor="let msg of macroMessages" style="color: #1a73e8; margin-bottom: 4px;">{{msg}}</div>
+                        <div *ngIf="macroMessages.length === 0" style="color: #9aa0a6;">No messages.</div>
+                      </div>
+                      <div *ngIf="macroActiveTab === 'Warnings'">
+                        <div *ngFor="let warn of macroWarnings" style="color: #f59e0b; margin-bottom: 4px;">{{warn}}</div>
+                        <div *ngIf="macroWarnings.length === 0" style="color: #9aa0a6;">No warnings.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
+
             </div>
 
             <div *ngIf="activeModal === 'functions'">
@@ -4952,8 +5139,8 @@ export interface AuditOp {
 
     /* ── SHEET TABS ─────────────────────────────────────────────────────── */
     .footer-container { display: flex; align-items: center; justify-content: space-between; background: #f1f3f4; border-top: 2px solid #dadce0; min-height: 34px; width: 100%; box-sizing: border-box; }
-    .sheet-tabs { display:flex; align-items:center; gap:2px; padding:0 14px; min-height:34px; overflow-x:auto; flex-shrink:1; min-width:0; }
-    .sheet-tab { align-items:center; background:transparent; border-radius:4px 4px 0 0; border:1px solid transparent; border-bottom:none; color:#5f6368; cursor:pointer; display:flex; font-size:12px; gap:6px; padding:6px 14px; white-space:nowrap; }
+    .sheet-tabs { display:flex; align-items:flex-end; gap:4px; padding:0 16px 4px 16px; min-height:44px; overflow-x:auto; flex-shrink:1; min-width:0; }
+    .sheet-tab { flex-shrink:0; align-items:center; background:transparent; border-radius:6px 6px 0 0; border:1px solid transparent; border-bottom:none; color:#5f6368; cursor:pointer; display:flex; font-size:14px; gap:8px; padding:8px 24px; white-space:nowrap; min-width:80px; justify-content:center; font-weight:500; transition:all 0.2s; }
     .sheet-tab.active-tab { background:#fff; border-color:#dadce0; color:#1a73e8; font-weight:600; }
     .sheet-tab:hover:not(.active-tab) { background:#e8eaed; }
     .tab-close { color:#bbb; cursor:pointer; font-size:13px; line-height:1; }
@@ -5765,6 +5952,13 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   dvAlertMsg = '';
   dvAppliesTo = 'Sheet1.A1';
 
+  // Picklist extra configuration
+  dvIsMultiSelect = false;
+  dvDisplayAsChip = true;
+  dvColorMode: 'none' | 'single' | 'multi' = 'none';
+  dvSingleColor = '#f1f5f9';
+  dvItemColors: Record<string, string> = {};
+
   // Advanced Filter State
   advFilterVisible = false;
   advFilterMaxHeight = 360;
@@ -6283,13 +6477,13 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         this.selectCell(nr, this.selectedCol);
         return;
       }
-      if (e.key === 'ArrowLeft') {
+      if (e.key === 'ArrowLeft' || (e.key === 'Tab' && e.shiftKey)) {
         e.preventDefault();
         const nc = Math.max(0, this.selectedCol - 1);
         this.selectCell(this.selectedRow, nc);
         return;
       }
-      if (e.key === 'ArrowRight') {
+      if (e.key === 'ArrowRight' || (e.key === 'Tab' && !e.shiftKey)) {
         e.preventDefault();
         const nc = Math.min(this.cells[0].length - 1, this.selectedCol + 1);
         this.selectCell(this.selectedRow, nc);
@@ -6425,6 +6619,24 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const clipboardData = e.clipboardData || (window as any).clipboardData;
     if (!clipboardData) return;
 
+    const pastedText = clipboardData.getData('Text');
+    if (this.richClipboard) {
+      const tsvRows: string[] = [];
+      for (let r = 0; r < this.richClipboard.rows; r++) {
+        const tsvCols: string[] = [];
+        for (let c = 0; c < this.richClipboard.cols; c++) {
+          tsvCols.push(this.richClipboard.cells[r][c] || '');
+        }
+        tsvRows.push(tsvCols.join('\t'));
+      }
+      const expectedTsv = tsvRows.join('\n');
+      if (pastedText === expectedTsv || pastedText === expectedTsv + '\r\n' || pastedText === expectedTsv + '\n') {
+        this.applyRichPaste('all');
+        this.showToast('Pasted.');
+        return;
+      }
+    }
+
     if (clipboardData.items) {
       for (let i = 0; i < clipboardData.items.length; i++) {
         if (clipboardData.items[i].type.indexOf('image') !== -1) {
@@ -6448,7 +6660,6 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }
 
     const pastedHtml = clipboardData.getData('text/html');
-    const pastedText = clipboardData.getData('Text');
 
     if (!pastedHtml && !pastedText) return;
 
@@ -6677,42 +6888,91 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const target = event.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
 
-    // We can create a dynamic overlay or use a generic one. For simplicity,
-    // let's create a dynamic absolute div and append to body.
     const overlay = document.createElement('div');
     overlay.className = 'custom-dropdown-overlay';
+    overlay.style.position = 'fixed';
     overlay.style.top = `${rect.bottom + 2}px`;
     overlay.style.left = `${rect.left}px`;
     overlay.style.width = `${Math.max(rect.width, 150)}px`;
+    overlay.style.background = '#2d2d2d';
+    overlay.style.border = '1px solid #444';
+    overlay.style.borderRadius = '4px';
+    overlay.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+    overlay.style.zIndex = '100000';
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column';
+
+    const scrollContainer = document.createElement('div');
+    scrollContainer.style.maxHeight = '240px';
+    scrollContainer.style.overflowY = 'auto';
+    overlay.appendChild(scrollContainer);
 
     opts.forEach((opt: any) => {
       const item = document.createElement('div');
       item.className = 'custom-dropdown-item';
-      item.style.backgroundColor = opt.color || '#fff';
-      item.style.color = opt.color ? '#fff' : '#000';
-      item.innerText = opt.label || opt;
+      item.style.backgroundColor = 'transparent';
+      item.style.color = '#fff';
+      item.style.padding = '8px 12px';
+      item.style.fontSize = '13px';
+      item.style.cursor = 'pointer';
+      
+      const textSpan = document.createElement('span');
+      textSpan.innerText = opt.label || opt;
+      item.appendChild(textSpan);
+
+      item.onmouseenter = () => item.style.backgroundColor = '#424242';
+      item.onmouseleave = () => item.style.backgroundColor = 'transparent';
+
       item.onclick = (e) => {
         e.stopPropagation();
         this.pushHistory();
-        this.cells[r][c] = opt.label || opt;
+        
+        const v = this.validations[`${r},${c}`];
+        const isMulti = v && v.isMultiSelect;
+        const optValue = opt.label || opt;
+
+        if (isMulti) {
+          let currentStr = this.cells[r][c] || '';
+          let parts = currentStr.split(',').map((p: string) => p.trim()).filter((p: string) => !!p);
+          
+          if (parts.includes(optValue)) {
+            parts = parts.filter((p: string) => p !== optValue);
+          } else {
+            parts.push(optValue);
+          }
+          this.cells[r][c] = parts.join(', ');
+        } else {
+          this.cells[r][c] = optValue;
+        }
+
         if (this.selectedRow === r && this.selectedCol === c) {
           this.formulaBarValue = this.cells[r][c];
         }
         this.onCellChange();
         this.save();
-        document.body.removeChild(overlay);
-        document.removeEventListener('click', closeOverlay);
+        
+        if (!isMulti) {
+          if (document.body.contains(overlay)) {
+            document.body.removeChild(overlay);
+          }
+          document.removeEventListener('click', closeOverlay);
+        }
       };
-      overlay.appendChild(item);
+      scrollContainer.appendChild(item);
     });
 
     // Option to clear the cell
     const clearItem = document.createElement('div');
     clearItem.className = 'custom-dropdown-item';
-    clearItem.style.backgroundColor = '#fff';
-    clearItem.style.color = '#e53e3e';
-    clearItem.style.borderTop = '1px solid #e2e8f0';
+    clearItem.style.backgroundColor = 'transparent';
+    clearItem.style.color = '#ff6b6b';
+    clearItem.style.borderTop = '1px solid #444';
+    clearItem.style.padding = '8px 12px';
+    clearItem.style.fontSize = '13px';
+    clearItem.style.cursor = 'pointer';
     clearItem.innerText = 'Clear validation';
+    clearItem.onmouseenter = () => clearItem.style.backgroundColor = '#424242';
+    clearItem.onmouseleave = () => clearItem.style.backgroundColor = 'transparent';
     clearItem.onclick = (e) => {
       e.stopPropagation();
       this.pushHistory();
@@ -6726,6 +6986,42 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       document.removeEventListener('click', closeOverlay);
     };
     overlay.appendChild(clearItem);
+
+    // Edit button at the bottom right
+    const editContainer = document.createElement('div');
+    editContainer.style.padding = '8px';
+    editContainer.style.background = '#333';
+    editContainer.style.borderTop = '1px solid #444';
+    editContainer.style.display = 'flex';
+    editContainer.style.justifyContent = 'center';
+    
+    const editBtn = document.createElement('div');
+    editBtn.style.backgroundColor = 'transparent';
+    editBtn.style.color = '#fff';
+    editBtn.style.padding = '6px 12px';
+    editBtn.style.fontSize = '13px';
+    editBtn.style.cursor = 'pointer';
+    editBtn.style.borderRadius = '4px';
+    editBtn.style.display = 'flex';
+    editBtn.style.alignItems = 'center';
+    editBtn.style.gap = '6px';
+    editBtn.style.width = '100%';
+    editBtn.style.justifyContent = 'center';
+    editBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">edit</span> Edit Picklist';
+    editBtn.onmouseenter = () => editBtn.style.backgroundColor = 'rgba(255,255,255,0.1)';
+    editBtn.onmouseleave = () => editBtn.style.backgroundColor = 'transparent';
+    editBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (document.body.contains(overlay)) {
+        document.body.removeChild(overlay);
+      }
+      document.removeEventListener('click', closeOverlay);
+      this.selectCell(r, c);
+      this.openDataValidationModal();
+    };
+    
+    editContainer.appendChild(editBtn);
+    overlay.appendChild(editContainer);
 
     document.body.appendChild(overlay);
 
@@ -7386,6 +7682,12 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     return !!this.validations[`${r},${c}`];
   }
 
+  isDisplayAsChip(r: number, c: number): boolean {
+    const v = this.validations[`${r},${c}`];
+    if (!v) return false;
+    return v.displayAsChip !== false; // defaults to true
+  }
+
   getCellRef(r: number, c: number): string {
     return colName(c) + (r + 1);
   }
@@ -7426,6 +7728,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const opts = this.getCellDropdownOptions(r, c);
     const found = opts.find(o => (typeof o === 'string' ? o : o.label) === val) as DropdownOption | undefined;
     return found?.color || '';
+  }
+
+  splitValue(val: string): string[] {
+    if (!val) return [];
+    return val.split(',').map(s => s.trim()).filter(s => !!s);
   }
 
 
@@ -7479,8 +7786,27 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     } else {
       this.dvAppliesTo = `${sheetName}.${this.colLabel(this.selectedCol)}${this.selectedRow + 1}`;
     }
-    this.validationInput = '';
-    this.dvCriteria = 'list';
+    const existingVal = this.validations[`${this.selectedRow},${this.selectedCol}`];
+    if (existingVal && existingVal.type === 'list') {
+      this.dvCriteria = 'list';
+      this.validationInput = existingVal.options.map((o: any) => o.label || o).join('\n');
+      this.dvIsMultiSelect = existingVal.isMultiSelect || false;
+      this.dvDisplayAsChip = existingVal.displayAsChip !== false;
+      this.dvColorMode = existingVal.colorMode || 'none';
+      this.dvSingleColor = existingVal.singleColor || '#f1f5f9';
+      this.dvItemColors = {};
+      existingVal.options.forEach((o: any) => {
+        if (o.color) this.dvItemColors[o.label || o] = o.color;
+      });
+    } else {
+      this.validationInput = '';
+      this.dvCriteria = 'list';
+      this.dvIsMultiSelect = false;
+      this.dvDisplayAsChip = true;
+      this.dvColorMode = 'none';
+      this.dvSingleColor = '#f1f5f9';
+      this.dvItemColors = {};
+    }
     this.dvShowList = true;
     this.dvSortAsc = false;
     this.dvIgnoreBlanks = true;
@@ -7645,10 +7971,31 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.save();
   }
 
+  dvPaletteItem: string | null = null;
+
+  getParsedValidationItems(): string[] {
+    if (!this.validationInput) return [];
+    return this.validationInput.split('\n').map(v => v.trim()).filter(v => !!v);
+  }
+
+  openColorPalette(item: string) {
+    this.dvPaletteItem = this.dvPaletteItem === item ? null : item;
+  }
+
+  setPaletteColor(item: string, color: string) {
+    this.dvItemColors[item] = color;
+    this.dvPaletteItem = null;
+  }
+
   saveDataValidation() {
     if (this.validationInput.trim().length > 0) {
       const options = this.validationInput.split('\n').filter(o => o.trim() !== '');
-      this.picklistOptions = options.map(o => ({ label: o.trim(), color: '#4a5568' }));
+      this.picklistOptions = options.map(o => {
+        let color = undefined;
+        if (this.dvColorMode === 'single') color = this.dvSingleColor;
+        else if (this.dvColorMode === 'multi') color = this.dvItemColors[o.trim()] || undefined;
+        return { label: o.trim(), color };
+      });
       this.saveValidation();
     }
     this.dataValidationModalOpen = false;
@@ -7668,7 +8015,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const newValidations = { ...this.validations };
     for (let r = minR; r <= maxR; r++) {
       for (let c = minC; c <= maxC; c++) {
-        newValidations[`${r},${c}`] = { type: 'list', options: validOptions };
+        newValidations[`${r},${c}`] = { 
+          type: 'list', 
+          options: validOptions,
+          isMultiSelect: this.dvIsMultiSelect,
+          displayAsChip: this.dvDisplayAsChip,
+          colorMode: this.dvColorMode,
+          singleColor: this.dvSingleColor
+        };
         const cur = this.cells[r][c];
         if (cur && !validOptions.find(o => o.label === cur)) this.cells[r][c] = '';
       }
@@ -7750,8 +8104,8 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   isImageCell(r: number, c: number): boolean {
     const val = this.cells[r]?.[c];
     if (typeof val !== 'string') return false;
-    if (val.startsWith('data:image')) return true;
-    if (val.toUpperCase().startsWith('=IMAGE(')) return true;
+    if (val.trim().startsWith('data:image')) return true;
+    if (val.trim().toUpperCase().startsWith('=IMAGE(')) return true;
     return false;
   }
 
@@ -8500,7 +8854,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         const srcKey = `${srcR},${srcC}`;
         const dstKey = `${r},${c}`;
         if (this.formats[srcKey]) fmtSnap[dstKey] = { ...this.formats[srcKey] };
-        if (this.validations[srcKey]) valSnap[dstKey] = { ...this.validations[srcKey] };
+        if (this.validations[srcKey]) valSnap[dstKey] = JSON.parse(JSON.stringify(this.validations[srcKey]));
       }
       tsvRows.push(tsvCols.join('\t'));
     }
@@ -8633,7 +8987,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
           }
 
         } else if (mode === 'validation') {
-          if (vals[srcKey]) this.validations[dstKey] = { ...vals[srcKey] };
+          if (vals[srcKey]) this.validations[dstKey] = JSON.parse(JSON.stringify(vals[srcKey]));
           else delete this.validations[dstKey];
 
         } else if (mode === 'exceptNotes') {
@@ -8642,7 +8996,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
           const { note, comment, ...fmtWithoutNotes } = srcFmt as any;
           if (Object.keys(fmtWithoutNotes).length) this.formats[dstKey] = fmtWithoutNotes;
           else delete this.formats[dstKey];
-          if (vals[srcKey]) this.validations[dstKey] = { ...vals[srcKey] };
+          if (vals[srcKey]) this.validations[dstKey] = JSON.parse(JSON.stringify(vals[srcKey]));
 
         } else if (mode === 'exceptBorders') {
           // All except borders
@@ -8650,14 +9004,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
           const { borders, ...fmtWithoutBorders } = srcFmt as any;
           if (Object.keys(fmtWithoutBorders).length) this.formats[dstKey] = fmtWithoutBorders;
           else delete this.formats[dstKey];
-          if (vals[srcKey]) this.validations[dstKey] = { ...vals[srcKey] };
+          if (vals[srcKey]) this.validations[dstKey] = JSON.parse(JSON.stringify(vals[srcKey]));
 
         } else {
           // 'all' — paste everything
           this.cells[targetR][targetC] = cells[srcR]?.[srcC] ?? '';
           if (Object.keys(srcFmt).length) this.formats[dstKey] = { ...srcFmt };
           else delete this.formats[dstKey];
-          if (vals[srcKey]) this.validations[dstKey] = { ...vals[srcKey] };
+          if (vals[srcKey]) this.validations[dstKey] = JSON.parse(JSON.stringify(vals[srcKey]));
           else delete this.validations[dstKey];
         }
       }
@@ -10571,7 +10925,12 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   formHeaders: string[] = [];
   formData: { [key: string]: string } = {};
 
-  macroScript = 'this.cells[1][1] = "Hello Macro!";\nthis.save();\nthis.showToast("Macro executed successfully!");';
+  macroScript = 'this.cells[1][1] = "Hello Macro!";\nthis.save();\nconsole.log("Macro executed successfully!");';
+  macroMessages: string[] = [];
+  macroErrors: string[] = [];
+  macroActiveTab: 'Errors' | 'Messages' | 'Warnings' = 'Messages';
+  macroWarnings: string[] = [];
+  vbaSelectedNode: string = 'Sheet1';
 
   customFunctionsScript = `window.customSheetFunctions = {
   MY_CUSTOM_SUM: function(a, b) {
@@ -11153,12 +11512,42 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   runMacro() {
+    this.macroMessages = [];
+    this.macroErrors = [];
+    this.macroWarnings = [];
+
+    const originalLog = console.log;
+    const originalWarn = console.warn;
+    const originalError = console.error;
+
+    console.log = (...args) => {
+      this.macroMessages.push(args.join(' '));
+      originalLog.apply(console, args);
+    };
+    console.warn = (...args) => {
+      this.macroWarnings.push(args.join(' '));
+      originalWarn.apply(console, args);
+    };
+    console.error = (...args) => {
+      this.macroErrors.push(args.join(' '));
+      originalError.apply(console, args);
+    };
+
     try {
       const fn = new Function(this.macroScript);
       fn.call(this);
       this.recalculate();
-    } catch (e) {
+      if (this.macroMessages.length > 0) {
+        this.macroActiveTab = 'Messages';
+      }
+    } catch (e: any) {
+      this.macroErrors.push(e.toString());
+      this.macroActiveTab = 'Errors';
       this.showToast('Macro execution error: ' + e);
+    } finally {
+      console.log = originalLog;
+      console.warn = originalWarn;
+      console.error = originalError;
     }
   }
 
@@ -11238,7 +11627,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   prefThousands = true;
   feedbackModalOpen = false;
   feedbackText = '';
-  feedbackRating = 5;
+  feedbackRating = 0;
+  feedbackType = 'Bug';
+  feedbackRecordScreen = false;
 
   applyGoalSeek() {
     if (!this.goalSeekTargetCell || !this.goalSeekTargetValue || !this.goalSeekByCell) {
@@ -11305,6 +11696,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (!this.feedbackText.trim()) { this.showToast('Please enter your feedback.'); return; }
     this.feedbackModalOpen = false;
     this.feedbackText = '';
+    this.feedbackRating = 0;
+    this.feedbackType = 'Bug';
+    this.feedbackRecordScreen = false;
     this.showToast('Thank you for your feedback!');
   }
 
@@ -11331,7 +11725,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     const q = this.inlineSearchQuery.toLowerCase();
     for (let r = 0; r < this.ROWS; r++) {
       for (let c = 0; c < this.COLS; c++) {
-        if (this.cells[r][c].toLowerCase().includes(q)) {
+        const cellVal = this.cells[r][c];
+        if (!cellVal || typeof cellVal !== 'string') continue;
+        if (this.isImageCell(r, c)) continue;
+        if (cellVal.toLowerCase().includes(q)) {
           this.inlineSearchMatches.push({ r, c });
           this.inlineSearchMatchMap.add(`${r},${c}`);
         }
@@ -11391,7 +11788,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         for (let c = 0; c < cols; c++) {
           let cellVal = sheetCells[r][c];
           if (cellVal === null || cellVal === undefined || cellVal === '') continue;
-          if (typeof cellVal === 'string' && cellVal.startsWith('data:image')) continue;
+          if (typeof cellVal === 'string' && (cellVal.trim().startsWith('data:image') || cellVal.trim().toUpperCase().startsWith('=IMAGE('))) continue;
 
           let match = false;
           let query = this.findQuery;
@@ -12734,29 +13131,37 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       try {
         if (format === 'pdf') {
-          let maxRow = 0; let maxCol = 0;
-          for (let r = 0; r < this.ROWS; r++) {
-            for (let c = 0; c < this.COLS; c++) {
-              if (this.cells[r][c]) { maxRow = Math.max(maxRow, r); maxCol = Math.max(maxCol, c); }
-            }
-          }
-
           const doc = new jsPDF({ orientation: 'landscape' });
-          const body = [];
-          for (let r = 0; r <= maxRow; r++) {
-            const row = [];
-            for (let c = 0; c <= maxCol; c++) {
-              row.push((this.cells[r][c] || '').toString());
+          for (let sIdx = 0; sIdx < this.sheets.length; sIdx++) {
+            const sheet = this.sheets[sIdx];
+            const sheetCells = sheet.cells || [];
+            let sheetMaxRow = 0; let sheetMaxCol = 0;
+            for (let r = 0; r < this.ROWS; r++) {
+              if (!sheetCells[r]) continue;
+              for (let c = 0; c < this.COLS; c++) {
+                if (sheetCells[r][c]) { sheetMaxRow = Math.max(sheetMaxRow, r); sheetMaxCol = Math.max(sheetMaxCol, c); }
+              }
             }
-            body.push(row);
-          }
+            if (sIdx > 0) doc.addPage();
+            doc.setFontSize(14);
+            doc.text(sheet.name || `Sheet${sIdx + 1}`, 14, 15);
 
-          autoTable(doc, {
-            body: body,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2 },
-            margin: { top: 10 }
-          });
+            const body = [];
+            for (let r = 0; r <= sheetMaxRow; r++) {
+              const row = [];
+              for (let c = 0; c <= sheetMaxCol; c++) {
+                row.push((sheetCells[r] && sheetCells[r][c] ? sheetCells[r][c] : '').toString());
+              }
+              body.push(row);
+            }
+
+            autoTable(doc, {
+              body: body,
+              theme: 'grid',
+              styles: { fontSize: 8, cellPadding: 2 },
+              startY: 20
+            });
+          }
 
           doc.save(`${this.title || 'Spreadsheet'}.pdf`);
           this.showToast('Download complete.');
@@ -12766,6 +13171,67 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         let content = '';
         let mimeType = '';
         let extension = format;
+
+      if (format === 'xlsx' || format === 'xlsb' || format === 'ods') {
+          // The free SheetJS build cannot write true .xlsb binary workbooks —
+          // only 'xlsx' and 'ods' bookTypes are actually supported for writing.
+          if (format === 'xlsb') {
+            this.showToast('.xlsb export is not supported in this browser build — downloading as .xlsx instead.');
+          }
+          const effectiveBookType: 'xlsx' | 'ods' = format === 'ods' ? 'ods' : 'xlsx';
+          const effectiveExt = format === 'ods' ? 'ods' : (format === 'xlsb' ? 'xlsx' : 'xlsx');
+
+          const wb = XLSX.utils.book_new();
+          const usedNames = new Set<string>();
+          for (let sIdx = 0; sIdx < this.sheets.length; sIdx++) {
+            const sheet = this.sheets[sIdx];
+            const sheetCells = sheet.cells || [];
+            let maxRow = 0; let maxCol = 0;
+            for (let r = 0; r < this.ROWS; r++) {
+              if (!sheetCells[r]) continue;
+              for (let c = 0; c < this.COLS; c++) {
+                if (sheetCells[r][c]) { maxRow = Math.max(maxRow, r); maxCol = Math.max(maxCol, c); }
+              }
+            }
+            const aoa = [];
+            for (let r = 0; r <= maxRow; r++) {
+              const row = [];
+              for (let c = 0; c <= maxCol; c++) {
+                row.push(sheetCells[r] && sheetCells[r][c] ? sheetCells[r][c] : '');
+              }
+              aoa.push(row);
+            }
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+            let safeName = (sheet.name || `Sheet${sIdx + 1}`).replace(/[\[\]\*?\/\:\\]/g, '_').substring(0, 31);
+            let finalName = safeName;
+            let counter = 1;
+            while (usedNames.has(finalName.toLowerCase())) {
+              const suffix = `_${counter}`;
+              finalName = safeName.substring(0, 31 - suffix.length) + suffix;
+              counter++;
+            }
+            usedNames.add(finalName.toLowerCase());
+
+            XLSX.utils.book_append_sheet(wb, ws, finalName);
+          }
+
+          try {
+            const wbout = XLSX.write(wb, { bookType: effectiveBookType, type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/octet-stream' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${this.title || 'Spreadsheet'}.${effectiveExt}`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            this.showToast('Download complete.');
+          } catch (writeErr) {
+            console.error('XLSX.write failed:', writeErr);
+            this.showToast(`Failed to generate .${format} file. Try a different format.`);
+          }
+          return;
+        }
 
         if (format === 'csv' || format === 'tsv') {
           const delimiter = format === 'csv' ? ',' : '\t';
