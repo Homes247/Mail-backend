@@ -762,6 +762,10 @@ export interface AuditOp {
               <div class="mdi-sub">
                 <div class="mdi" (click)="insertComment(); closeMenus()">Add Comment</div>
                 <div class="mdi" (click)="showAllComments(); closeMenus()">Show All Comments</div>
+                <div class="mdi" (click)="highlightCommentsEnabled = !highlightCommentsEnabled; closeMenus()" style="display:flex; justify-content:space-between;">
+                  <span>Highlight Comments</span>
+                  <span *ngIf="highlightCommentsEnabled" class="material-symbols-outlined" style="font-size:16px;">check</span>
+                </div>
               </div>
             </div>
             <div class="mdi" (click)="insertNote(); closeMenus()">
@@ -1890,6 +1894,7 @@ export interface AuditOp {
                   [class.has-content]="cellHasContent(r, c)"
                   [class.search-match]="isCellInInlineSearch(r, c)"
                   [class.search-match-active]="isCellActiveInlineSearch(r, c)"
+                  [class.comment-highlight]="isCommentHighlighted(r, c)"
                   [ngStyle]="getCellStyle(r, c)"
                   (mousedown)="onCellMouseDown($event, r, c)"
                   (mouseenter)="onCellMouseEnter(r, c)"
@@ -1948,7 +1953,8 @@ export interface AuditOp {
                 <!-- Comment indicator -->
                 <div *ngIf="hasComment(r, c)"
                      class="comment-indicator"
-                     style="position: absolute; top: 0; right: 0; width: 0; height: 0; border-style: solid; border-width: 0 8px 8px 0; border-color: transparent #f59e0b transparent transparent; z-index: 10;">
+                     (click)="openCommentInSidePanel($event, r, c)"
+                     style="position: absolute; top: 0; right: 0; width: 0; height: 0; border-style: solid; border-width: 0 8px 8px 0; border-color: transparent #f59e0b transparent transparent; z-index: 10; cursor: pointer;">
                 </div>
                 <!-- Fill handle: only show on the bottom-right cell of the selection -->
                 <div *ngIf="isFillHandleCell(r, c)"
@@ -2202,7 +2208,7 @@ export interface AuditOp {
               </div>
 
               <!-- List of Comments -->
-              <div *ngFor="let c of cachedComments" style="border: 1px solid #dadce0; border-radius: 8px; padding: 12px; background: #fff; margin-bottom: 8px;" [style.border-left]="c.data.resolved ? '4px solid #dadce0' : '4px solid #0f9d58'">
+              <div *ngFor="let c of cachedComments" [id]="'comment-card-' + c.data.id" style="border: 1px solid #dadce0; border-radius: 8px; padding: 12px; background: #fff; margin-bottom: 8px;" [style.border-left]="c.data.resolved ? '4px solid #dadce0' : '4px solid #0f9d58'">
                 <!-- Header -->
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
                   <div style="display:flex; align-items:center; gap:8px;">
@@ -4797,7 +4803,8 @@ export interface AuditOp {
     .cell.fill-preview { box-shadow:inset 0 0 0 1000px rgba(52,168,83,0.2) !important; border:1px dashed #34a853 !important; }
     .cell.search-match { box-shadow:inset 0 0 0 1000px rgba(255,193,7,0.35) !important; }
     .cell.search-match-active { box-shadow:inset 0 0 0 1000px rgba(255,152,0,0.6) !important; outline: 2px solid #ff9800; outline-offset: -2px; z-index: 21; }
-
+    .comment-highlight { box-shadow:inset 0 0 0 1000px rgba(251,191,36,0.35) !important; outline: 2px solid #f59e0b !important; outline-offset: -2px; z-index: 15; }
+    
     .no-gridlines th, .no-gridlines td { border-color: transparent !important; }
     .col-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 60; }
     .col-resizer:hover { background: #1a73e8; }
@@ -5832,6 +5839,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   sidePanelApp: string | null = null;
+  highlightCommentsEnabled: boolean = true;
   commentsViewFilter: 'all' | 'current' = 'all';
   commentsStatusFilter: 'all' | 'unresolved' | 'resolved' = 'all';
   newCommentCellRef: string | null = null;
@@ -10919,7 +10927,30 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   showAllComments() {
     this.sidePanelApp = 'comments';
+    this.commentsViewFilter = 'all';
     this.updateCachedComments();
+    this.cdr.markForCheck();
+  }
+
+  openCommentInSidePanel(e: MouseEvent, r: number, c: number) {
+    e.stopPropagation();
+    e.preventDefault();
+    this.sidePanelApp = 'comments';
+    this.updateCachedComments();
+
+    const ref = `${r},${c}`;
+    const comment = this.cachedComments.find(cmt => cmt.sheetIdx === this.currentSheetIdx && cmt.ref === ref);
+    if (comment) {
+      setTimeout(() => {
+        const el = document.getElementById(`comment-card-${comment.data.id}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const origBg = el.style.backgroundColor;
+          el.style.backgroundColor = '#fff3e0';
+          setTimeout(() => el.style.backgroundColor = origBg, 1500);
+        }
+      }, 100);
+    }
   }
 
   addNoteToCell() {
@@ -11720,7 +11751,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         f.borders ||
         (f as any)._mergeSpan || (f as any)._mergedInto ||
         (f as any).note || (f as any).hyperlink || (f as any).checkbox ||
-        (f as any).conditionalFormat
+        (f as any).conditionalFormat || (f as any).commentData
       ) {
         cleanFormats[k] = f;
       }
@@ -11890,11 +11921,19 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
       this.showToast('Link inserted into cell.');
     }
   }
+  private getFormatsForSheet(sheetIdx: number): Record<string, CellFormat> {
+    if (sheetIdx === this.currentSheetIdx) return this.formats;
+    if (!this.sheets[sheetIdx].formats) this.sheets[sheetIdx].formats = {};
+    return this.sheets[sheetIdx].formats;
+  }
 
   hasComment(r: number, c: number): boolean {
     const ref = `${r},${c}`;
     const format = this.formats[ref] as any;
     return !!(format?.commentData || format?.comment);
+  }
+  isCommentHighlighted(r: number, c: number): boolean {
+    return this.highlightCommentsEnabled && this.hasComment(r, c);
   }
 
   insertComment() {
@@ -11924,10 +11963,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     if (!this.newCommentText.trim() || !this.newCommentCellRef) return;
     const [sheetIdxStr, ref] = this.newCommentCellRef.split(':');
     const sheetIdx = parseInt(sheetIdxStr);
-    const sheet = this.sheets[sheetIdx];
-    if (!sheet.formats) sheet.formats = {};
-    if (!sheet.formats[ref]) sheet.formats[ref] = {};
-    const existingFormat = sheet.formats[ref] as any;
+    const targetFormats = this.getFormatsForSheet(sheetIdx);
+
+    if (!targetFormats[ref]) targetFormats[ref] = {};
+    const existingFormat = targetFormats[ref] as any;
 
     existingFormat.commentData = {
       id: Date.now().toString(),
@@ -11940,10 +11979,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
     if (existingFormat.comment) delete existingFormat.comment;
 
-    this.cancelNewComment();
     if (sheetIdx === this.currentSheetIdx) {
+      this.formats = { ...this.formats };
       this.onCellChange();
+    } else {
+      this.sheets[sheetIdx].formats = { ...this.sheets[sheetIdx].formats };
     }
+
+    this.cancelNewComment();
     this.save();
     this.updateCachedComments();
     this.showToast('Comment added.');
@@ -11959,8 +12002,9 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
     this.sheets.forEach((sheet, sIdx) => {
       if (this.commentsViewFilter === 'current' && sIdx !== this.currentSheetIdx) return;
-      Object.keys(sheet.formats || {}).forEach(ref => {
-        const cData = (sheet.formats[ref] as any).commentData;
+      const formatsSource = this.getFormatsForSheet(sIdx);
+      Object.keys(formatsSource).forEach(ref => {
+        const cData = (formatsSource[ref] as any)?.commentData;
         if (cData) {
           if (this.commentsStatusFilter === 'resolved' && !cData.resolved) return;
           if (this.commentsStatusFilter === 'unresolved' && cData.resolved) return;
@@ -11990,20 +12034,32 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
 
   toggleCommentResolve(c: any) {
     c.data.resolved = !c.data.resolved;
-    this.sheets[c.sheetIdx].formats[c.ref] = { ...this.sheets[c.sheetIdx].formats[c.ref] };
-    if (c.sheetIdx === this.currentSheetIdx) this.onCellChange();
+    if (c.sheetIdx === this.currentSheetIdx) {
+      this.formats = { ...this.formats };
+      this.onCellChange();
+    } else {
+      this.sheets[c.sheetIdx].formats = { ...this.sheets[c.sheetIdx].formats };
+    }
     this.save();
     this.updateCachedComments();
   }
 
   deleteComment(c: any) {
-    const format = this.sheets[c.sheetIdx].formats[c.ref] as any;
-    delete format.commentData;
-    delete format.comment;
-    if (Object.keys(format).length === 0) {
-      delete this.sheets[c.sheetIdx].formats[c.ref];
+    const formatsSource = this.getFormatsForSheet(c.sheetIdx);
+    const format = formatsSource[c.ref] as any;
+    if (format) {
+      delete format.commentData;
+      delete format.comment;
+      if (Object.keys(format).length === 0) {
+        delete formatsSource[c.ref];
+      }
     }
-    if (c.sheetIdx === this.currentSheetIdx) this.onCellChange();
+    if (c.sheetIdx === this.currentSheetIdx) {
+      this.formats = { ...this.formats };
+      this.onCellChange();
+    } else {
+      this.sheets[c.sheetIdx].formats = { ...this.sheets[c.sheetIdx].formats };
+    }
     this.save();
     this.updateCachedComments();
     this.showToast('Comment deleted.');
@@ -12021,8 +12077,12 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     });
 
     this.replyTexts[c.data.id] = '';
-    this.sheets[c.sheetIdx].formats[c.ref] = { ...this.sheets[c.sheetIdx].formats[c.ref] };
-    if (c.sheetIdx === this.currentSheetIdx) this.onCellChange();
+    if (c.sheetIdx === this.currentSheetIdx) {
+      this.formats = { ...this.formats };
+      this.onCellChange();
+    } else {
+      this.sheets[c.sheetIdx].formats = { ...this.sheets[c.sheetIdx].formats };
+    }
     this.save();
     this.updateCachedComments();
   }
