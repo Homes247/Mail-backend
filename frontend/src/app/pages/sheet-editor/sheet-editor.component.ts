@@ -24,6 +24,7 @@ const colName = (i: number) => {
 };
 
 export interface CellFormat {
+  note?: string;
   bold?: boolean;
   italic?: boolean;
   strikethrough?: boolean;
@@ -758,7 +759,7 @@ export interface AuditOp {
               <div class="mdi-sub">
                 <div class="mdi" (click)="insertComment(); closeMenus()">Add Comment</div>
                 <div class="mdi" (click)="showAllComments(); closeMenus()">Show All Comments</div>
-                <div class="mdi" (click)="highlightCommentsEnabled = !highlightCommentsEnabled; closeMenus()" style="display:flex; justify-content:space-between;">
+                <div class="mdi" (click)="toggleHighlightComments(); closeMenus()" style="display:flex; justify-content:space-between;">
                   <span>Highlight Comments</span>
                   <span *ngIf="highlightCommentsEnabled" class="material-symbols-outlined" style="font-size:16px;">check</span>
                 </div>
@@ -1951,6 +1952,14 @@ export interface AuditOp {
                      (click)="openCommentInSidePanel($event, r, c)"
                      style="position: absolute; top: 0; right: 0; width: 0; height: 0; border-style: solid; border-width: 0 8px 8px 0; border-color: transparent #f59e0b transparent transparent; z-index: 10; cursor: pointer;">
                 </div>
+                <!-- Note indicator -->
+                <div *ngIf="formats[r + ',' + c]?.note"
+                     class="note-indicator"
+                     (mousedown)="openNotePopup($event, r, c)"
+                     [style.right.px]="hasComment(r, c) ? 10 : 0"
+                     style="position: absolute; top: 0; right: 0; width: 0; height: 0; border-style: solid; border-width: 0 10px 10px 0; border-color: transparent #d32f2f transparent transparent; z-index: 9; pointer-events: auto; cursor: pointer;"
+                     title="View Note">
+                </div>
                 <!-- Fill handle: only show on the bottom-right cell of the selection -->
                 <div *ngIf="isFillHandleCell(r, c)"
                   class="fill-handle"
@@ -1963,6 +1972,22 @@ export interface AuditOp {
           <tr *ngIf="bottomSpacerHeight > 0" [style.height.px]="bottomSpacerHeight"><td [attr.colspan]="30" style="border:none;padding:0;pointer-events:none;"></td></tr>
           </tbody>
         </table>
+        <!-- Note Popup -->
+        <div *ngIf="activeNotePopup" 
+             (mousedown)="$event.stopPropagation()"
+             [style.position]="'absolute'"
+             [style.top.px]="getRowOffset(activeNotePopup.r) + 25"
+             [style.left.px]="getColOffset(activeNotePopup.c) + 25"
+             style="z-index: 100; background: #e0f2f1; border: 1px solid #00897b; border-radius: 4px; padding: 12px; width: 220px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-family: sans-serif;">
+           <textarea [(ngModel)]="activeNotePopup.text" 
+                     (ngModelChange)="onNoteTextChange($event)"
+                     placeholder="Add Note" 
+                     style="width: 100%; min-height: 80px; border: none; background: transparent; outline: none; resize: none; font-size: 13px; color: #333;"></textarea>
+           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 11px; color: #555;">
+             <span>Cell: {{ colLabel(activeNotePopup.c) }}{{ activeNotePopup.r + 1 }}</span>
+             <span class="material-symbols-outlined" style="font-size: 16px; cursor: pointer; color: #d32f2f;" (click)="deleteNote()" title="Delete Note">delete</span>
+           </div>
+        </div>
       </div>
 
 
@@ -5873,7 +5898,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   sidePanelApp: string | null = null;
-  highlightCommentsEnabled: boolean = true;
+  highlightCommentsEnabled: boolean = localStorage.getItem('highlightCommentsEnabled') !== 'false';
   commentsViewFilter: 'all' | 'current' = 'all';
   commentsStatusFilter: 'all' | 'unresolved' | 'resolved' = 'all';
   newCommentCellRef: string | null = null;
@@ -5920,6 +5945,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   globalNotes = '';
   tasks: { text: string, done: boolean }[] = [];
   newTask = '';
+  activeNotePopup: { r: number, c: number, text: string } | null = null;
 
   constructor(
     private sanitizer: DomSanitizer,
@@ -6572,6 +6598,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         this.selectCell(r, c);
         return;
       }
+    }
+
+    if (this.activeNotePopup) {
+      this.activeNotePopup = null;
     }
 
     this.isDraggingRange = true;
@@ -9421,16 +9451,10 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  async insertNote() {
+  insertNote() {
     this.closeMenus();
-    const note = await this.openPrompt(`Add a note to cell ${this.selectedRef}:`);
-    if (note !== null && note.trim() !== '') {
-      const ref = `${this.selectedRow},${this.selectedCol}`;
-      if (!this.formats[ref]) this.formats[ref] = {};
-      (this.formats[ref] as any)['note'] = note;
-      this.onCellChange();
-      this.showToast(`Note added to ${this.selectedRef}.`);
-    }
+    const ref = `${this.selectedRow},${this.selectedCol}`;
+    this.activeNotePopup = { r: this.selectedRow, c: this.selectedCol, text: (this.formats[ref] as any)?.note || '' };
   }
 
   emojiPickerX = 400;
@@ -11050,15 +11074,44 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
 
   addNoteToCell() {
+    this.closeMenus();
     const ref = `${this.selectedRow},${this.selectedCol}`;
-    const existing = (this.formats[ref] as any)?.note || '';
-    const note = prompt('Add a note to this cell:', existing);
-    if (note !== null) {
-      this.formats[ref] = { ...(this.formats[ref] || {}), note } as any;
-      this.onCellChange();
-      this.save();
-      this.showToast(note ? 'Note added.' : 'Note removed.');
+    this.activeNotePopup = { r: this.selectedRow, c: this.selectedCol, text: (this.formats[ref] as any)?.note || '' };
+  }
+
+  hasNote(r: number, c: number): boolean {
+    return !!(this.formats[`${r},${c}`] as any)?.note;
+  }
+
+  openNotePopup(e: MouseEvent, r: number, c: number) {
+    e.stopPropagation();
+    e.preventDefault();
+    this.activeNotePopup = { r, c, text: (this.formats[`${r},${c}`] as any).note };
+  }
+
+  onNoteTextChange(val: string) {
+    if (!this.activeNotePopup) return;
+    const ref = `${this.activeNotePopup.r},${this.activeNotePopup.c}`;
+    if (!this.formats[ref]) this.formats[ref] = {};
+    if (val.trim() === '') {
+      delete (this.formats[ref] as any).note;
+    } else {
+      (this.formats[ref] as any).note = val;
     }
+    this.onCellChange();
+    this.save();
+  }
+
+  deleteNote() {
+    if (!this.activeNotePopup) return;
+    const ref = `${this.activeNotePopup.r},${this.activeNotePopup.c}`;
+    if (this.formats[ref]) {
+      delete (this.formats[ref] as any).note;
+      this.onCellChange();
+    }
+    this.activeNotePopup = null;
+    this.save();
+    this.showToast('Note removed.');
   }
 
   // ── Tools menu ───────────────────────────────────────────────────────────
@@ -12030,6 +12083,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
   }
   isCommentHighlighted(r: number, c: number): boolean {
     return this.highlightCommentsEnabled && this.hasComment(r, c);
+  }
+
+  toggleHighlightComments() {
+    this.highlightCommentsEnabled = !this.highlightCommentsEnabled;
+    localStorage.setItem('highlightCommentsEnabled', this.highlightCommentsEnabled.toString());
   }
 
   insertComment() {
