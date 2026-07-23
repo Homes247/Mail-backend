@@ -2426,7 +2426,7 @@ export interface AuditOp {
         <div class="ctx-item" (click)="sortColAZ(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort A to Z</div>
         <div class="ctx-item" (click)="sortColZA(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">sort</span> Sort Z to A</div>
         <div class="ctx-sep"></div>
-        <div class="ctx-item" (click)="openSparklineFormat(); hideCtx()"><span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">stacked_line_chart</span> Sparkline Format</div>
+
         <div class="ctx-item" (mouseenter)="showCtxSubmenu('clear', $event)" (mouseleave)="hideCtxSubmenu()">
           <span class="ctx-icon material-symbols-outlined" style="font-size: 16px;">ink_eraser</span> Clear <span class="mdi-arrow material-symbols-outlined" style="margin-left:auto;font-size:16px;">chevron_right</span>
         </div>
