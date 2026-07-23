@@ -90,7 +90,11 @@ import { GiphyService } from '../../services/giphy.service';
     ::ng-deep .emoji-mart-emoji[title*="xhaling" i],
     ::ng-deep .emoji-mart-emoji[aria-label*="xhaling" i],
     ::ng-deep .emoji-mart-emoji[title*="piral" i],
-    ::ng-deep .emoji-mart-emoji[aria-label*="piral" i] {
+    ::ng-deep .emoji-mart-emoji[aria-label*="piral" i],
+    ::ng-deep .emoji-mart-emoji[title*="black cat" i],
+    ::ng-deep .emoji-mart-emoji[aria-label*="black cat" i],
+    ::ng-deep .emoji-mart-emoji[title*="black_cat" i],
+    ::ng-deep .emoji-mart-emoji[aria-label*="black_cat" i] {
       display: none !important;
       opacity: 0 !important;
       visibility: hidden !important;
@@ -139,7 +143,7 @@ export class MediaPickerComponent implements OnInit {
     if (!emoji || !emoji.unified) return true;
     const unified: string = emoji.unified;
     // Block ZWJ sequences (contain 200D) — most don't render on Windows 10
-    if (unified.includes('200D')) return false;
+    if (unified.toUpperCase().includes('200D')) return false;
     // Block Unicode 14.0+ emojis (codepoints >= 0x1FAE0) — not in Win10 Segoe UI Emoji
     const firstCodePoint = parseInt(unified.split('-')[0], 16);
     if (firstCodePoint >= 0x1FAE0) return false;

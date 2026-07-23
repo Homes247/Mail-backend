@@ -12,6 +12,7 @@ import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { PickerModule } from '@ctrl/ngx-emoji-mart';
 const colName = (i: number) => {
   let name = '';
   let temp = i;
@@ -100,7 +101,7 @@ export interface AuditOp {
   selector: 'app-sheet-editor',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, ChatWidgetComponent],
+  imports: [CommonModule, FormsModule, ChatWidgetComponent, PickerModule],
   template: `
     <div class="shell" [ngClass]="'theme-' + currentTheme" (mousedown)="$event.target===$event.currentTarget?closeMenus():null">
 
@@ -3084,7 +3085,7 @@ export interface AuditOp {
       </div>
 
       <!-- Feature Modals -->
-        <div class="modal-overlay" *ngIf="activeModal !== null && activeModal !== 'goto' && activeModal !== 'insert_sparkline' && activeModal !== 'edit_sparkline'" (click)="activeModal = null" style="z-index: 10000;">
+        <div class="modal-overlay" *ngIf="activeModal !== null && activeModal !== 'goto' && activeModal !== 'insert_sparkline' && activeModal !== 'edit_sparkline' && activeModal !== 'emoji'" (click)="activeModal = null" style="z-index: 10000;">
           <div class="modal" (click)="$event.stopPropagation()" [style.width]="activeModal === 'version' ? '1200px' : (activeModal === 'audit' ? '620px' : (activeModal === 'manage_forms' ? '748px' : (activeModal === 'shortcuts' ? '548px' : '460px')))" style="background:#fff; color:#333; border:1px solid #e2e8f0; box-shadow:0 8px 32px rgba(0,0,0,0.15); max-width:90vw; padding:24px; border-radius:8px; position:relative;">
             <button (click)="activeModal = null" style="position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;color:#888;display:flex;align-items:center;justify-content:center;">
               <span class="material-symbols-outlined" style="font-size:20px;">close</span>
@@ -4391,6 +4392,21 @@ export interface AuditOp {
         </div>
       </div>
 
+      <!-- Draggable Emoji Picker -->
+      <div *ngIf="activeModal === 'emoji'" 
+           [style.left.px]="emojiPickerX" 
+           [style.top.px]="emojiPickerY" 
+           style="position: fixed; z-index: 10001; background: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; flex-direction: column; width: 338px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid #e0e0e0; cursor: move; background: #f8f9fa; border-radius: 8px 8px 0 0;"
+             (mousedown)="startEmojiDrag($event)">
+          <span style="font-size: 14px; font-weight: 500; color: #333;">Emojis</span>
+          <button (click)="activeModal = null" style="background: none; border: none; cursor: pointer; color: #5f6368; display: flex; padding: 0;">
+            <span class="material-symbols-outlined" style="font-size: 18px;">close</span>
+          </button>
+        </div>
+        <emoji-mart (emojiSelect)="addEmoji($event)" set="apple" title="Pick your emoji…" emoji="smile" [showPreview]="false" [emojisToShowFilter]="filterEmojis" [style]="{ width: '100%', border: 'none', borderRadius: '0 0 8px 8px' }" [darkMode]="currentTheme === 'dark'"></emoji-mart>
+      </div>
+
             <!-- Edit Sparkline Modal -->
       <div class="modal-overlay" *ngIf="activeModal === 'edit_sparkline'" (click)="activeModal = null">
         <div class="modal-content" (click)="$event.stopPropagation()" style="width: 400px; padding: 24px; border-radius: 8px; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
@@ -4431,6 +4447,30 @@ export interface AuditOp {
 
   `,
   styles: [`
+    /* Hide specific emojis that are unsupported on Windows 10 since ngx-emoji-mart categories bypass the filter */
+    ::ng-deep .emoji-mart-emoji[title*="elting" i],
+    ::ng-deep .emoji-mart-emoji[aria-label*="elting" i],
+    ::ng-deep .emoji-mart-emoji[title*="louds" i],
+    ::ng-deep .emoji-mart-emoji[aria-label*="louds" i],
+    ::ng-deep .emoji-mart-emoji[title*="otted" i],
+    ::ng-deep .emoji-mart-emoji[aria-label*="otted" i],
+    ::ng-deep .emoji-mart-emoji[title*="xhaling" i],
+    ::ng-deep .emoji-mart-emoji[aria-label*="xhaling" i],
+    ::ng-deep .emoji-mart-emoji[title*="piral" i],
+    ::ng-deep .emoji-mart-emoji[aria-label*="piral" i],
+    ::ng-deep .emoji-mart-emoji[title*="black cat" i],
+    ::ng-deep .emoji-mart-emoji[aria-label*="black cat" i],
+    ::ng-deep .emoji-mart-emoji[title*="black_cat" i],
+    ::ng-deep .emoji-mart-emoji[aria-label*="black_cat" i] {
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+      width: 0 !important;
+      height: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
     /* Bottom Chat Bar */
     .bottom-chat-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: #f8f9fa; border-top: 1px solid #e0e0e0; z-index: 9999; height: 36px; box-shadow: 0 -1px 3px rgba(0,0,0,0.05); }
     .bcb-item { display: flex; align-items: center; gap: 8px; padding: 0 16px; cursor: pointer; border-right: 1px solid #e0e0e0; font-size: 13px; font-weight: 500; color: #202124; transition: background 0.2s; position: relative; }
@@ -5890,6 +5930,11 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     , private cdr: ChangeDetectorRef) { }
 
   ngOnInit() {
+    if (!localStorage.getItem('emoji_cache_cleared_v1')) {
+      localStorage.removeItem('emoji-mart.frequently');
+      localStorage.removeItem('emoji-mart.last');
+      localStorage.setItem('emoji_cache_cleared_v1', 'true');
+    }
     this.updateVisibleRows(0);
 
     this.saveSubscription = this.saveSubject.pipe(
@@ -9388,15 +9433,66 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }
   }
 
-  async insertEmoji() {
+  emojiPickerX = 400;
+  emojiPickerY = 200;
+  isDraggingEmoji = false;
+  dragStartXP = 0;
+  dragStartYP = 0;
+
+  startEmojiDrag(e: MouseEvent) {
+    e.preventDefault();
+    this.isDraggingEmoji = true;
+    this.dragStartXP = e.clientX - this.emojiPickerX;
+    this.dragStartYP = e.clientY - this.emojiPickerY;
+    
+    const mouseMoveHandler = (ev: MouseEvent) => {
+      if (this.isDraggingEmoji) {
+        this.emojiPickerX = ev.clientX - this.dragStartXP;
+        this.emojiPickerY = ev.clientY - this.dragStartYP;
+      }
+    };
+    
+    const mouseUpHandler = () => {
+      this.isDraggingEmoji = false;
+      document.removeEventListener('mousemove', mouseMoveHandler);
+      document.removeEventListener('mouseup', mouseUpHandler);
+    };
+    
+    document.addEventListener('mousemove', mouseMoveHandler);
+    document.addEventListener('mouseup', mouseUpHandler);
+  }
+
+  insertEmoji() {
     this.closeMenus();
-    const emoji = await this.openPrompt('Enter emoji to insert:');
-    if (emoji) {
-      this.cells[this.selectedRow][this.selectedCol] = (this.cells[this.selectedRow][this.selectedCol] || '') + emoji;
-      this.formulaBarValue = this.cells[this.selectedRow][this.selectedCol];
-      this.onCellChange();
-      this.showToast('Emoji inserted.');
+    this.emojiPickerX = window.innerWidth / 2 - 169;
+    this.emojiPickerY = window.innerHeight / 2 - 215;
+    this.activeModal = 'emoji';
+  }
+
+  filterEmojis = (emoji: any) => {
+    if (!emoji || !emoji.unified) return true;
+    const unified: string = emoji.unified;
+    // Block ZWJ sequences (contain 200D) — most don't render on Windows 10
+    if (unified.toUpperCase().includes('200D')) return false;
+    // Block Unicode 14.0+ emojis (codepoints >= 0x1FAE0) — not in Win10 Segoe UI Emoji
+    const firstCodePoint = parseInt(unified.split('-')[0], 16);
+    if (firstCodePoint >= 0x1FAE0) return false;
+    // Block other known unsupported ranges on Windows 10
+    if (firstCodePoint >= 0x1FA70 && firstCodePoint <= 0x1FAFF) {
+      // Unicode 13.0+ symbols — some supported, but newer ones (>=1FAE0) blocked above
+      // Block 1FAB7+ (Unicode 14.0 animals/plants) and 1FAC3+ (Unicode 14.0 people)
+      if (firstCodePoint >= 0x1FAB7 || (firstCodePoint >= 0x1FAC3 && firstCodePoint <= 0x1FACF)) return false;
     }
+    return true;
+  };
+
+  addEmoji(event: any) {
+    const emoji = event.emoji.native;
+    this.cells[this.selectedRow][this.selectedCol] = (this.cells[this.selectedRow][this.selectedCol] || '') + emoji;
+    this.formulaBarValue = this.cells[this.selectedRow][this.selectedCol];
+    this.onCellChange();
+    this.activeModal = null;
+    this.showToast('Emoji inserted.');
   }
 
   applyPresetPicklist(type: string) {
@@ -12677,7 +12773,7 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     }, 100);
   }
 
-  activeModal: 'template' | 'open' | 'import' | 'move' | 'audit' | 'version' | 'workflow' | 'password' | 'form' | 'view_form' | 'manage_forms' | 'macro' | 'edit_macro' | 'functions' | 'merge' | 'goto' | 'shortcuts' | 'insert_sparkline' | 'edit_sparkline' | null = null;
+  activeModal: 'template' | 'open' | 'import' | 'move' | 'audit' | 'version' | 'workflow' | 'password' | 'form' | 'view_form' | 'manage_forms' | 'macro' | 'edit_macro' | 'functions' | 'merge' | 'goto' | 'shortcuts' | 'insert_sparkline' | 'edit_sparkline' | 'emoji' | null = null;
   previewImageUrl: string | null = null;
   saveStatus: 'saved' | 'saving' | 'error' = 'saved';
   lastSavedTime: string = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
