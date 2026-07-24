@@ -14,6 +14,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { PickerModule } from '@ctrl/ngx-emoji-mart';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 const colName = (i: number) => {
   let name = '';
   let temp = i;
@@ -13128,6 +13129,12 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
     this.save();
     this.showToast(`Exporting as ${format.toUpperCase()}...`);
 
+    // xlsx branch is async (ExcelJS); everything else runs in setTimeout
+    if (format === 'xlsx') {
+      this._exportXlsx();
+      return;
+    }
+
     setTimeout(() => {
       try {
         if (format === 'pdf') {
@@ -13172,14 +13179,14 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         let mimeType = '';
         let extension = format;
 
-      if (format === 'xlsx' || format === 'xlsb' || format === 'ods') {
+        if (format === 'xlsb' || format === 'ods') {
           // The free SheetJS build cannot write true .xlsb binary workbooks —
           // only 'xlsx' and 'ods' bookTypes are actually supported for writing.
           if (format === 'xlsb') {
             this.showToast('.xlsb export is not supported in this browser build — downloading as .xlsx instead.');
           }
           const effectiveBookType: 'xlsx' | 'ods' = format === 'ods' ? 'ods' : 'xlsx';
-          const effectiveExt = format === 'ods' ? 'ods' : (format === 'xlsb' ? 'xlsx' : 'xlsx');
+          const effectiveExt = format === 'ods' ? 'ods' : 'xlsx';
 
           const wb = XLSX.utils.book_new();
           const usedNames = new Set<string>();
@@ -13197,12 +13204,19 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
             for (let r = 0; r <= maxRow; r++) {
               const row = [];
               for (let c = 0; c <= maxCol; c++) {
-                row.push(sheetCells[r] && sheetCells[r][c] ? sheetCells[r][c] : '');
+                let raw: any = sheetCells[r] ? sheetCells[r][c] : undefined;
+                if (raw !== null && raw !== undefined && typeof raw === 'object') {
+                  raw = raw.v !== undefined ? raw.v : (raw.value !== undefined ? raw.value : raw.text !== undefined ? raw.text : '');
+                }
+                if (typeof raw === 'string') {
+                  if (raw.startsWith('data:image')) { raw = ''; }
+                  else if (raw.length > 32767) { raw = raw.substring(0, 32767); }
+                }
+                row.push(raw !== null && raw !== undefined ? raw : '');
               }
               aoa.push(row);
             }
             const ws = XLSX.utils.aoa_to_sheet(aoa);
-
             let safeName = (sheet.name || `Sheet${sIdx + 1}`).replace(/[\[\]\*?\/\:\\]/g, '_').substring(0, 31);
             let finalName = safeName;
             let counter = 1;
@@ -13212,23 +13226,27 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
               counter++;
             }
             usedNames.add(finalName.toLowerCase());
-
             XLSX.utils.book_append_sheet(wb, ws, finalName);
           }
 
           try {
-            const wbout = XLSX.write(wb, { bookType: effectiveBookType, type: 'array' });
-            const blob = new Blob([wbout], { type: 'application/octet-stream' });
+            const base64 = XLSX.write(wb, { bookType: effectiveBookType, type: 'base64' });
+            const binaryStr = atob(base64);
+            const bytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+            const blob = new Blob([bytes], { type: 'application/octet-stream' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = `${this.title || 'Spreadsheet'}.${effectiveExt}`;
+            document.body.appendChild(a);
             a.click();
+            document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
             this.showToast('Download complete.');
-          } catch (writeErr) {
+          } catch (writeErr: any) {
             console.error('XLSX.write failed:', writeErr);
-            this.showToast(`Failed to generate .${format} file. Try a different format.`);
+            this.showToast(`Export error: ${writeErr?.message || writeErr}`);
           }
           return;
         }
@@ -13246,32 +13264,26 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
               }
               rowData.push(val);
             }
-            // Skip empty rows at the bottom
             if (rows.length > 0 || rowData.some(v => v !== '')) {
               rows.push(rowData.join(delimiter));
             }
           }
-          // Trim empty trailing rows
           while (rows.length > 0 && rows[rows.length - 1].replace(new RegExp(delimiter, 'g'), '') === '') {
             rows.pop();
           }
           content = rows.join('\\n');
         } else {
-          // For xlsx, xlsb, ods - use HTML table which Excel parses perfectly
           mimeType = format === 'html' ? 'text/html;charset=utf-8;' : 'application/vnd.ms-excel;charset=utf-8;';
-          extension = format === 'html' ? 'html' : 'xls'; // Safe extension for HTML-in-Excel
+          extension = format === 'html' ? 'html' : 'xls';
 
           content = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1">';
           let maxRow = 0;
           let maxCol = 0;
-
-          // Find bounds
           for (let r = 0; r < this.ROWS; r++) {
             for (let c = 0; c < this.COLS; c++) {
               if (this.cells[r][c]) { maxRow = Math.max(maxRow, r); maxCol = Math.max(maxCol, c); }
             }
           }
-
           for (let r = 0; r <= maxRow; r++) {
             content += '<tr>';
             for (let c = 0; c <= maxCol; c++) {
@@ -13295,6 +13307,119 @@ export class SheetEditorComponent implements OnInit, OnDestroy {
         this.showToast('Export failed. Please try again.');
       }
     }, 100);
+  }
+
+  private async _exportXlsx() {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const usedNames = new Set<string>();
+
+      for (let sIdx = 0; sIdx < this.sheets.length; sIdx++) {
+        const sheet = this.sheets[sIdx];
+        const sheetCells: any[][] = sheet.cells || [];
+
+        // Sanitize & deduplicate sheet name
+        let safeName = (sheet.name || `Sheet${sIdx + 1}`).replace(/[\[\]\*?\/\:\\]/g, '_').substring(0, 31);
+        let finalName = safeName;
+        let counter = 1;
+        while (usedNames.has(finalName.toLowerCase())) {
+          const suffix = `_${counter}`;
+          finalName = safeName.substring(0, 31 - suffix.length) + suffix;
+          counter++;
+        }
+        usedNames.add(finalName.toLowerCase());
+
+        const worksheet = workbook.addWorksheet(finalName);
+
+        // Find bounds
+        let maxRow = 0; let maxCol = 0;
+        for (let r = 0; r < this.ROWS; r++) {
+          if (!sheetCells[r]) continue;
+          for (let c = 0; c < this.COLS; c++) {
+            if (sheetCells[r][c]) { maxRow = Math.max(maxRow, r); maxCol = Math.max(maxCol, c); }
+          }
+        }
+
+        // Track which rows/cols have images for sizing
+        const imageRows = new Set<number>();
+        const imageCols = new Set<number>();
+
+        // Collect image embedding tasks (process sequentially to avoid UI freeze)
+        const imageTasks: Array<{ r: number; c: number; dataUrl: string }> = [];
+
+        // First pass: write plain cell values
+        for (let r = 0; r <= maxRow; r++) {
+          for (let c = 0; c <= maxCol; c++) {
+            let raw: any = sheetCells[r] ? sheetCells[r][c] : undefined;
+            if (raw !== null && raw !== undefined && typeof raw === 'object') {
+              raw = raw.v !== undefined ? raw.v : (raw.value !== undefined ? raw.value : raw.text !== undefined ? raw.text : '');
+            }
+            if (typeof raw === 'string' && raw.startsWith('data:image')) {
+              imageTasks.push({ r, c, dataUrl: raw });
+              // leave cell empty — image will be embedded below
+            } else {
+              if (typeof raw === 'string' && raw.length > 32767) { raw = raw.substring(0, 32767); }
+              const cell = worksheet.getCell(r + 1, c + 1);
+              cell.value = (raw !== null && raw !== undefined) ? raw : null;
+            }
+          }
+        }
+
+        // Second pass: embed images sequentially in small batches
+        const BATCH = 10;
+        for (let i = 0; i < imageTasks.length; i += BATCH) {
+          const batch = imageTasks.slice(i, i + BATCH);
+          for (const task of batch) {
+            try {
+              const { r, c, dataUrl } = task;
+              // Parse MIME type to get extension
+              const mimeMatch = dataUrl.match(/^data:image\/([a-zA-Z0-9+]+);base64,/);
+              if (!mimeMatch) { console.warn(`Skipping image at [${r},${c}]: unrecognised MIME`); continue; }
+              const ext = mimeMatch[1].toLowerCase().replace('jpeg', 'jpeg') as any;
+              const base64Data = dataUrl.split(',')[1];
+
+              const imageId = workbook.addImage({ base64: base64Data, extension: ext });
+              worksheet.addImage(imageId, {
+                tl: { col: c, row: r } as any,
+                ext: { width: 120, height: 80 }
+              });
+
+              imageRows.add(r);
+              imageCols.add(c);
+            } catch (imgErr) {
+              console.warn(`Skipping image at [${task.r},${task.c}]:`, imgErr);
+            }
+          }
+          // Yield to browser event loop between batches
+          await new Promise<void>(res => setTimeout(res, 0));
+        }
+
+        // Set sensible row height / col width for image rows/cols
+        imageRows.forEach(r => {
+          const row = worksheet.getRow(r + 1);
+          if ((row.height || 0) < 60) row.height = 60;
+        });
+        imageCols.forEach(c => {
+          const col = worksheet.getColumn(c + 1);
+          if ((col.width || 0) < 15) col.width = 15; // ~80px equivalent
+        });
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${this.title || 'Spreadsheet'}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      this.showToast('Download complete.');
+    } catch (err: any) {
+      console.error('ExcelJS export failed:', err);
+      this.showToast('Export failed. Please try again.');
+    }
   }
 
   activeModal: 'template' | 'open' | 'import' | 'move' | 'audit' | 'version' | 'workflow' | 'password' | 'form' | 'view_form' | 'manage_forms' | 'macro' | 'edit_macro' | 'functions' | 'merge' | 'goto' | 'shortcuts' | 'insert_sparkline' | 'edit_sparkline' | 'emoji' | null = null;
